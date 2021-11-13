@@ -1,5 +1,5 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.205.0/containers/python-3
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.205.2/containers/python-3
 {
   // Dev container's name.
   "name": "deeprte-dev",
@@ -38,7 +38,7 @@
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
   // Runtime args.
   "runArgs": [
-    "--name=modnet_dev",
+    "--name=deeprte_dev",
     "--gpus=all",
     "--shm-size=1g",
     "--security-opt",
