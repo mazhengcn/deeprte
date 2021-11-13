@@ -3,10 +3,10 @@ from typing import Optional
 import haiku as hk
 import jax
 import jax.numpy as jnp
+from deeprte.mapping import vmap
+from deeprte.modules import nets
+from deeprte.typing import GraphOfMapping
 from ml_collections import ConfigDict
-from modnet.mapping import vmap
-from modnet.modules import nets
-from modnet.typing import GraphOfMapping
 
 
 class GreenFunction(hk.Module):

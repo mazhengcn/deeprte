@@ -8,20 +8,20 @@ import numpy as np
 import optax
 from absl import app, logging
 from ml_collections import ConfigDict
-from modnet.modules.green_fn import GreenFunction
-from modnet.solver import Solver
-from modnet.utils import to_flat_dict
 
-from input_pipeline import create_tf_dataset
+from deeprte.input_pipeline import create_tf_dataset
 
 # get_numpy_dataset
-from rte_op import RTEModel, RTEOperator
+from deeprte.models.rte_op import RTEModel, RTEOperator
+from deeprte.modules.green_fn import GreenFunction
+from deeprte.solver import Solver
+from deeprte.utils import to_flat_dict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # os.environ["TF_FORCE_UNIFIED_MEMORY"] = "1"
 # os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "4.0"
 
-ROOT_PATH = "/workspace/modnet/"
+ROOT_PATH = "/workspace/deeprte/"
 
 
 def main(_):

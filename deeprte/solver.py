@@ -9,8 +9,8 @@ import optax
 import tensorflow as tf
 from tensorflow.keras.utils import Progbar
 
-from modnet.models.base_model import BaseModel
-from modnet.typing import Data, Logs, Metric, State
+from deeprte.models.base_model import BaseModel
+from deeprte.typing import Data, Logs, Metric, State
 
 
 class Solver(object):

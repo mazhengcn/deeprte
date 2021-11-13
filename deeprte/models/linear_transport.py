@@ -4,9 +4,9 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 import numpy as np
-from modnet.integrate import quad
-from modnet.models.base_model import BaseModel
-from modnet.typing import Data, Losses
+from deeprte.integrate import quad
+from deeprte.models.base_model import BaseModel
+from deeprte.typing import Data, Losses
 
 
 class LinearTransport1D(BaseModel):

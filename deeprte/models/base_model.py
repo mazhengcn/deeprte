@@ -2,7 +2,7 @@ import abc
 from typing import Callable, Mapping, Optional, Tuple
 
 import jax.numpy as jnp
-from modnet.typing import Data, Logs
+from deeprte.typing import Data, Logs
 
 
 class BaseModel(object, metaclass=abc.ABCMeta):
