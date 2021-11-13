@@ -1,21 +1,9 @@
 absl-py
 numpy
-scipy
-matplotlib
-
-# Tensorflow cpu version
 ml-collections
+jax
+dm-haiku
+optax
+jaxline
+tensorflow-cpu
 tensorflow_datasets
-tensorflow-cpu==2.7.0
-
-# Install jax and jaxlib
-jax==0.2.25
-jaxlib==0.1.73+cuda11.cudnn82
---find-links https://storage.googleapis.com/jax-releases/jax_releases.html
-
-# Install Haiku, Optax
-git+https://github.com/deepmind/dm-haiku
-git+git://github.com/deepmind/optax.git
-
-# Install JAXline
-git+https://github.com/deepmind/jaxline
