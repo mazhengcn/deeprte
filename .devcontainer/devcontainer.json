@@ -1,0 +1,57 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.205.0/containers/python-3
+{
+  // Dev container's name.
+  "name": "deeprte-dev",
+  // Dockerfile and build args.
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      // Update 'VARIANT' to pick a CUDA version: 11.1, 11.2, 11.3, 11.4.
+      // Append -3.6, -3.7, -3.8, -3.9, etc. to pin a Python version.
+      "VARIANT": "11.4-3.9"
+    }
+  },
+  // Set *default* container specific settings.json values on container create.
+  "settings": {
+    "python.defaultInterpreterPath": "/usr/local/python/bin/python",
+    "python.linting.flake8Enabled": true,
+    "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+    "python.linting.flake8Args": [
+      "--extend-ignore=E203"
+    ],
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+    "python.formatting.blackArgs": [
+      "--line-length=79"
+    ],
+    "python.sortImports.args": [
+      "--profile=black"
+    ],
+  },
+  // Add the IDs of extensions you want installed when the container is created.
+  "extensions": [
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  "postCreateCommand": "pip3 install --no-cache-dir -e .",
+  // Runtime args.
+  "runArgs": [
+    "--name=modnet_dev",
+    "--gpus=all",
+    "--shm-size=1g",
+    "--security-opt",
+    "seccomp=unconfined"
+  ],
+  // Bind working directory.
+  "workspaceMount": "type=bind,consistency=cached,src=/home/zheng/repos/deeprte,dst=/workspace/deeprte",
+  // Volume mount data folder.
+  "mounts": [
+    "type=volume,src=rte_data,target=${containerWorkspaceFolder}/data"
+  ],
+  // Default working directory
+  "workspaceFolder": "/workspace/deeprte",
+  // Keep container running after disconnect.
+  "shutdownAction": "none"
+}
