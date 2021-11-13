@@ -1,9 +1,7 @@
 # Project related files
-# notebooks/
-data/
 .vscode/
-logs/
-review/
+data/
+# notebooks/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
