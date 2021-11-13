@@ -7,15 +7,15 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from absl import app, logging
-from ml_collections import ConfigDict
-from modnet.modules.green_fn import GreenFunction
-from modnet.solver import Solver
-from modnet.utils import to_flat_dict
-
-from input_pipeline import create_tf_dataset
 
 # get_numpy_dataset
-from rte_op import RTEOperator, RTEOpUnsupervised
+from deeprte.models.rte_op import RTEOperator, RTEOpUnsupervised
+from deeprte.modules.green_fn import GreenFunction
+from deeprte.solver import Solver
+from deeprte.utils import to_flat_dict
+from ml_collections import ConfigDict
+
+from input_pipeline import create_tf_dataset
 
 # RTEModel
 

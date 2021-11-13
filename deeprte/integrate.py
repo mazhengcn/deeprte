@@ -2,7 +2,7 @@ from typing import Callable, Optional, Tuple
 
 import jax.numpy as jnp
 
-from modnet import mapping
+from deeprte import mapping
 
 
 def quad(

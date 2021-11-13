@@ -2,7 +2,7 @@ from typing import Dict, Mapping
 
 import numpy as np
 import tensorflow as tf
-from modnet.typing import GraphOfMapping
+from deeprte.typing import GraphOfMapping
 
 FeatureDict = Mapping[str, np.ndarray]
 

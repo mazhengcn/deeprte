@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 import ml_collections
 import numpy as np
 from absl import app
-from modnet.modules.green_fn import GreenFunction
-from modnet.typing import GraphOfMapping
-from modnet.utils import get_model_haiku_params
-
-from rte_op import RTEOperator
+from deeprte.models.rte_op import RTEOperator
+from deeprte.modules.green_fn import GreenFunction
+from deeprte.typing import GraphOfMapping
+from deeprte.utils import get_model_haiku_params
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 

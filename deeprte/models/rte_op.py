@@ -4,12 +4,12 @@ from typing import Callable, Dict
 import haiku as hk
 import jax
 import jax.numpy as jnp
-from modnet.integrate import quad
-from modnet.mapping import vmap
-from modnet.models.base_model import BaseModel
-from modnet.modules.green_fn import GreenFunction
-from modnet.solution import Solution
-from modnet.typing import GraphOfMapping
+from deeprte.integrate import quad
+from deeprte.mapping import vmap
+from deeprte.models.base_model import BaseModel
+from deeprte.modules.green_fn import GreenFunction
+from deeprte.solution import Solution
+from deeprte.typing import GraphOfMapping
 
 FeatureDict = Dict[str, jnp.ndarray]
 partial = functools.partial
