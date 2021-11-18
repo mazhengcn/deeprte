@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import tensorflow_datasets as tfds
 from absl import app, logging
 from ml_collections import ConfigDict
 
@@ -63,12 +64,16 @@ def main(_):
 
     solver.compile(loss_fn, opt, {"residual": 1})
 
+    def train_load():
+        yield from tfds.as_numpy(train_ds)
+
     logging.info("Begin training process.")
 
     solver.solve(
-        dataset=train_ds,
+        dataset=train_load,
         init_data=init_ds,
         num_epochs=1000,
+        steps_per_epoch=40,
         val_data=(val_data["interior"], val_data["label"]),
         val_freq=20,
         seed=random.randrange(sys.maxsize),
