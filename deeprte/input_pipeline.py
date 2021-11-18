@@ -1,4 +1,6 @@
-from typing import Dict, Mapping
+from __future__ import annotations
+
+from collections.abc import Mapping
 
 import numpy as np
 import tensorflow as tf
@@ -8,7 +10,7 @@ from deeprte.typing import GraphOfMapping
 FeatureDict = Mapping[str, np.ndarray]
 
 
-def get_numpy_dataset(data_path: str) -> Dict[str, np.ndarray]:
+def get_numpy_dataset(data_path: str) -> dict[str, np.ndarray]:
     """Convert matlab dataset to numpy for use."""
 
     # Load data, notice that "data_path" should not contain ".npz"
@@ -16,14 +18,14 @@ def get_numpy_dataset(data_path: str) -> Dict[str, np.ndarray]:
     converted_data = {}
 
     # Load reference solutions, boundary functions and sigmas
-    phi = data["list_Phi"][:, 1:-1, 1:-1]  # [B, I, J]
+    phi = data["list_Phi"]  # [B, I, J]
     # print(data["list_Psi"].shape)
-    psi = data["list_Psi"][:, 1:-1, 1:-1]  # [B, I, J, M]
+    psi = data["list_Psi"]  # [B, I, J, M]
     # print(data["list_psiR"].shape)
     psi_bc = np.swapaxes(data["list_psiR"], -2, -1)  # [B, I'*J', M']
 
-    sigma_T = data["list_sigma_T"][:, 1:-1, 1:-1]  # [B, I, J]
-    sigma_a = data["list_sigma_a"][:, 1:-1, 1:-1]  # [B, I, J]
+    sigma_T = data["list_sigma_T"]  # [B, I, J]
+    sigma_a = data["list_sigma_a"]  # [B, I, J]
     sigma = np.stack([sigma_T, sigma_a], axis=-1)  # [B, I, J, 2]
 
     converted_data.update(
@@ -33,11 +35,10 @@ def get_numpy_dataset(data_path: str) -> Dict[str, np.ndarray]:
     # Construct mesh points
     # interior
     _, nx, ny, _ = psi.shape  # [B, I, J, M]
-    x = np.linspace(0.0, 1.0, nx + 2, dtype=np.float32)
-    y = np.linspace(0.0, 1.0, ny + 2, dtype=np.float32)
-    xy = np.stack(
-        np.meshgrid(x[1:-1], y[1:-1], indexing="ij"), axis=-1
-    )  # [I, J, 2]
+    dx, dy = 1.0 / nx, 1.0 / ny
+    x = np.arange(0.0 + 0.5 * dx, 1.0, dx, dtype=np.float32)
+    y = np.arange(0.0 + 0.5 * dy, 1.0, dy, dtype=np.float32)
+    xy = np.stack(np.meshgrid(x, y, indexing="ij"), axis=-1)  # [I, J, 2]
 
     theta = data["theta"].T  # [M, 1]
     omega = data["omega"][0]  # [M]
@@ -78,8 +79,8 @@ def get_numpy_dataset(data_path: str) -> Dict[str, np.ndarray]:
 
 
 def prepare_np_dataset(
-    data_dict: Dict[str, np.ndarray]
-) -> Dict[str, np.ndarray]:
+    data_dict: dict[str, np.ndarray]
+) -> dict[str, np.ndarray]:
 
     if not isinstance(data_dict, dict):
         data_dict = dict(data_dict)

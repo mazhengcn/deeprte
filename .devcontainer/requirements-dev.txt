@@ -10,7 +10,7 @@ tensorflow-cpu==2.7.0
 
 # Install jax and jaxlib
 jax==0.2.25
-jaxlib==0.1.73+cuda11.cudnn82
+jaxlib==0.1.74+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Install Haiku, Optax

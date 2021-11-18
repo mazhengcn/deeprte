@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow as tf
+from jaxline.utils import py_prefetch
 from tensorflow.keras.utils import Progbar
 
 from deeprte.models.base_model import BaseModel
@@ -127,7 +128,11 @@ class Solver(object):
             self._state["epoch"] += 1
             print(f"Epoch {self.epoch:d}/{end_epoch:d}")
 
-            for (step, data) in enumerate(dataset.as_numpy_iterator()):
+            train_inputs = py_prefetch(dataset)
+            # train_ds = double_buffer(train_inputs)
+
+            for (step, data) in enumerate(range(steps_per_epoch)):
+                data = next(train_inputs)
                 self._state, metrics = self.train_step(self._state, data)
                 pbar.update(
                     step + 1,
