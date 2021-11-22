@@ -1,5 +1,6 @@
 import numbers
-from typing import Callable, Iterable, Sequence, Union
+from collections.abc import Callable, Iterable, Sequence
+from typing import Union
 
 import haiku as hk
 import jax
