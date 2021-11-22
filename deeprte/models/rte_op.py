@@ -1,5 +1,5 @@
 import functools
-from typing import Callable, Dict
+from collections.abc import Callable
 
 import haiku as hk
 import jax
@@ -9,19 +9,15 @@ from deeprte.mapping import vmap
 from deeprte.models.base_model import BaseModel
 from deeprte.modules.green_fn import GreenFunction
 from deeprte.solution import Solution
-from deeprte.typing import GraphOfMapping
+from deeprte.typing import F
 
-FeatureDict = Dict[str, jnp.ndarray]
+FeatureDict = dict[str, jnp.ndarray]
 partial = functools.partial
 
 
 class RTEOperator(Solution):
     def forward_fn(
-        self,
-        x: jnp.ndarray,
-        v: jnp.ndarray,
-        sigma: GraphOfMapping,
-        bc: GraphOfMapping,
+        self, x: jnp.ndarray, v: jnp.ndarray, sigma: F, psi_b: F
     ) -> jnp.ndarray:
         """Compute solution with Green's function as kernel.
 
@@ -38,32 +34,32 @@ class RTEOperator(Solution):
 
         green_func_module = GreenFunction(self.config)
 
-        sol = quad(green_func_module, (bc.x, bc.fx), argnum=1, use_hk=True)(
-            xv, sigma
-        )
+        sol = quad(
+            green_func_module, (psi_b.x, psi_b.y), argnum=1, use_hk=True
+        )(xv, sigma)
 
         return 0.15 * sol
 
-    def predict(self, params: hk.Params, rng: jnp.ndarray, x, v, sigma, bc):
+    def predict(self, params: hk.Params, rng: jnp.ndarray, x, v, sigma, psi_b):
         apply_fn = functools.partial(self._apply, params, rng)
         prediction_fn = vmap(
             vmap(apply_fn, shard_size=128, argnums={0, 1}),
             argnums={2, 3},
-            in_axes=(GraphOfMapping(None, 0),) * 2,
+            in_axes=(F(), F()),
         )
-        result = jax.jit(prediction_fn)(x, v, sigma, bc)
+        result = jax.jit(prediction_fn)(x, v, sigma, psi_b)
 
         return result
 
-    def rho(self, params: hk.Params, rng: jnp.ndarray, x, sigma, bc, vw):
+    def rho(self, params: hk.Params, rng: jnp.ndarray, x, sigma, psi_b, vw):
         apply_fn = partial(self._apply, params, rng)
         rho_fn = quad(apply_fn, vw, argnum=1)
         vrho_fn = vmap(
             vmap(rho_fn, shard_size=128, argnums={0}),
             argnums={1, 2},
-            in_axes=(GraphOfMapping(None, 0),) * 2,
+            in_axes=(F(), F()),
         )
-        result = jax.jit(vrho_fn)(x, sigma, bc)
+        result = jax.jit(vrho_fn)(x, sigma, psi_b)
 
         return result
 
@@ -74,7 +70,7 @@ class RTEModel(BaseModel):
         prediction_fn = vmap(
             vmap(f, argnums={0, 1}),
             excluded={0, 1},
-            in_axes=(GraphOfMapping(None, 0),) * 2,
+            in_axes=(F(), F()),
         )
 
         prediction = prediction_fn(*batch["interior"])
@@ -96,19 +92,19 @@ class RTEOpUnsupervised(BaseModel):
 
         self.quad_points = (cs, omega)
 
-    @partial(vmap, argnums={4, 5}, in_axes=(GraphOfMapping(None, 0),) * 2)
+    @partial(vmap, argnums={4, 5}, in_axes=(F(), F()))
     @partial(vmap, argnums={2, 3})
     def residual(
         self,
         sol_fn: Callable[..., jnp.ndarray],
         x: jnp.ndarray,
         v: jnp.ndarray,
-        sigma: GraphOfMapping,
-        bc: GraphOfMapping,
+        sigma: F,
+        psi_b: F,
     ) -> jnp.ndarray:
         """Compute residual of equation for a single point."""
 
-        sol = partial(sol_fn, sigma=sigma, bc=bc)
+        sol = partial(sol_fn, sigma=sigma, psi_b=psi_b)
 
         # Gradients
         df_dx = jax.grad(sol)(x, v)  # [dim]
@@ -123,16 +119,16 @@ class RTEOpUnsupervised(BaseModel):
 
         return residual
 
-    @partial(vmap, argnums={3, 4}, in_axes=(GraphOfMapping(None, 0),) * 2)
+    @partial(vmap, argnums={3, 4}, in_axes=(F(), F()))
     # @partial(vmap, argnums={2, 3})
     def boundary(
         self,
         sol_fn: Callable[..., jnp.ndarray],
         bc_pts,
-        sigma: GraphOfMapping,
-        bc: GraphOfMapping,
-    ):
-        sol = partial(sol_fn, sigma=sigma, bc=bc)
+        sigma: F,
+        psi_b: F,
+    ) -> jnp.ndarray:
+        sol = partial(sol_fn, sigma=sigma, psi_b=psi_b)
 
         res_bc = vmap(sol)(bc_pts[..., :2], bc_pts[..., 2:]) - 1.0
 

@@ -1,4 +1,5 @@
-from typing import Callable, Optional, Tuple
+from collections.abc import Callable
+from typing import Optional
 
 import jax.numpy as jnp
 
@@ -7,7 +8,7 @@ from deeprte import mapping
 
 def quad(
     func: Callable[..., jnp.float32],
-    quad_points: Tuple[jnp.ndarray, jnp.ndarray],
+    quad_points: tuple[jnp.ndarray, jnp.ndarray],
     argnum=0,
     use_hk: Optional[bool] = False,
 ) -> Callable[..., float]:

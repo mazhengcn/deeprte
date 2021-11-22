@@ -131,7 +131,7 @@ def create_tf_dataset(
     test_batch_size=1,
 ):
 
-    with np.load(data_path + ".npz") as np_data:
+    with np.load(data_path) as np_data:
         np_dataset, mesh = prepare_np_dataset(np_data)
 
     num_total_samples, num_total_pts = np_dataset["psi_label"].shape
@@ -166,6 +166,7 @@ def create_tf_dataset(
             dtype=tf.int32,
         )
         xycs = tf.gather(mesh["xycs"], collocation_indices, axis=0)
+        xycs = tf.repeat(tf.expand_dims(xycs, 0), 5, axis=0)
 
         return {
             "interior": (
@@ -175,7 +176,7 @@ def create_tf_dataset(
                 GraphOfMapping(quads, w * batch["bc_psi"]),
             ),
             "label": tf.gather(
-                batch["psi_label"], collocation_indices, axis=1
+                batch["psi_label"], collocation_indices, axis=-1
             ),
         }
 
@@ -201,13 +202,15 @@ def create_tf_dataset(
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=False,
         )
+        .batch(5)
         .map(
             train_map_fn,
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=False,
         )
-        .prefetch(tf.data.AUTOTUNE)
     )
+    #     # .prefetch(tf.data.AUTOTUNE)
+    # # )
 
     test_ds = (
         tf.data.Dataset.from_tensor_slices(

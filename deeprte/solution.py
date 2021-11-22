@@ -1,6 +1,7 @@
 import abc
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Optional
 
 import haiku as hk
 import jax.numpy as jnp
@@ -44,7 +45,7 @@ class MultiSolutions(object, metaclass=abc.ABCMeta):
 
     def __init__(
         self,
-        config: Tuple[ConfigDict],
+        config: tuple[ConfigDict],
         name: Optional[str] = "multi_solutions",
     ) -> None:
 
@@ -55,7 +56,7 @@ class MultiSolutions(object, metaclass=abc.ABCMeta):
         self._apply = hk.multi_transform(self.forward_fn).apply
 
     @abc.abstractmethod
-    def forward_fn(self) -> Tuple[TemplateFn, Any]:
+    def forward_fn(self) -> tuple[TemplateFn, Any]:
         pass
 
     def apply(self, partial_args=None):

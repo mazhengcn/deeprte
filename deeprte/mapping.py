@@ -15,7 +15,8 @@
 """Specialized mapping functions."""
 
 import functools
-from typing import Any, Callable, Optional, Sequence, Tuple, Union
+from collections.abc import Callable, Sequence
+from typing import Any, Optional, Union
 
 import haiku as hk
 import jax
@@ -79,8 +80,8 @@ def vmap(
     shard_size: Union[int, None] = None,
     argnums: frozenset = None,
     excluded: frozenset = None,
-    in_axes: Optional[Union[int, Tuple]] = 0,
-    out_axes: Optional[Union[int, Tuple]] = 0,
+    in_axes: Optional[Union[int, tuple]] = 0,
+    out_axes: Optional[Union[int, tuple]] = 0,
     use_hk: Optional[bool] = False,
 ) -> Callable[..., Any]:
 
