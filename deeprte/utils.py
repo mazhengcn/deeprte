@@ -1,6 +1,6 @@
 import collections
 import io
-import os
+import pathlib
 from typing import Mapping
 
 import haiku as hk
@@ -52,7 +52,11 @@ def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
 def get_model_haiku_params(model_name: str, data_dir: str) -> hk.Params:
     """Get the Haiku parameters from a model name."""
 
-    path = os.path.join(data_dir, "params", f"params_{model_name}.npz")
+    if not isinstance(data_dir, pathlib.Path):
+        data_dir = pathlib.Path(data_dir)
+
+    path = data_dir / "params" / f"params_{model_name}.npz"
+    # path = os.path.join(data_dir, "params", f"params_{model_name}.npz")
 
     with open(path, "rb") as f:
         params = np.load(io.BytesIO(f.read()), allow_pickle=False)

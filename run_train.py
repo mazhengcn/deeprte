@@ -10,11 +10,8 @@ import tensorflow_datasets as tfds
 from absl import app, logging
 from ml_collections import ConfigDict
 
-from deeprte.input_pipeline import create_tf_dataset
-
-# get_numpy_dataset
 from deeprte.models.rte_op import RTEModel, RTEOperator
-from deeprte.modules.green_fn import GreenFunction
+from deeprte.modules import GreenFunction
 from deeprte.solver import Solver
 from deeprte.utils import to_flat_dict
 
