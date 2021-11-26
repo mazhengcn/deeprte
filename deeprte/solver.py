@@ -1,5 +1,5 @@
 import functools
-from typing import Any, Callable, Mapping, Tuple
+from collections.abc import Generator, Mapping
 
 import haiku as hk
 import jax
@@ -7,165 +7,338 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow as tf
-from jaxline.utils import py_prefetch
-from tensorflow.keras.utils import Progbar
+from absl import app, flags, logging
+from jaxline import experiment, platform
+from jaxline import utils as jl_utils
 
-from deeprte.models.base_model import BaseModel
-from deeprte.typing import Data, Logs, Metric, State
+from deeprte import dataset, optimizers
+
+# from tensorflow.keras.utils import Progbar
 
 
-class Solver(object):
-    def __init__(self, sol: hk.Transformed, model: BaseModel) -> None:
+FLAGS = flags.FLAGS
 
-        self._sol = sol
-        self._model = model
+OptState = tuple[
+    optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
+]
+Scalars = Mapping[str, jnp.ndarray]
+
+
+class Solver(experiment.AbstractExperiment):
+    """RTE solver."""
+
+    # A map from object properties that will be checkpointed to their name
+    # in a checkpoint. Currently we assume that these are all sharded
+    # device arrays.
+    CHECKPOINT_ATTRS = {
+        "_params": "params",
+        "_state": "state",
+        "_opt_state": "opt_state",
+    }
+
+    def __init__(self, mode, init_rng, config):
+        """Initializes solver."""
+
+        super().__init__(mode=mode, init_rng=init_rng)
+
+        self.mode = mode
+        self.init_rng = init_rng
+        self.config = config
+
+        # Checkpointed experiment state.
+        self._params = None
         self._state = None
+        self._opt_state = None
 
-    def compile(
+        # Input pipelines.
+        self._train_input = None
+        self._eval_input = None
+
+        self.solution = None
+        self.model = None
+
+        # NOTE: We "donate" the `params, state, opt_state` arguments which
+        # allows JAX (on some backends) to reuse the device memory associated
+        # with these inputs to store the outputs of our function (which also
+        # start with `params, state, opt_state`).
+        self.update_fn = jax.pmap(
+            self._update_fn, axis_name="i", donate_argnums=(0, 1, 2)
+        )
+        self.eval_fn = jax.pmap(self._eval_fn, axis_name="i")
+
+    #  _             _
+    # | |_ _ __ __ _(_)_ __
+    # | __| '__/ _` | | '_ \
+    # | |_| | | (_| | | | | |
+    #  \__|_|  \__,_|_|_| |_|
+    #
+
+    def step(
+        self, global_step: int, rng: jnp.ndarray, *unused_args, **unused_kwargs
+    ):
+        """See base class."""
+
+        if self._train_input is None:
+            self._initialize_train()
+
+        inputs = next(self._train_input)
+
+        self._params, self._state, self._opt_state, scalars = self.update_fn(
+            self._params,
+            self._state,
+            self._opt_state,
+            inputs,
+            global_step,
+            rng,
+        )
+
+        scalars = jl_utils.get_first(scalars)
+
+        # Save final checkpoint.
+        if (
+            self.config.save_final_checkpoint_as_npy
+            and not self.config.dry_run
+        ):
+            global_step_value = jl_utils.get_first(global_step)
+            if global_step_value == FLAGS.config.get("training_steps", 1) - 1:
+
+                def f_np(x):
+                    return np.array(jax.device_get(jl_utils.get_first(x)))
+
+                np_params = jax.tree_map(
+                    f_np, self._avg_params or self._params
+                )
+                np_state = jax.tree_map(f_np, self._state)
+                path_npy = FLAGS.config.checkpoint_dir / "checkpoint.npy"
+                with tf.io.gfile.GFile(path_npy, "wb") as fp:
+                    np.save(fp, (np_params, np_state))
+                logging.info(f"Saved final checkpoint at {path_npy}")
+
+        # Run synchronous evaluation.
+        if self.config.evaluation.interval <= 0:
+            return scalars
+
+        global_step_value = jl_utils.get_first(global_step)
+        if (
+            global_step_value % self.config.evaluation.interval != 0
+            and global_step_value != FLAGS.config.get("training_steps", 1) - 1
+        ):
+            return _merge_eval_scalars(scalars, self._last_evaluation_scalars)
+        logging.info("Running synchronous evaluation...")
+        eval_scalars = self.evaluate(global_step, rng)
+
+        def f_list(x):
+            return x.tolist() if isinstance(x, jnp.ndarray) else x
+
+        self._last_evaluation_scalars = jax.tree_map(f_list, eval_scalars)
+        logging.info(
+            f"(eval) global_step: {global_step_value}, "
+            f"{self._last_evaluation_scalars}"
+        )
+        return _merge_eval_scalars(scalars, self._last_evaluation_scalars)
+
+    def _update_fn(
         self,
-        loss_fn: Callable[[jnp.ndarray], jnp.float32],
-        optimizer: optax.GradientTransformation,
-        regularizers: Mapping[str, jnp.float32] = {},
-    ) -> None:
+        params: hk.Params,
+        state: hk.State,
+        opt_state: OptState,
+        inputs: dataset.Batch,
+        global_step: int,
+        rng: jnp.ndarray,
+    ):
+        scalars = {}
 
-        self._loss_fn = loss_fn
-        self._regs = regularizers
-        self._opt = optimizer
-        self._model.compile(self._loss_fn, self._regs)
+        grad_fn = jax.grad(self._loss_fn, has_aux=True)
 
-    @functools.partial(jax.jit, static_argnums=0)
-    def init(self, rng: jnp.ndarray, data: Data) -> Logs:
-        out_rng, init_rng = jax.random.split(rng)
-        params = self._sol.init(init_rng, *data)
-        opt_state = self._opt.init(params)
-        out = dict(
-            epoch=np.int32(0),
-            step=np.int32(0),
-            rng=out_rng,
-            opt_state=opt_state,
-            params=params,
+        # Compute loss and gradients.
+        scaled_grads, (loss_scalars, state) = grad_fn(
+            params, state, inputs, rng
         )
-        return out
+        grads = jax.lax.psum(scaled_grads, axis_name="i")
 
-    def loss(
-        self, params: hk.Params, rng: jnp.ndarray, data: Data
-    ) -> Tuple[jnp.float32, Logs]:
-        sol = self._sol.apply(partial_args=(params, None))
-        return self._model.loss(sol, data)
+        # Grab the learning rate to log before performing the step.
+        learning_rate = self._lr_schedule(global_step)
+        scalars["learning_rate"] = learning_rate
 
-    @functools.partial(jax.jit, static_argnums=0)
-    def train_step(self, state: State, data: Data) -> Tuple[State, Metric]:
-        rng, new_rng = jax.random.split(state["rng"])
-        params = state["params"]
-        (_, logs), grad = jax.value_and_grad(self.loss, has_aux=True)(
-            params, rng, data
-        )
-
-        updates, opt_state = self._opt.update(grad, state["opt_state"])
+        updates, opt_state = self.optimizer.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
 
-        new_state = {
-            "epoch": state["epoch"],
-            "step": state["step"] + 1,
-            "rng": new_rng,
-            "opt_state": opt_state,
-            "params": params,
-        }
+        loss_scalars = {f"train_{k}": v for k, v in loss_scalars.items()}
+        scalars.update(loss_scalars)
+        scalars = jax.lax.pmean(scalars, axis_name="i")
 
-        metrics = {"step": state["step"], "logs": logs}
+        return params, state, opt_state, scalars
 
-        return new_state, metrics
+    def _loss_fn(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        inputs: dataset.Batch,
+        rng: jnp.ndarray,
+    ) -> tuple[jnp.ndarray, tuple[Scalars, hk.state]]:
 
-    @functools.partial(jax.jit, static_argnums=0)
-    def test_step(
-        self, params: hk.Params, data: Tuple[jnp.ndarray, jnp.ndarray]
-    ):
-        inputs, labels = data
-        predictions = self._sol.predict(params, None, *inputs)
-        return jnp.sqrt(
-            jnp.mean((predictions - labels) ** 2) / jnp.mean(labels ** 2)
+        _solution_fn = functools.partial(
+            self.solution.apply, params, state, rng, is_training=True
+        )
+        loss, loss_scalars = self.model.loss(_solution_fn, inputs)
+
+        scaled_loss = loss / jax.process_count()
+
+        return scaled_loss, (loss_scalars, state)
+
+    def _initialize_train(self):
+        _train_input = jl_utils.py_prefetch(self._build_train_input)
+        self._train_input = jl_utils.double_buffer_on_gpu(_train_input)
+
+        total_batch_size = self.config.training.batch_size
+        steps_per_epoch = (
+            self.config.training.images_per_epoch
+            / self.config.training.batch_size
+        )
+        total_steps = self.config.training.n_epochs * steps_per_epoch
+        # Scale by the (negative) learning rate.
+        self._lr_schedule = optimizers.get_learning_rate_schedule(
+            total_batch_size,
+            steps_per_epoch,
+            total_steps,
+            self.config.optimizer,
         )
 
-    def solve(
+        self._optimizer = optimizers.make_optimizer(
+            self.config.optimizer, self._lr_schedule
+        )
+        # Initialize net and EMA copy of net if no params available.
+        if self._params is None:
+            logging.info("Initializing parameters.")
+
+            inputs = next(self._train_input)
+
+            init_net = jax.pmap(
+                lambda *a: self.forward.init(*a, is_training=True)
+            )
+            init_opt = jax.pmap(self._optimizer.init)
+
+            # Init uses the same RNG key on all hosts+devices to ensure
+            # everyone computes the same initial state.
+            init_rng = jl_utils.bcast_local_devices(self.init_rng)
+
+            self._params, self._state = init_net(init_rng, inputs)
+            self._opt_state = init_opt(self._params)
+
+            num_params = hk.data_structures.tree_size(self._params)
+            logging.info(
+                f"Net parameters: {num_params / jax.local_device_count()}"
+            )
+
+    def _build_train_input(self) -> Generator[dataset.Batch, None, None]:
+        """See base class."""
+
+        num_devices = jax.process_count()
+
+        global_batch_size = self.config.training.batch_size
+        per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"num devices {num_devices}"
+            )
+
+        split = dataset.Split.TRAIN_AND_VALID
+
+        return self._load_data(
+            split=split,
+            is_training=True,
+            batch_dims=[jax.local_device_count(), per_device_batch_size],
+        )
+
+    def _load_data(self, split, is_training, batch_dims):
+        """Wrapper for dataset loading."""
+
+        return dataset.load(
+            split=split, is_training=is_training, batch_dims=batch_dims
+        )
+
+    #                  _
+    #   _____   ____ _| |
+    #  / _ \ \ / / _` | |
+    # |  __/\ V / (_| | |
+    #  \___| \_/ \__,_|_|
+    #
+
+    def evaluate(self, global_step, rng, **unused_args):
+        """See base class."""
+
+        metrics = jax.device_get(
+            self._eval_epoch(self._params, self._state, rng)
+        )
+        logging.info(f"[Step {global_step}] Eval scalars: {metrics}")
+
+        return metrics
+
+    def _eval_fn(
         self,
-        dataset: tf.data.Dataset,
-        init_data: Any = None,
-        num_epochs: int = 1,
-        steps_per_epoch: int = None,
-        val_data: tf.data.Dataset = None,
-        val_freq: int = 1,
-        restart: bool = False,
-        seed: int = 0,
-    ) -> None:
-        if not self._state or restart:
-            print("Initializing parameters...")
-            rng = jax.random.PRNGKey(seed)
-            # dummy_data = next(dataset)["interior"]
-            # if not isinstance(dummy_data, (list, tuple)):
-            #     dummy_data = [dummy_data]
-            # dummy_data = jax.tree_map(lambda x: x[0], dummy_data)
-            self._state = self.init(rng, init_data)
-            print(
-                "Parameters are: "
-                f"{jax.tree_map(lambda x: x.shape, self._state['params'])}"
-            )
+        params: hk.Params,
+        state: hk.State,
+        inputs: dataset.Batch,
+        rng: jnp.ndarray,
+    ) -> Scalars:
+        """Evaluates a batch."""
+        metrics = {}
 
-        end_epoch = self.epoch + num_epochs
+        labels = inputs["labels"]
+        pred = self.solution.apply(
+            params, state, rng, *inputs["interior"], is_training=False
+        )
+        metrics["rmse"] = jnp.sqrt(
+            jnp.mean((pred - labels) ** 2) / jnp.mean(labels ** 2)
+        )
 
-        if not steps_per_epoch:
-            steps_per_epoch = dataset.cardinality().numpy()
+        # NOTE: Returned values will be summed and finally divided
+        # by num_samples.
+        return jax.lax.pmean(metrics, axis_name="i")
 
-        for _ in range(num_epochs):
-            pbar = Progbar(
-                steps_per_epoch,
-                stateful_metrics=[
-                    "total_loss",
-                    "residual",
-                    "boundary",
-                    "initial",
-                ],
-            )
-            self._state["epoch"] += 1
-            print(f"Epoch {self.epoch:d}/{end_epoch:d}")
+    def _eval_epoch(self, params, state, rng):
+        """Evaluates an epoch."""
+        num_samples = 0.0
+        summed_scalars = None
 
-            train_inputs = py_prefetch(dataset)
-            # train_ds = double_buffer(train_inputs)
+        # params = jl_utils.get_first(self._params)
+        # state = jl_utils.get_first(self._state)
 
-            for (step, data) in enumerate(range(steps_per_epoch)):
-                data = next(train_inputs)
-                self._state, metrics = self.train_step(self._state, data)
-                pbar.update(
-                    step + 1,
-                    # values=list(metrics["logs"].items()),
-                    finalize=False,
+        for inputs in self._build_eval_input():
+            num_samples += jnp.prod(inputs["labels"].shape[:2])
+            metrics = self.eval_fn(params, state, inputs, rng)
+            # Accumulate the sum of scalars for each step.
+            metrics = jax.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            if summed_scalars is None:
+                summed_scalars = metrics
+            else:
+                summed_metrics = jax.tree_multimap(
+                    jnp.add, summed_scalars, metrics
                 )
 
-            if val_data and self._state["epoch"] % val_freq == 0:
-                val_loss = self.test_step(self.params, val_data)
-                metrics["logs"].update({"val_loss": val_loss})
+        mean_metrics = jax.tree_map(lambda x: x / num_samples, summed_metrics)
+        return jax.device_get(mean_metrics)
 
-            pbar.update(
-                steps_per_epoch,
-                values=list(metrics["logs"].items()),
-                finalize=True,
-            )
+    def _build_eval_input(self) -> Generator[dataset.Batch, None, None]:
+        split = dataset.Split.from_string(self.config.evaluation.subset)
 
-    @property
-    def epoch(self):
-        return self._state["epoch"]
+        return self._load_data(
+            split=split,
+            is_training=False,
+            batch_dims=[self.config.evaluation.batch_size],
+        )
 
-    @property
-    def optimizer(self):
-        return self._opt
 
-    @property
-    def loss_fn(self):
-        return self._loss_fn
+def _merge_eval_scalars(a, b):
+    if b is None:
+        return a
+    for k, v in b.items():
+        a["eval_" + k] = v
+    return a
 
-    @property
-    def regularizers(self):
-        return self._regularizers
 
-    @property
-    def params(self):
-        return self._state["params"]
+if __name__ == "__main__":
+    flags.mark_flag_as_required("config")
+    app.run(functools.partial(platform.main, Solver))

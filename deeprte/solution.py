@@ -1,6 +1,5 @@
 import abc
 from collections.abc import Callable
-from functools import partial
 from typing import Any, Optional
 
 import haiku as hk
@@ -28,14 +27,16 @@ class Solution(object, metaclass=abc.ABCMeta):
     def forward_fn(self) -> jnp.ndarray:
         pass
 
-    def apply(self, partial_args=None):
-
-        if partial_args:
-            _apply_fn = partial(self._apply, *partial_args)
-        else:
-            _apply_fn = self._apply
-
-        return _apply_fn
+    @abc.abstractmethod
+    def apply(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: jnp.ndarray,
+        *,
+        is_training: bool
+    ) -> jnp.ndarray:
+        pass
 
 
 class MultiSolutions(object, metaclass=abc.ABCMeta):
@@ -59,13 +60,6 @@ class MultiSolutions(object, metaclass=abc.ABCMeta):
     def forward_fn(self) -> tuple[TemplateFn, Any]:
         pass
 
-    def apply(self, partial_args=None):
-
-        if partial_args:
-            _apply_fn = tuple(
-                map(lambda x: partial(x, *partial_args), self._apply)
-            )
-        else:
-            _apply_fn = self._apply
-
-        return _apply_fn
+    @abc.abstractmethod
+    def apply(self, params, state, rng, *, is_training):
+        pass

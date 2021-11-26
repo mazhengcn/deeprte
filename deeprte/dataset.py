@@ -101,22 +101,31 @@ def load(
         ds = ds.batch(batch_dims[0])
 
         # generate random sample indices
-        gen = tf.random.Generator.from_seed(seed=jax.process_index())
         indices_ds = tf.data.Dataset.range(1).repeat()
+        sampler = _make_sampler_fn(batch_dims[-1], num_grid_points)
         indices_ds = indices_ds.map(
-            lambda _: gen.uniform(
-                (batch_dims[-1],),
-                minval=0,
-                maxval=num_grid_points,
-                dtype=tf.int32,
-            ),
-            num_parallel_calls=AUTOTUNE,
-            deterministic=False,
+            sampler, num_parallel_calls=AUTOTUNE, deterministic=False
         )
 
         ds = slice_inputs(indices_ds, ds)
 
     return ds.prefetch(AUTOTUNE)
+
+
+def _make_sampler_fn(
+    num_collocation_points, num_total_points, seed: int = jax.process_index()
+):
+    g = tf.random.Generator.from_seed(seed)
+
+    def _sampler(_):
+        return g.uniform(
+            (num_collocation_points,),
+            minval=0,
+            maxval=num_total_points,
+            dtype=tf.int32,
+        )
+
+    return _sampler
 
 
 def slice_inputs(indices_dataset, inputs):
@@ -153,7 +162,7 @@ def slice_inputs(indices_dataset, inputs):
                 F(x=r, y=batch_sigma),
                 F(x=rv_prime, y=batch_psi_bc * w_prime[:, None]),
             ),
-            "label": batch_psi_label,
+            "labels": batch_psi_label,
         }
 
         return inputs
@@ -197,7 +206,7 @@ def _load_and_split_dataset(
 
     print(f"Processing grid, shapes are: {get_nest_dict_shape(grid)}")
 
-    grid = _preprocess_grid(grid)
+    grid = preprocess_grid(grid)
 
     return (ds, grid), split
 
@@ -216,8 +225,8 @@ def _shard(split: Split, shard_index: int, num_shards: int) -> tuple[int, int]:
     return start, end
 
 
-def _preprocess_grid(
-    grid: Mapping[str, np.ndarray]
+def preprocess_grid(
+    grid: Mapping[str, np.ndarray], is_training: bool = True
 ) -> Mapping[str, np.ndarray]:
     r, v = grid["r"], grid["v"]
     r = r.reshape(-1, r.shape[-1])
@@ -232,7 +241,8 @@ def _preprocess_grid(
     grid["rv_prime"] = rv_prime.reshape(-1, rv_prime.shape[-1])
     grid["w_prime"] = w_prime.flatten()
 
-    del grid["w_angle"], grid["v"]
+    if is_training:
+        del grid["w_angle"], grid["v"]
 
     return grid, num_grid_points
 
@@ -247,7 +257,10 @@ def convert_dataset(data_path: str) -> dict[str, np.ndarray]:
     if not isinstance(data_path, pathlib.Path):
         data_path = pathlib.Path(data_path)
 
-    data = np.load(data_path, allow_pickle=True).item()
+    data = np.load(data_path, allow_pickle=True)
+
+    if data_path.suffix == "npy":
+        data = data.item()
     # Load reference solutions, boundary functions and sigmas
     phi = data["list_Phi"]  # [B, I, J]
     # print(data["list_Psi"].shape)

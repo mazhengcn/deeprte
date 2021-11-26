@@ -1,23 +1,20 @@
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
-from deeprte.integrate import quad
+from deeprte import dataset, integrate
 from deeprte.mapping import vmap
 from deeprte.models.base_model import BaseModel
-from deeprte.modules.green_fn import GreenFunction
+from deeprte.modules import GreenFunction
 from deeprte.solution import Solution
 from deeprte.typing import F
-
-FeatureDict = dict[str, jnp.ndarray]
-partial = functools.partial
 
 
 class RTEOperator(Solution):
     def forward_fn(
-        self, x: jnp.ndarray, v: jnp.ndarray, sigma: F, psi_b: F
+        self, r: jnp.ndarray, v: jnp.ndarray, sigma: F, psi_bc: F
     ) -> jnp.ndarray:
         """Compute solution with Green's function as kernel.
 
@@ -30,45 +27,68 @@ class RTEOperator(Solution):
         Returns:
             Solution outputs.
         """
-        xv = jnp.concatenate([x, v])
+        rv = jnp.concatenate([r, v])
 
         green_func_module = GreenFunction(self.config)
 
-        sol = quad(
-            green_func_module, (psi_b.x, psi_b.y), argnum=1, use_hk=True
-        )(xv, sigma)
+        sol = integrate.quad(
+            green_func_module, (psi_bc.x, psi_bc.y), argnum=1, use_hk=True
+        )(rv, sigma)
 
         return 0.15 * sol
 
-    def predict(self, params: hk.Params, rng: jnp.ndarray, x, v, sigma, psi_b):
-        apply_fn = functools.partial(self._apply, params, rng)
-        prediction_fn = vmap(
-            vmap(apply_fn, shard_size=128, argnums={0, 1}),
-            argnums={2, 3},
-            in_axes=(F(), F()),
+    def apply(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: jnp.ndarray,
+        r: jnp.ndarray,
+        v: jnp.ndarray,
+        sigma: F,
+        psi_bc: F,
+        is_training: bool,
+    ) -> jnp.ndarray:
+        _apply_fn = self._apply
+
+        if not is_training:
+            _apply_fn = vmap(
+                vmap(self._apply, shard_size=128, argnums={2, 3}),
+                argnums={4, 5},
+                in_axes=(F(), F()),
+            )
+
+        return _apply_fn(params, rng, r, v, sigma, psi_bc)
+
+    def rho(
+        self,
+        params: hk.Params,
+        r: jnp.ndarray,
+        sigma: F,
+        psi_bc: F,
+        quadratures: tuple[jnp.ndarray, jnp.ndarray],
+    ) -> jnp.ndarray:
+        _apply = functools.partial(
+            self.apply, params, None, None, is_training=True
         )
-        result = jax.jit(prediction_fn)(x, v, sigma, psi_b)
-
-        return result
-
-    def rho(self, params: hk.Params, rng: jnp.ndarray, x, sigma, psi_b, vw):
-        apply_fn = partial(self._apply, params, rng)
-        rho_fn = quad(apply_fn, vw, argnum=1)
-        vrho_fn = vmap(
-            vmap(rho_fn, shard_size=128, argnums={0}),
+        _rho_fn = integrate.quad(_apply, quadratures, argnum=1)
+        _rho_fn = vmap(
+            vmap(_rho_fn, shard_size=128, argnums={0}),
             argnums={1, 2},
             in_axes=(F(), F()),
         )
-        result = jax.jit(vrho_fn)(x, sigma, psi_b)
 
-        return result
+        rho = jax.jit(_rho_fn)(r, sigma, psi_bc)
+
+        return rho
 
 
 class RTEModel(BaseModel):
-    def loss(self, f, batch):
+    def loss(
+        self, fn: Callable[..., jnp.float32], batch: dataset.Batch
+    ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
 
         prediction_fn = vmap(
-            vmap(f, argnums={0, 1}),
+            vmap(fn, argnums={0, 1}),
             excluded={0, 1},
             in_axes=(F(), F()),
         )
@@ -92,54 +112,49 @@ class RTEOpUnsupervised(BaseModel):
 
         self.quad_points = (cs, omega)
 
-    @partial(vmap, argnums={4, 5}, in_axes=(F(), F()))
-    @partial(vmap, argnums={2, 3})
+    @functools.partial(vmap, argnums={4, 5}, in_axes=(F(), F()))
+    @functools.partial(vmap, argnums={2, 3})
     def residual(
         self,
         sol_fn: Callable[..., jnp.ndarray],
-        x: jnp.ndarray,
+        r: jnp.ndarray,
         v: jnp.ndarray,
         sigma: F,
-        psi_b: F,
+        psi_bc: F,
     ) -> jnp.ndarray:
         """Compute residual of equation for a single point."""
 
-        sol = partial(sol_fn, sigma=sigma, psi_b=psi_b)
+        sol = functools.partial(sol_fn, sigma=sigma, psi_b=psi_bc)
 
         # Gradients
-        df_dx = jax.grad(sol)(x, v)  # [dim]
+        df_dr = jax.grad(sol)(r, v)  # [dim]
         # Transport term
-        transport = jnp.matmul(v, df_dx)
+        transport = jnp.matmul(v, df_dr)
         # Collision term
-        collision = sigma.fx[..., 0] * quad(sol, self.quad_points, argnum=1)(
-            x
-        ) - sigma.fx[..., 1] * sol(x, v)
+        collision = sigma.fx[..., 0] * integrate.quad(
+            sol, self.quad_points, argnum=1
+        )(r) - sigma.fx[..., 1] * sol(r, v)
 
         residual = transport - collision
 
         return residual
 
-    @partial(vmap, argnums={3, 4}, in_axes=(F(), F()))
+    @functools.partial(vmap, argnums={3, 4}, in_axes=(F(), F()))
     # @partial(vmap, argnums={2, 3})
     def boundary(
         self,
         sol_fn: Callable[..., jnp.ndarray],
         bc_pts,
         sigma: F,
-        psi_b: F,
+        psi_bc: F,
     ) -> jnp.ndarray:
-        sol = partial(sol_fn, sigma=sigma, psi_b=psi_b)
+        sol = functools.partial(sol_fn, sigma=sigma, psi_b=psi_bc)
 
         res_bc = vmap(sol)(bc_pts[..., :2], bc_pts[..., 2:]) - 1.0
 
         return res_bc
 
-    # @functools.partial(jnp.vectorize, excluded=(0, 1))
-    # def initial(self, fn: Callable[..., jnp.ndarray], x, v) -> jnp.ndarray:
-    #     init_f = fn(0.0 * x, x, v)
-    #     return init_f
-
-    def loss(self, sol_fn: Callable[..., jnp.ndarray], batch: FeatureDict):
+    def loss(self, sol_fn: Callable[..., jnp.ndarray], batch: dataset.Batch):
 
         batched_residual = self.residual(sol_fn, *batch["interior"])
         batched_boundary = self.boundary(sol_fn, *batch["boundary"])
