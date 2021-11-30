@@ -7,4 +7,3 @@ optax
 jaxline
 tensorflow-cpu
 tensorflow_datasets
-jaxline
