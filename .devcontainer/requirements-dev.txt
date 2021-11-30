@@ -4,7 +4,6 @@ scipy
 matplotlib
 
 # Tensorflow cpu version
-ml-collections
 tensorflow_datasets
 tensorflow-cpu==2.7.0
 
@@ -15,7 +14,10 @@ jaxlib==0.1.74+cuda11.cudnn82
 
 # Install Haiku, Optax
 git+https://github.com/deepmind/dm-haiku
-git+git://github.com/deepmind/optax.git
+git+https://github.com/deepmind/optax
+
+# Install ml_collections from repo to match JAXline
+https://github.com/google/ml_collections
 
 # Install JAXline
 git+https://github.com/deepmind/jaxline
