@@ -6,3 +6,7 @@ FROM zhengma/cuda-python:${VARIANT}
 COPY requirements-dev.txt /tmp/pip-tmp/
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements-dev.txt \
     && rm -rf /tmp/pip-tmp
+
+# Apply JAXline patch
+WORKDIR /usr/local/python/lib/python3.9/site-packages
+RUN patch -p0 < jaxline.patch

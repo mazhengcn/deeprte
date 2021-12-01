@@ -1,0 +1,15 @@
+Index: jaxline/train.py
+====================================================================================
+28a29
+> from jax._src.numpy.lax_numpy import ndarray
+29a31
+> import numpy as np
+37,38c39,43
+<   f_list = lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x
+<   logging.info("global_step: %d, %s", step, jax.tree_map(f_list, scalar_values))
+---
+>   f_list = lambda x: x.tolist() if isinstance(x, (np.ndarray, jnp.ndarray)) else x
+>   log_scalars = ""
+>   for k, v in jax.tree_map(f_list, scalar_values).items():
+>     log_scalars += f", {k}: {v:.4f}"
+>   logging.info(f"global_step: {step:d}" + log_scalars)
