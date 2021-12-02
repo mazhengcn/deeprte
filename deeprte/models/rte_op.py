@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from deeprte import dataset, integrate
 from deeprte.mapping import vmap
 from deeprte.models.base_model import BaseModel
-from deeprte.modules import GreenFunction
+from deeprte.modules import GreenFunctionNet
 from deeprte.solution import Solution
 from deeprte.typing import F
 
@@ -29,7 +29,7 @@ class RTEOperator(Solution):
         """
         rv = jnp.concatenate([r, v])
 
-        green_func_module = GreenFunction(self.config)
+        green_func_module = GreenFunctionNet(self.config.green_function)
 
         sol = integrate.quad(
             green_func_module, (psi_bc.x, psi_bc.y), argnum=1, use_hk=True
@@ -46,18 +46,18 @@ class RTEOperator(Solution):
         v: jnp.ndarray,
         sigma: F,
         psi_bc: F,
-        is_training: bool,
+        is_training: bool = True,
     ) -> jnp.ndarray:
         _apply_fn = self._apply
 
         if not is_training:
             _apply_fn = vmap(
-                vmap(self._apply, shard_size=128, argnums={2, 3}),
-                argnums={4, 5},
+                vmap(self._apply, shard_size=128, argnums={3, 4}),
+                argnums={5, 6},
                 in_axes=(F(), F()),
             )
 
-        return _apply_fn(params, rng, r, v, sigma, psi_bc)
+        return _apply_fn(params, state, rng, r, v, sigma, psi_bc)
 
     def rho(
         self,
@@ -82,6 +82,10 @@ class RTEOperator(Solution):
         return rho
 
 
+def loss_fn(x, y):
+    return jnp.mean(jnp.square(x - y))
+
+
 class RTEModel(BaseModel):
     def loss(
         self, fn: Callable[..., jnp.float32], batch: dataset.Batch
@@ -93,14 +97,14 @@ class RTEModel(BaseModel):
             in_axes=(F(), F()),
         )
 
-        prediction = prediction_fn(*batch["interior"])
+        prediction, _ = prediction_fn(*batch["interior"])
 
-        label = batch["label"]
+        label = batch["labels"]
 
-        loss = {"residual": self._loss_fn(prediction, label)}
+        loss = {"residual": loss_fn(prediction, label)}
 
         return loss["residual"], {
-            "rmse": jnp.sqrt(loss["residual"] / jnp.mean(batch["label"] ** 2))
+            "rmse": jnp.sqrt(loss["residual"] / jnp.mean(batch["labels"] ** 2))
         }
 
 

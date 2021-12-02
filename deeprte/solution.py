@@ -20,8 +20,8 @@ class Solution(object, metaclass=abc.ABCMeta):
         self.name = name
         self.config = config
 
-        self.init = hk.transform(self.forward_fn).init
-        self._apply = hk.transform(self.forward_fn).apply
+        self.init = hk.transform_with_state(self.forward_fn).init
+        self._apply = hk.transform_with_state(self.forward_fn).apply
 
     @abc.abstractmethod
     def forward_fn(self) -> jnp.ndarray:

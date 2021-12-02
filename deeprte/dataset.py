@@ -7,19 +7,22 @@ from collections.abc import Generator, Mapping, Sequence
 import jax
 import numpy as np
 import tensorflow as tf
+import tensorflow_datasets as tfds
+from absl import logging
 
 from deeprte.typing import F
 from deeprte.utils import flat_dict_to_rte_data, to_flat_dict
 
-# from typing import Union
-
-
-# import tensorflow_datasets as tfds
-# from numpy.lib.npyio import NpzFile
-
-
 Batch = Mapping[str, np.ndarray]
 AUTOTUNE = tf.data.AUTOTUNE
+
+
+def log_shapes(d: dict, name: str):
+    logs = ""
+    for k, v in get_nest_dict_shape(d).items():
+        logs += f", {k:s}: {v}"
+
+    logging.info(f"{name} shapes" + logs)
 
 
 def get_nest_dict_shape(d):
@@ -109,7 +112,9 @@ def load(
 
         ds = slice_inputs(indices_ds, ds)
 
-    return ds.prefetch(AUTOTUNE)
+    ds = ds.prefetch(AUTOTUNE)
+
+    yield from tfds.as_numpy(ds)
 
 
 def _make_sampler_fn(
@@ -195,7 +200,7 @@ def _load_and_split_dataset(
         rte_data = flat_dict_to_rte_data(npzfile)
         data, grid = rte_data["data"], rte_data["grid"]
 
-    print(f"Processing data, shapes are: {get_nest_dict_shape(data)}")
+    log_shapes(data, "Data")
 
     def _flatten_fn(example):
         return tf.nest.map_structure(lambda x: tf.reshape(x, [-1]), example)
@@ -204,7 +209,7 @@ def _load_and_split_dataset(
         tf.nest.map_structure(lambda arr: arr[from_:end], data)
     ).map(_flatten_fn, num_parallel_calls=AUTOTUNE, deterministic=False)
 
-    print(f"Processing grid, shapes are: {get_nest_dict_shape(grid)}")
+    log_shapes(grid, "Grid")
 
     grid = preprocess_grid(grid)
 
