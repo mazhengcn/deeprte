@@ -6,7 +6,7 @@ import numpy as np
 from absl import app
 
 from deeprte.models.rte_op import RTEOperator
-from deeprte.modules.green_fn import GreenFunction
+from deeprte.modules import GreenFunction
 from deeprte.typing import GraphOfMapping
 from deeprte.utils import get_model_haiku_params
 

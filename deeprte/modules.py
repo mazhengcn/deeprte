@@ -13,9 +13,7 @@ from deeprte.typing import F
 class GreenFunctionNet(hk.Module):
     """Green's function of solution operator."""
 
-    def __init__(
-        self, config: ConfigDict, name: Optional[str] = "green_function"
-    ):
+    def __init__(self, config: ConfigDict, name: Optional[str] = "green_function"):
         super().__init__(name=name)
 
         self.config = config
@@ -36,18 +34,17 @@ class GreenFunctionNet(hk.Module):
         Returns:
             Green's function at r, r_prime.
         """
+
+        c = self.config
+
         # Get nn output of coefficient net.
-        coefficients = CoefficientNet(self.config.coefficient_net)(
-            r[:2], coefficient_fn
-        )
+        coefficients = CoefficientNet(c.coefficient_net)(r[:2], coefficient_fn)
 
         # Green's function inputs.
         inputs = jnp.concatenate([r, r_prime, coefficients])
 
         # MLP
-        outputs = MLP(
-            self.config.green_function_net, name="green_function_net"
-        )(inputs)
+        outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(inputs)
         # Wrap with exponential function to keep it non-negative.
         outputs = jnp.exp(outputs)
 
@@ -57,9 +54,7 @@ class GreenFunctionNet(hk.Module):
 class CoefficientNet(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
-    def __init__(
-        self, config: ConfigDict, name: Optional[str] = "coefficient_net"
-    ):
+    def __init__(self, config: ConfigDict, name: Optional[str] = "coefficient_net"):
         super().__init__(name=name)
 
         self.config = config
@@ -78,9 +73,9 @@ class CoefficientNet(hk.Module):
             Shape (num_coefficients,) or ().
         """
 
-        attn_net = MLP(
-            self.config.attention_net, use_bias=False, name="attention_net"
-        )
+        c = self.config
+
+        attn_net = MLP(c.attention_net.widths, use_bias=False, name="attention_net")
 
         def attn_fn(q, k):
             # [2 * d]
@@ -96,8 +91,6 @@ class CoefficientNet(hk.Module):
         attn_outputs = jnp.matmul(attn, coefficient_fn.y)
 
         # Point-wise MLP
-        outputs = MLP(self.config.pointswise_mlp, name="pointwise_mlp")(
-            attn_outputs
-        )
+        outputs = MLP(c.pointwise_mlp.widths, name="pointwise_mlp")(attn_outputs)
 
         return outputs
