@@ -12,7 +12,7 @@ Losses = Mapping[str, jnp.ndarray]
 
 
 class F(NamedTuple):
-    """Graph of a function (x, f(x)) as a namedtuple."""
+    """Graph of a function (x, y=f(x)) as a namedtuple."""
 
     x: Union[jnp.float32, jnp.ndarray] = None
     y: jnp.ndarray = 0

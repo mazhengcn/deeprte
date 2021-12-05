@@ -3,15 +3,15 @@ import functools
 from absl import app, flags
 from jaxline import platform
 
-from deeprte import config
-from deeprte.models import rte_op
+from deeprte import config, solution
+from deeprte.models import rte
 from deeprte.solver import Solver
 
 MODEL_CONFIG = config.CONFIG
 
 
-sol = rte_op.RTEOperator(MODEL_CONFIG.rte_operator)
-eqn = rte_op.RTEModel(name="rte")
+sol = solution.RTEOperator(MODEL_CONFIG.rte_operator)
+eqn = rte.RTESupervised(name="rte")
 
 RTESolver = Solver.from_solution_and_model(sol, eqn)
 

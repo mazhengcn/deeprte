@@ -4,8 +4,9 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 import numpy as np
+
+from deeprte.base_model import BaseModel
 from deeprte.integrate import quad
-from deeprte.models.base_model import BaseModel
 from deeprte.typing import Data, Losses
 
 
