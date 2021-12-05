@@ -14,9 +14,6 @@ from jaxline import utils as jl_utils
 from deeprte import dataset, optimizers
 from deeprte.typing import F
 
-# from tensorflow.keras.utils import Progbar
-
-
 FLAGS = flags.FLAGS
 
 OptState = tuple[
@@ -224,7 +221,7 @@ class Solver(experiment.AbstractExperiment):
             logging.info("Initializing parameters.")
 
             inputs = next(self._train_input)
-            (r, v, sigma, psi_bc) = inputs["interior"]
+            (r, v, sigma, psi_bc) = inputs["inputs"]
 
             dummy_data = (
                 r[:, 0],
@@ -263,7 +260,6 @@ class Solver(experiment.AbstractExperiment):
 
         global_batch_size = self.config.training.batch_size
         per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
-        print(per_device_batch_size)
 
         if ragged:
             raise ValueError(
@@ -283,6 +279,7 @@ class Solver(experiment.AbstractExperiment):
         """Wrapper for dataset loading."""
 
         return dataset.load(
+            self.config.dataset.data_path,
             split=split,
             is_training=is_training,
             batch_dims=batch_dims,

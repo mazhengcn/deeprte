@@ -29,7 +29,7 @@ CONFIG = ml_collections.ConfigDict(
 )
 
 
-def get_config():
+def get_config() -> ml_collections.ConfigDict:
     """Return config object for solver."""
     config = base_config.get_base_config()
 
@@ -56,7 +56,6 @@ def get_config():
     config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
             config=dict(
-                dry_run=False,
                 save_final_checkpoint_as_npy=False,
                 optimizer=dict(
                     base_lr=1e-3,
