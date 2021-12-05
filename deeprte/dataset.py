@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import pathlib
 from collections.abc import Generator, Mapping, Sequence
+from typing import Union
 
 import jax
 import numpy as np
@@ -50,22 +51,29 @@ class Split(enum.Enum):
     @property
     def num_examples(self):
         return {
-            Split.TRAIN_AND_VALID: 400,
             Split.TRAIN: 300,
+            Split.TRAIN_AND_VALID: 400,
             Split.VALID: 100,
             Split.TEST: 100,
         }[self]
 
 
 def load(
+    data_path: Union[str, pathlib.Path],
     split: Split,
-    *,
     is_training: bool,
-    # batch_dims should be:
-    # [device_count, per_device_outer_batch_size, perdevice_inner_batch_size]
-    # or [total_batch_size]
-    batch_dims: Sequence[int],
-    data_dir: str,
+    # batch_sizes should be:
+    # [device_count, per_device_outer_batch_size]
+    # total_batch_size = device_count * per_device_outer_batch_size
+    batch_sizes: Sequence[int],
+    # collocation_sizes should be:
+    # total_collocation_size or
+    # [residual_size, boundary_size, quadrature_size]
+    collocation_sizes: Union[int, Sequence[int]],
+    # repeat number of inner batch, for training the same batch with
+    # {repeat} steps of different collocation points
+    repeat: int = 1,
+    # Dataset options
     threadpool_size: int = 48,
     max_intra_op_parallelism: int = 1,
 ) -> Generator[Batch, None, None]:
@@ -74,123 +82,172 @@ def load(
 
     # total_batch_size = np.prod(batch_dims)
 
-    (ds, (grid, num_grid_points)), _ = _load_and_split_dataset(
-        data_dir, split, from_=start, end=end
+    (ds, (grid, total_grid_sizes)), _ = _load_and_split_dataset(
+        data_path, split, from_=start, end=end
     )
 
-    # options = ds.options()
-    # options.experimental_threading.private_threadpool_size = 48
-    # options.experimental_threading.max_intra_op_parallelism = 1
-    # options.experimental_optimization.map_parallelization = True
-    # options.experimental_optimization.parallel_batch = True
-    # options.experimental_optimization.hoist_random_uniform = True
-
-    # if is_training:
-    #     options.experimental_deterministic = False
-
-    ds = ds.cache()
+    options = tf.data.Options()
+    options.threading.max_intra_op_parallelism = max_intra_op_parallelism
+    options.threading.private_threadpool_size = threadpool_size
+    options.experimental_optimization.map_parallelization = True
+    options.experimental_optimization.parallel_batch = True
     if is_training:
+        options.deterministic = False
+
+    if is_training:
+        if jax.process_count() > 1:
+            # Only cache if we are reading a subset of the dataset.
+            ds = ds.cache()
         ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=500, seed=jax.process_index())
+        ds = ds.shuffle(buffer_size=5_000, seed=jax.process_index())
+        ds = _repeat_batch(batch_sizes, ds, repeat)
 
-        # batch per_device outer first,
-        # since they share the same random grid points
-        ds = ds.batch(batch_dims[-2])
-        # zip with grid ds
-        ds = tf.data.Dataset.zip(
-            (ds, tf.data.Dataset.from_tensors(grid).repeat())
-        )
-        # batch device dim
-        ds = ds.batch(batch_dims[0])
+    # batch per_device outer first,
+    # since they share the same random grid points
+    ds = ds.batch(batch_sizes[-1])
+    # construct the inputs structure
+    ds = process_inputs(ds, grid)
+    # batch device dim
+    ds = ds.batch(batch_sizes[0])
 
-        # generate random sample indices
-        indices_ds = tf.data.Dataset.range(1).repeat()
-        sampler = _make_sampler_fn(batch_dims[-1], num_grid_points)
-        indices_ds = indices_ds.map(
-            sampler, num_parallel_calls=AUTOTUNE, deterministic=False
-        )
-
-        ds = slice_inputs(indices_ds, ds)
+    if is_training:
+        ds = sample_from_dataset(ds, collocation_sizes, total_grid_sizes)
 
     ds = ds.prefetch(AUTOTUNE)
+    ds = ds.with_options(options)
 
+    # convert to numpy iterable
     yield from tfds.as_numpy(ds)
 
 
-def _make_sampler_fn(
-    num_collocation_points, num_total_points, seed: int = jax.process_index()
+def load_dummy_data(
+    data_path: Union[str, pathlib.Path], split: Split, device_count: int
+) -> tuple[np.ndarray]:
+    """Load dummy inputs to initialize network parameters."""
+    ds = load(
+        data_path,
+        split,
+        is_training=True,
+        batch_sizes=[device_count, 1],
+        collocation_sizes=1,
+    )
+    dummy_inputs = tf.nest.map_structure(
+        lambda x: x.squeeze(), next(ds)["inputs"]
+    )
+    return dummy_inputs
+
+
+def sample_from_dataset(
+    dataset: tf.data.Dataset,
+    collocation_sizes: Union[int, Sequence[int]],
+    total_grid_sizes: Union[int, Sequence[int]],
+    sampler: str = "uniform",
+    seed: int = jax.process_index(),
 ):
+
     g = tf.random.Generator.from_seed(seed)
 
-    def _sampler(_):
-        return g.uniform(
-            (num_collocation_points,),
-            minval=0,
-            maxval=num_total_points,
-            dtype=tf.int32,
+    if sampler == "uniform":
+
+        def _sample_fn(_):
+            idx = g.uniform(
+                (collocation_sizes,),
+                minval=0,
+                maxval=total_grid_sizes,
+                dtype=tf.int64,
+            )
+            return idx
+
+    else:
+        raise ValueError(
+            f"Sample from {sampler} distribution is not implemented."
         )
 
-    return _sampler
+    # generate random sample indices
+    indices_ds = tf.data.Dataset.range(1).repeat()
+    indices_ds = indices_ds.map(_sample_fn, num_parallel_calls=AUTOTUNE)
+    ds = slice_inputs(indices_ds, dataset)
+
+    return ds
 
 
-def slice_inputs(indices_dataset, inputs):
-    """Slice inputs into a Dataset of batches.
-    Given a Dataset of batch indices and the unsliced inputs,
-    this step slices the inputs in a parallelized fashion
-    and produces a dataset of input batches.
-    Args:
-      indices_dataset: A Dataset of batched indices
-      inputs: A python data structure or a single element Dataset
-        that contains the inputs, targets, and possibly sample weights.
-    Returns:
-      A Dataset of input batches matching the batch indices.
-    """
+def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
+
+    ds = tf.data.Dataset.zip(
+        (data, tf.data.Dataset.from_tensors(grid).repeat())
+    )
+
+    def _construct_batch(data, grid):
+
+        sigma = tf.stack([data["sigma_t"], data["sigma_a"]], axis=-1)
+        psi_bc = data["psi_bc"]
+        psi_label = data["psi_label"]
+
+        r, rv = grid["r"], grid["rv"]
+        rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
+        rv_r, rv_v = tf.split(rv, num_or_size_splits=2, axis=-1)
+
+        return {
+            "inputs": (
+                rv_r,
+                rv_v,
+                F(x=r, y=sigma),
+                F(x=rv_prime, y=psi_bc * w_prime),
+            ),
+            "labels": psi_label,
+        }
+
+    ds = ds.map(_construct_batch, num_parallel_calls=AUTOTUNE)
+
+    return ds
+
+
+def slice_inputs(indices_dataset: tf.data.Dataset, inputs: tf.data.Dataset):
 
     dataset = tf.data.Dataset.zip((indices_dataset, inputs))
 
     def grab_batch(i, data):
-        batch, grid = data
-
-        batch_sigma = tf.stack([batch["sigma_t"], batch["sigma_a"]], axis=-1)
-        batch_psi_bc = batch["psi_bc"]
-        batch_psi_label = tf.gather(batch["psi_label"], i, axis=-1)
-
-        r, rv = grid["r"], grid["rv"]
-        rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
-        batch_rv = tf.gather(rv, i, axis=-2)
-        batch_r, batch_v = tf.split(batch_rv, num_or_size_splits=2, axis=-1)
-
-        inputs = {
-            "interior": (
-                batch_r,
-                batch_v,
-                F(x=r, y=batch_sigma),
-                F(x=rv_prime, y=batch_psi_bc * w_prime[:, None]),
-            ),
-            "labels": batch_psi_label,
-        }
-
-        return inputs
+        batch = dict(**data)
+        rv_r, rv_v = tf.nest.map_structure(
+            lambda x: tf.gather(x, i, axis=-2), data["inputs"][:2]
+        )
+        batch["inputs"] = (rv_r, rv_v) + data["inputs"][2:]
+        batch["labels"] = tf.gather(data["labels"], i, axis=-1)
+        return batch
 
     dataset = dataset.map(grab_batch, num_parallel_calls=AUTOTUNE)
-
-    # Default optimizations are disabled to avoid the overhead of (unnecessary)
-    # input pipeline graph serialization and deserialization
-    options = tf.data.Options()
-    options.experimental_optimization.apply_default_optimizations = False
-    # if self._shuffle:
-    #     # See b/141490660 for more details.
-    #     options.experimental_external_state_policy = (
-    #         tf.data.experimental.ExternalStatePolicy.IGNORE
-    #     )
-    dataset = dataset.with_options(options)
 
     return dataset
 
 
+def _repeat_batch(
+    batch_sizes: Union[int, Sequence[int]],
+    ds: tf.data.Dataset,
+    repeat: int = 1,
+) -> tf.data.Dataset:
+    """Tiles the inner most batch dimension."""
+    if repeat <= 1:
+        return ds
+    # Perform regular batching with reduced number of elements.
+    for batch_size in reversed(batch_sizes):
+        ds = ds.batch(batch_size, drop_remainder=True)
+
+    # Repeat batch.
+    fn = lambda x: tf.tile(x, multiples=[repeat] + [1] * (len(x.shape) - 1))
+
+    def repeat_inner_batch(example):
+        return tf.nest.map_structure(fn, example)
+
+    ds = ds.map(repeat_inner_batch, num_parallel_calls=tf.data.AUTOTUNE)
+    # Unbatch.
+    for _ in batch_sizes:
+        ds = ds.unbatch()
+    return ds
+
+
 def _load_and_split_dataset(
-    path_npz: str, split: Split, end: int, from_: int = 0
-) -> tuple[tuple[tf.data.Dataset, tf.data.Dataset], Split]:
+    path_npz: Union[str, pathlib.Path], split: Split, end: int, from_: int = 0
+) -> tuple[tuple[tf.data.Dataset, Mapping[str, np.ndarray]], Split]:
 
     if not isinstance(path_npz, pathlib.Path):
         path_npz = pathlib.Path(path_npz)
@@ -207,7 +264,7 @@ def _load_and_split_dataset(
 
     ds = tf.data.Dataset.from_tensor_slices(
         tf.nest.map_structure(lambda arr: arr[from_:end], data)
-    ).map(_flatten_fn, num_parallel_calls=AUTOTUNE, deterministic=False)
+    ).map(_flatten_fn, num_parallel_calls=AUTOTUNE)
 
     log_shapes(grid, "Grid")
 
@@ -222,9 +279,8 @@ def _shard(split: Split, shard_index: int, num_shards: int) -> tuple[int, int]:
     arange = np.arange(split.num_examples)
     shard_range = np.array_split(arange, num_shards)[shard_index]
     start, end = shard_range[0], (shard_range[-1] + 1)
-    if split == Split.TRAIN:
-        # Note that our TRAIN=TFDS_TRAIN[10000:] and VALID=TFDS_TRAIN[:10000].
-        offset = Split.VALID.num_examples
+    if split == Split.TRAIN_AND_VALID:
+        offset = Split.TEST.num_examples
         start += offset
         end += offset
     return start, end
@@ -239,7 +295,7 @@ def preprocess_grid(
 
     rv = np.concatenate((r[:, None] + 0.0 * v, v + 0.0 * r[:, None]), axis=-1)
     rv = rv.reshape(-1, rv.shape[-1])
-    num_grid_points = rv.shape[0]
+    total_grid_size = rv.shape[0]
     grid["rv"] = rv
 
     rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
@@ -249,14 +305,16 @@ def preprocess_grid(
     if is_training:
         del grid["w_angle"], grid["v"]
 
-    return grid, num_grid_points
+    return grid, total_grid_size
 
 
 def unstack_np_array(arr, axis=0):
     return list(np.swapaxes(arr, axis, 0))
 
 
-def convert_dataset(data_path: str) -> dict[str, np.ndarray]:
+def convert_dataset(
+    data_path: str, save_npz: bool = True
+) -> Mapping[str, Mapping[str, np.ndarray]]:
     """Convert matlab dataset to numpy for use."""
 
     if not isinstance(data_path, pathlib.Path):
@@ -329,9 +387,10 @@ def convert_dataset(data_path: str) -> dict[str, np.ndarray]:
     converted_data["grid"].update({"rv_prime": rv_prime, "w_prime": w_prime})
 
     # Save converted dataset
-    np.savez(
-        data_path.with_name(data_path.stem + "_converted"),
-        **to_flat_dict(converted_data, sep="/"),
-    )
+    if save_npz:
+        np.savez(
+            data_path.with_name(data_path.stem + "_converted"),
+            **to_flat_dict(converted_data, sep="/"),
+        )
 
     return converted_data
