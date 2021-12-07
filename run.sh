@@ -2,6 +2,6 @@
 
 set -e
 
-export CUDA_VISIBLE_DEVICES="1,4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0,6"
 
-python run.py --config=deeprte/config.py
+python run.py --config=deeprte/config.py --config.experiment_kwargs.config.dataset.data_path=data/rte/rte_2d_converted.npz

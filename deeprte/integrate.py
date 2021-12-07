@@ -15,11 +15,11 @@ def quad(
     """Compute the integral operator for a scalar function using
     quadratures."""
 
-    points, weights = quad_points
+    nodes, weights = quad_points
 
     def integral(*args):
         args = list(args)
-        args.insert(argnum, points)
+        args.insert(argnum, nodes)
         values = mapping.vmap(
             func, argnums={argnum}, out_axes=-1, use_hk=use_hk
         )(*args)
