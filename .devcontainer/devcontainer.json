@@ -17,9 +17,6 @@
   // Set *default* container specific settings.json values on container create.
   "settings": {
     "python.defaultInterpreterPath": "/usr/local/python/bin/python",
-    // "python.linting.flake8Enabled": true,
-    // "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
-    // "python.linting.flake8Args": ["--extend-ignore=E203"],
     "python.formatting.provider": "black",
     "python.formatting.blackPath": "/usr/local/py-utils/bin/black"
   },
