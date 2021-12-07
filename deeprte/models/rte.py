@@ -1,7 +1,6 @@
 import functools
 from collections.abc import Callable, Mapping
 
-import haiku as hk
 import jax
 import jax.numpy as jnp
 
@@ -11,30 +10,47 @@ from deeprte.mapping import vmap
 from deeprte.typing import F
 
 
-def loss_fn(x, y):
-    return jnp.mean(jnp.square(x - y))
+def mean_squared_loss_fn(x, y, axis=None):
+    return jnp.mean(jnp.square(x - y), axis=axis)
 
 
 class RTESupervised(BaseModel):
     def loss(
         self, fn: Callable[..., jnp.float32], batch: dataset.Batch
     ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
-
-        prediction_fn = vmap(
+        # We vmap the fn since it supposed to be unvmapped before
+        # to use other logic.
+        predict_fn = vmap(
             vmap(fn, argnums={0, 1}),
             excluded={0, 1},
             in_axes=(F(), F()),
         )
 
-        prediction, _ = prediction_fn(*batch["inputs"])
+        # Predictions and labels
+        predictions, _ = predict_fn(*batch["inputs"])
+        labels = batch["labels"]
 
-        label = batch["labels"]
+        # Loss
+        loss = mean_squared_loss_fn(predictions, labels)
 
-        loss = {"inputs": loss_fn(prediction, label)}
+        return loss, {"prmse": 100.0 * jnp.sqrt(loss / jnp.mean(labels ** 2))}
 
-        return loss["inputs"], {
-            "rmse": jnp.sqrt(loss["inputs"] / jnp.mean(batch["labels"] ** 2))
-        }
+    def metrics(
+        self, fn: Callable[..., jnp.ndarray], batch: dataset.Batch
+    ) -> Mapping[str, jnp.ndarray]:
+
+        # Predictions
+        predictions, _ = fn(*batch["inputs"])
+        # Labels
+        labels = batch["labels"]
+
+        # Compute relative mean squared error, this values will be summed and
+        # finally divided by num_examples.
+        relative_mse = mean_squared_loss_fn(
+            predictions, labels, axis=-1
+        ) / jnp.mean(labels ** 2)
+
+        return {"prmse": relative_mse}
 
 
 class RTEUnsupervised(BaseModel):

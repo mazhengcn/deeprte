@@ -69,14 +69,23 @@ def load(
     # collocation_sizes should be:
     # total_collocation_size or
     # [residual_size, boundary_size, quadrature_size]
-    collocation_sizes: Union[int, Sequence[int]],
+    collocation_sizes: Union[int, Sequence[int], None],
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    repeat: int = 1,
+    repeat: Union[int, None] = 1,
+    # shuffle buffer size
+    buffer_size: int = 5_000,
     # Dataset options
     threadpool_size: int = 48,
     max_intra_op_parallelism: int = 1,
 ) -> Generator[Batch, None, None]:
+
+    if is_training:
+        if not collocation_sizes and not repeat:
+            raise ValueError(
+                "`collocation_sizes` and `repeat` should not be None"
+                "when `is_training=True`"
+            )
 
     start, end = _shard(split, jax.process_index(), jax.process_count())
 
@@ -99,16 +108,16 @@ def load(
             # Only cache if we are reading a subset of the dataset.
             ds = ds.cache()
         ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=5_000, seed=jax.process_index())
+        ds = ds.shuffle(buffer_size=buffer_size)
         ds = _repeat_batch(batch_sizes, ds, repeat)
 
     # batch per_device outer first,
     # since they share the same random grid points
-    ds = ds.batch(batch_sizes[-1])
+    ds = ds.batch(batch_sizes[-1], drop_remainder=True)
     # construct the inputs structure
     ds = process_inputs(ds, grid)
     # batch device dim
-    ds = ds.batch(batch_sizes[0])
+    ds = ds.batch(batch_sizes[0], drop_remainder=True)
 
     if is_training:
         ds = sample_from_dataset(ds, collocation_sizes, total_grid_sizes)
@@ -116,25 +125,25 @@ def load(
     ds = ds.prefetch(AUTOTUNE)
     ds = ds.with_options(options)
 
-    # convert to numpy iterable
+    # convert to a numpy generator
     yield from tfds.as_numpy(ds)
 
 
-def load_dummy_data(
-    data_path: Union[str, pathlib.Path], split: Split, device_count: int
-) -> tuple[np.ndarray]:
-    """Load dummy inputs to initialize network parameters."""
-    ds = load(
-        data_path,
-        split,
-        is_training=True,
-        batch_sizes=[device_count, 1],
-        collocation_sizes=1,
-    )
-    dummy_inputs = tf.nest.map_structure(
-        lambda x: x.squeeze(), next(ds)["inputs"]
-    )
-    return dummy_inputs
+# def load_dummy_data(
+#     data_path: Union[str, pathlib.Path], split: Split, device_count: int
+# ) -> tuple[np.ndarray]:
+#     """Load dummy inputs to initialize network parameters."""
+#     ds = load(
+#         data_path,
+#         split,
+#         is_training=True,
+#         batch_sizes=[device_count, 1],
+#         collocation_sizes=1,
+#     )
+#     dummy_inputs = tf.nest.map_structure(
+#         lambda x: x.squeeze(), next(ds)["inputs"]
+#     )
+#     return dummy_inputs
 
 
 def sample_from_dataset(

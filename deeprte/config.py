@@ -3,6 +3,7 @@ import pathlib
 
 import ml_collections
 from jaxline import base_config
+from ml_collections import config_dict
 
 from deeprte import dataset
 
@@ -34,7 +35,7 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 1000
+    num_epochs = 100
     train_batch_size = 10
 
     steps_from_epochs = functools.partial(
@@ -42,7 +43,15 @@ def get_config() -> ml_collections.ConfigDict:
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = train_batch_size
+    test_batch_size = 50
+
+    # Datasetconfig.
+    dataset_config = dict(
+        data_path=config_dict.placeholder(str),
+        buffer_size=500,
+        threadpool_size=48,
+        max_intra_op_parallelism=1,
+    )
 
     # Solution config
     config.solution_kwargs = ml_collections.ConfigDict(
@@ -67,10 +76,13 @@ def get_config() -> ml_collections.ConfigDict:
                     optimizer="adam",
                     adam_kwargs={},
                 ),
+                dataset=dataset_config,
                 training=dict(
-                    num_train_examples=N_TRAIN_EXAMPLES,
                     batch_size=train_batch_size,
+                    collocation_sizes=500,
                     num_epochs=num_epochs,
+                    num_train_examples=N_TRAIN_EXAMPLES,
+                    repeat=1,
                 ),
                 evaluation=dict(
                     batch_size=test_batch_size,
@@ -79,8 +91,8 @@ def get_config() -> ml_collections.ConfigDict:
                     # while training, unless `--jaxline_mode` is set to
                     # `train_eval_multithreaded`, which asynchronously
                     # evaluates checkpoints.
-                    # interval=steps_from_epochs(20),
-                    interval=0,
+                    interval=steps_from_epochs(10),
+                    # interval=0,
                 ),
             )
         )

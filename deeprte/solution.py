@@ -106,18 +106,39 @@ class RTEOperator(Solution):
         v: jnp.ndarray,
         sigma: F,
         psi_bc: F,
-        is_training: bool = True,
+        is_training: bool,
     ) -> jnp.ndarray:
+
         _apply_fn = self._apply
 
         if not is_training:
             _apply_fn = vmap(
-                vmap(self._apply, shard_size=128, argnums={3, 4}),
+                vmap(_apply_fn, shard_size=128, argnums={3, 4}),
                 argnums={5, 6},
                 in_axes=(F(), F()),
             )
 
         return _apply_fn(params, state, rng, r, v, sigma, psi_bc)
+
+    def predict(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: jnp.ndarray,
+        x,
+        v,
+        sigma,
+        bc,
+    ):
+        apply_fn = functools.partial(self._apply, params, state, rng)
+        prediction_fn = vmap(
+            vmap(apply_fn, shard_size=128, argnums={0, 1}),
+            argnums={2, 3},
+            in_axes=(F(None, 0),) * 2,
+        )
+        result = prediction_fn(x, v, sigma, bc)
+
+        return result
 
     def rho(
         self,
