@@ -10,15 +10,15 @@
     "args": {
       // Update 'VARIANT' to pick a CUDA version: 11.1, 11.2, 11.3, 11.4.
       // Append -3.6, -3.7, -3.8, -3.9, etc. to pin a Python version.
-      "VARIANT": "11.4-3.9"
+      "VARIANT": "11.4-3.10"
     }
   },
 
   // Set *default* container specific settings.json values on container create.
   "settings": {
     "python.defaultInterpreterPath": "/usr/local/python/bin/python",
-    "python.formatting.provider": "black",
-    "python.formatting.blackPath": "/usr/local/py-utils/bin/black"
+    "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+    "python.formatting.provider": "black"
   },
 
   // Add the IDs of extensions you want installed when the container is created.
