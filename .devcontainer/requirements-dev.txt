@@ -5,19 +5,21 @@ matplotlib
 
 # Tensorflow cpu version
 tensorflow_datasets
-tensorflow-cpu==2.7.0
+# tensorflow-cpu
+tf-nightly-cpu
 
 # Install jax and jaxlib
-jax==0.2.25
-jaxlib==0.1.74+cuda11.cudnn82
+jax==0.2.26
+jaxlib==0.1.75+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Install Haiku, Optax
-git+git://github.com/deepmind/dm-haiku#egg=dm-haiku
-git+git://github.com/deepmind/optax#egg=optax
+git+git://github.com/deepmind/tree.git
+git+git://github.com/deepmind/dm-haiku
+git+git://github.com/deepmind/optax
 
 # Install ml_collections from repo to match JAXline
-git+git://github.com/google/ml_collections#egg=ml_collections
+git+git://github.com/google/ml_collections
 
 # Install JAXline
-git+git://github.com/deepmind/jaxline#egg=jaxline
+git+git://github.com/deepmind/jaxline
