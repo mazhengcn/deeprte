@@ -129,23 +129,6 @@ def load(
     yield from tfds.as_numpy(ds)
 
 
-# def load_dummy_data(
-#     data_path: Union[str, pathlib.Path], split: Split, device_count: int
-# ) -> tuple[np.ndarray]:
-#     """Load dummy inputs to initialize network parameters."""
-#     ds = load(
-#         data_path,
-#         split,
-#         is_training=True,
-#         batch_sizes=[device_count, 1],
-#         collocation_sizes=1,
-#     )
-#     dummy_inputs = tf.nest.map_structure(
-#         lambda x: x.squeeze(), next(ds)["inputs"]
-#     )
-#     return dummy_inputs
-
-
 def sample_from_dataset(
     dataset: tf.data.Dataset,
     collocation_sizes: Union[int, Sequence[int]],
@@ -266,7 +249,7 @@ def _load_and_split_dataset(
         rte_data = flat_dict_to_rte_data(npzfile)
         data, grid = rte_data["data"], rte_data["grid"]
 
-    log_shapes(data, "Data")
+    # log_shapes(data, "Data")
 
     def _flatten_fn(example):
         return tf.nest.map_structure(lambda x: tf.reshape(x, [-1]), example)
@@ -275,7 +258,7 @@ def _load_and_split_dataset(
         tf.nest.map_structure(lambda arr: arr[from_:end], data)
     ).map(_flatten_fn, num_parallel_calls=AUTOTUNE)
 
-    log_shapes(grid, "Grid")
+    # log_shapes(grid, "Grid")
 
     grid = preprocess_grid(grid)
 

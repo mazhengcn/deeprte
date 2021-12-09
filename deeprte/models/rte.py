@@ -33,7 +33,10 @@ class RTESupervised(BaseModel):
         # Loss
         loss = mean_squared_loss_fn(predictions, labels)
 
-        return loss, {"prmse": 100.0 * jnp.sqrt(loss / jnp.mean(labels ** 2))}
+        return loss, {
+            "mse": loss,
+            "prmse": 100.0 * jnp.sqrt(loss / jnp.mean(labels ** 2)),
+        }
 
     def metrics(
         self, fn: Callable[..., jnp.ndarray], batch: dataset.Batch

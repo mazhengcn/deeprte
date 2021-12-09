@@ -120,26 +120,6 @@ class RTEOperator(Solution):
 
         return _apply_fn(params, state, rng, r, v, sigma, psi_bc)
 
-    def predict(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jnp.ndarray,
-        x,
-        v,
-        sigma,
-        bc,
-    ):
-        apply_fn = functools.partial(self._apply, params, state, rng)
-        prediction_fn = vmap(
-            vmap(apply_fn, shard_size=128, argnums={0, 1}),
-            argnums={2, 3},
-            in_axes=(F(None, 0),) * 2,
-        )
-        result = prediction_fn(x, v, sigma, bc)
-
-        return result
-
     def rho(
         self,
         params: hk.Params,

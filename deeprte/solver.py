@@ -1,7 +1,14 @@
+import datetime
 import functools
-from collections.abc import Generator, Iterator, Mapping, Sequence
+import os
+import pathlib
+import signal
+import threading
+import time
+from collections.abc import Generator, Mapping, Sequence
 from typing import Union
 
+import dill
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -10,12 +17,10 @@ import numpy as np
 import optax
 import tensorflow as tf
 from absl import flags, logging
-from jax.interpreters.batching import batch
-from jaxline import experiment
+from jaxline import experiment, platform
 from jaxline import utils as jl_utils
 
 from deeprte import dataset, optimizers
-from deeprte.typing import F
 
 FLAGS = flags.FLAGS
 
@@ -23,6 +28,16 @@ OptState = tuple[
     optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
 ]
 Scalars = Mapping[str, jnp.ndarray]
+
+
+def _log_results(prefix, results):
+    logging_str = ", ".join(
+        [
+            "{}={:.4f}".format(k, float(results[k]))
+            for k in sorted(results.keys())
+        ]
+    )
+    logging.info("%s: %s", prefix, logging_str)
 
 
 class Solver(experiment.AbstractExperiment):
@@ -37,17 +52,6 @@ class Solver(experiment.AbstractExperiment):
         "_opt_state": "opt_state",
     }
 
-    solution = None
-    model = None
-
-    @classmethod
-    def from_solution_and_model(cls, solution, model):
-        class InitializedSolver(cls):
-            cls.solution = solution
-            cls.model = model
-
-        return InitializedSolver
-
     def __init__(
         self,
         mode: str,
@@ -56,6 +60,9 @@ class Solver(experiment.AbstractExperiment):
     ):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
+
+        if mode not in ("train", "eval", "train_eval_multithreaded"):
+            raise ValueError(f"Invalid mode {mode}.")
 
         self.mode = mode
         self.init_rng = init_rng
@@ -66,22 +73,14 @@ class Solver(experiment.AbstractExperiment):
         self._state = None
         self._opt_state = None
 
-        # Input pipelines.
-        self._train_input = None
-        self._eval_input = None
+        # Initialize solution and model functions
+        self.solution = None
+        self.model = None
+        self._init_solution_and_model()
 
-        if mode == "train":
-            self._initialize_training()
-            if self.config.evaluation.interval > 0:
-                self._last_evaluation_scalars = {}
-                self._initialize_evaluation()
-        elif mode == "eval":
-            self._initialize_evaluation()
-        elif mode == "train_eval_multithreaded":
-            self._initialize_training()
-            self._initialize_evaluation()
-        else:
-            raise ValueError(f'Invalid mode: "{mode}"')
+        # Track what has started
+        self._training = False
+        self._evaluating = False
 
     #  _             _
     # | |_ _ __ __ _(_)_ __
@@ -98,12 +97,13 @@ class Solver(experiment.AbstractExperiment):
         **unused_kwargs,
     ) -> Scalars:
         """See base class."""
-
-        if self._train_input is None:
+        if not self._training:
             self._initialize_training()
 
+        # Get next batch
         batch = next(self._train_input)
 
+        # Update parameters
         self._params, self._state, self._opt_state, scalars = self.update_fn(
             self._params,
             self._state,
@@ -113,42 +113,10 @@ class Solver(experiment.AbstractExperiment):
             batch,
         )
 
+        # We only return the loss scalars on the first devict for logging
         scalars = jl_utils.get_first(scalars)
 
-        # Save final checkpoint.
-        if self.config.save_final_checkpoint_as_npy:
-            global_step_value = jl_utils.get_first(global_step)
-            if global_step_value == FLAGS.config.get("training_steps", 1) - 1:
-
-                def f_np(x):
-                    return np.array(jax.device_get(jl_utils.get_first(x)))
-
-                np_params = jax.tree_map(f_np, self._params)
-                np_state = jax.tree_map(f_np, self._state)
-                path_npy = FLAGS.config.checkpoint_dir / "checkpoint.npy"
-                with tf.io.gfile.GFile(path_npy, "wb") as fp:
-                    np.save(fp, (np_params, np_state))
-                logging.info(f"Saved final checkpoint at {path_npy}")
-
-        # Run synchronous evaluation.
-        if self.config.evaluation.interval <= 0:
-            return scalars
-
-        global_step_value = jl_utils.get_first(global_step)
-        if (
-            global_step_value % self.config.evaluation.interval != 0
-            and global_step_value != FLAGS.config.get("training_steps", 1) - 1
-        ):
-            return _merge_eval_scalars(scalars, self._last_evaluation_scalars)
-
-        logging.info("Running synchronous evaluation...")
-        self._last_evaluation_scalars = self.evaluate(rng)
-        logging.info(
-            f"[Step {global_step_value}] Eval scalars: "
-            f"{self._last_evaluation_scalars}"
-        )
-
-        return _merge_eval_scalars(scalars, self._last_evaluation_scalars)
+        return scalars
 
     def _update_fn(
         self,
@@ -172,7 +140,7 @@ class Solver(experiment.AbstractExperiment):
 
         # Grab the learning rate to log before performing the step.
         learning_rate = self._lr_schedule(global_step)
-        scalars["learning_rate"] = learning_rate
+        # scalars["learning_rate"] = learning_rate
 
         # Update params
         updates, opt_state = self.optimizer.update(grads, opt_state, params)
@@ -263,9 +231,10 @@ class Solver(experiment.AbstractExperiment):
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
         # start with `params, state, opt_state`).
-        self.update_fn = jax.pmap(
-            self._update_fn, axis_name="i", donate_argnums=(0, 1, 2)
-        )
+        self.update_fn = jax.pmap(self._update_fn, axis_name="i")
+
+        # Set training state to True after initialization
+        self._training = True
 
     def _build_train_input(self) -> Generator[dataset.Batch, None, None]:
         """Build train input as generator/iterator."""
@@ -300,45 +269,6 @@ class Solver(experiment.AbstractExperiment):
             repeat=repeat,
         )
 
-    def _load_dummy_data(self) -> tuple[jnp.ndarray]:
-        """Load dummy data for initializing network parameters."""
-
-        ds = self._load_data(
-            split=dataset.Split.TRAIN_AND_VALID,
-            is_training=True,
-            batch_sizes=[jax.local_device_count(), 1],
-            collocation_sizes=1,
-            repeat=1,
-        )
-        dummy_inputs = jax.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
-
-        if jax.local_device_count() == 1:
-            dummy_inputs = jax.tree_map(lambda x: x[None, ...], dummy_inputs)
-
-        return dummy_inputs
-
-    def _load_data(
-        self,
-        split: dataset.Split,
-        is_training: bool,
-        batch_sizes: Sequence[int],
-        collocation_sizes: Union[int, Sequence[int]],
-        repeat: int,
-    ) -> Generator[dataset.Batch, None, None]:
-        """Wrapper for dataset loading."""
-
-        return dataset.load(
-            data_path=self.config.dataset.data_path,
-            split=split,
-            is_training=is_training,
-            batch_sizes=batch_sizes,
-            collocation_sizes=collocation_sizes,
-            repeat=repeat,
-            buffer_size=self.config.dataset.buffer_size,
-            threadpool_size=self.config.dataset.threadpool_size,
-            max_intra_op_parallelism=self.config.dataset.max_intra_op_parallelism,
-        )
-
     #                  _
     #   _____   ____ _| |
     #  / _ \ \ / / _` | |
@@ -346,10 +276,32 @@ class Solver(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(self, rng: jnp.ndarray, **unused_args) -> Scalars:
+    def evaluate(
+        self, global_step, rng: jnp.ndarray, **unused_args
+    ) -> Scalars:
         """See base class."""
+        if not self._evaluating:
+            self._initialize_evaluation()
 
+        # Current time
+        start_time = time.time()
+
+        # Run evaluation for an epoch
         metrics = self._eval_epoch(self._params, self._state, rng)
+        # Covert jnp.ndarry to list to have less verbose.
+        metrics = jax.tree_map(
+            lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
+        )
+
+        # End time for measure running time
+        time_sec = time.time() - start_time
+
+        # Get global step value on the first device for logging.
+        global_step_value = jl_utils.get_first(global_step)
+
+        logging.info(
+            f"[Evaluation at step {global_step_value} takes {time_sec}], Eval metrics: {metrics}"
+        )
 
         return metrics
 
@@ -418,6 +370,9 @@ class Solver(experiment.AbstractExperiment):
         # We pmap the evaluation function
         self.eval_fn = jax.pmap(self._eval_fn, axis_name="i")
 
+        # Set evaluating state to True after initialization.
+        self._evaluating = True
+
     def _build_eval_input(self) -> Generator[dataset.Batch, None, None]:
         # Split for evaluation
         split = dataset.Split.VALID
@@ -443,10 +398,203 @@ class Solver(experiment.AbstractExperiment):
             repeat=None,
         )
 
+    def _init_solution_and_model(self):
+        # Create solution instance.
+        solution_config = self.config.solution
+        if not self.solution:
+            self.solution = solution_config.constructor(
+                **solution_config.kwargs
+            )
+        else:
+            raise ValueError("Solution instance is already initialized.")
 
-def _merge_eval_scalars(a, b):
-    if b is None:
-        return a
-    for k, v in b.items():
-        a["eval_" + k] = v
-    return a
+        # Create model instance
+        model_config = self.config.model
+        if not self.model:
+            self.model = model_config.constructor(**model_config.kwargs)
+        else:
+            raise ValueError("Model instance is already initialized.")
+
+    def _load_data(
+        self,
+        split: dataset.Split,
+        is_training: bool,
+        batch_sizes: Sequence[int],
+        collocation_sizes: Union[int, Sequence[int]],
+        repeat: int,
+    ) -> Generator[dataset.Batch, None, None]:
+        """Wrapper for dataset loading."""
+
+        return dataset.load(
+            data_path=self.config.dataset.data_path,
+            split=split,
+            is_training=is_training,
+            batch_sizes=batch_sizes,
+            collocation_sizes=collocation_sizes,
+            repeat=repeat,
+            buffer_size=self.config.dataset.buffer_size,
+            threadpool_size=self.config.dataset.threadpool_size,
+            max_intra_op_parallelism=self.config.dataset.max_intra_op_parallelism,
+        )
+
+    def _load_dummy_data(self) -> tuple[jnp.ndarray]:
+        """Load dummy data for initializing network parameters."""
+
+        ds = self._load_data(
+            split=dataset.Split.TRAIN_AND_VALID,
+            is_training=True,
+            batch_sizes=[jax.local_device_count(), 1],
+            collocation_sizes=1,
+            repeat=1,
+        )
+        dummy_inputs = jax.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
+
+        if jax.local_device_count() == 1:
+            dummy_inputs = jax.tree_map(lambda x: x[None, ...], dummy_inputs)
+
+        return dummy_inputs
+
+    def save_final_checkpoint(self, global_step_value: int):
+        # Save final checkpoint.
+        if global_step_value == FLAGS.config.get("training_steps", 1) - 1:
+
+            def f_np(x):
+                return np.array(jax.device_get(jl_utils.get_first(x)))
+
+            np_params = jax.tree_map(f_np, self._params)
+            np_state = jax.tree_map(f_np, self._state)
+            path_npy = FLAGS.config.checkpoint_dir / "checkpoint.npy"
+            with tf.io.gfile.GFile(path_npy, "wb") as fp:
+                np.save(fp, (np_params, np_state))
+            logging.info(f"Saved final checkpoint at {path_npy}")
+
+
+def _get_step_date_label(global_step):
+    # Date removing microseconds.
+    date_str = datetime.datetime.now().isoformat().split(".")[0]
+    return f"step_{global_step}_{date_str}"
+
+
+def _restore_state_to_in_memory_checkpointer(restore_path):
+    """Initializes experiment state from a checkpoint."""
+    if not isinstance(restore_path, pathlib.Path):
+        restore_path = pathlib.Path(restore_path)
+
+    # Load pretrained experiment state.
+    python_state_path = restore_path / "checkpoint.dill"
+    with open(python_state_path, "rb") as f:
+        pretrained_state = dill.load(f)
+    logging.info(f"Restored checkpoint from {python_state_path}")
+
+    # Assign state to a dummy experiment instance for the in-memory checkpointer,
+    # broadcasting to devices.
+    dummy_solver = Solver(
+        mode="train", init_rng=0, config=FLAGS.config.experiment_kwargs.config
+    )
+    for attribute, key in Solver.CHECKPOINT_ATTRS.items():
+        setattr(
+            dummy_solver,
+            attribute,
+            jl_utils.bcast_local_devices(pretrained_state[key]),
+        )
+
+    jaxline_state = dict(
+        global_step=pretrained_state["global_step"],
+        experiment_module=dummy_solver,
+    )
+    snapshot = jl_utils.SnapshotNT(0, jaxline_state)
+
+    # Finally, seed the jaxline `utils.InMemoryCheckpointer` global dict.
+    jl_utils.GLOBAL_CHECKPOINT_DICT["latest"] = jl_utils.CheckpointNT(
+        threading.local(), [snapshot]
+    )
+
+
+def _save_state_from_in_memory_checkpointer(
+    save_path, experiment_class: experiment.AbstractExperiment
+):
+    """Saves experiment state to a checkpoint."""
+    if not isinstance(save_path, pathlib.Path):
+        save_path = pathlib.Path(save_path)
+
+    logging.info("Saving model.")
+    for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
+        if not checkpoint.history:
+            logging.info(f'Nothing to save in "{checkpoint_name}"')
+            continue
+
+        pickle_nest = checkpoint.history[-1].pickle_nest
+        global_step = pickle_nest["global_step"]
+
+        state_dict = {"global_step": global_step}
+        for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
+            state_dict[key] = jl_utils.get_first(
+                getattr(pickle_nest["experiment_module"], attribute)
+            )
+        save_dir = (
+            save_path / checkpoint_name / _get_step_date_label(global_step)
+        )
+
+        python_state_path = save_dir / "checkpoint.dill"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        with open(python_state_path, "wb") as f:
+            dill.dump(state_dict, f)
+
+        logging.info(
+            f'Saved "{checkpoint_name}" checkpoint to {python_state_path}'
+        )
+
+
+def _setup_signals(save_model_fn):
+    """Sets up a signal for model saving."""
+    # Save a model on Ctrl+C.
+    def sigint_handler(unused_sig, unused_frame):
+        # Ideally, rather than saving immediately, we would then "wait" for a good
+        # time to save. In practice this reads from an in-memory checkpoint that
+        # only saves every 30 seconds or so, so chances of race conditions are very
+        # small.
+        save_model_fn()
+        logging.info(r"Use `Ctrl+\` to save and exit.")
+
+    # Exit on `Ctrl+\`, saving a model.
+    prev_sigquit_handler = signal.getsignal(signal.SIGQUIT)
+
+    def sigquit_handler(unused_sig, unused_frame):
+        # Restore previous handler early, just in case something goes wrong in the
+        # next lines, so it is possible to press again and exit.
+        signal.signal(signal.SIGQUIT, prev_sigquit_handler)
+        save_model_fn()
+        logging.info(r"Exiting on `Ctrl+\`")
+
+        # Re-raise for clean exit.
+        os.kill(os.getpid(), signal.SIGQUIT)
+
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGQUIT, sigquit_handler)
+
+
+def main(experiment_class, argv):
+
+    # Maybe restore a model.
+    restore_path = FLAGS.config.restore_path
+    if restore_path:
+        _restore_state_to_in_memory_checkpointer(restore_path)
+
+    # Maybe save a model.
+    save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
+    if FLAGS.config.one_off_evaluate:
+        save_model_fn = (
+            lambda: None
+        )  # No need to save checkpoint in this case.
+    else:
+        save_model_fn = functools.partial(
+            _save_state_from_in_memory_checkpointer, save_dir, experiment_class
+        )
+    _setup_signals(
+        save_model_fn
+    )  # Save on Ctrl+C (continue) or Ctrl+\ (exit).
+
+    try:
+        platform.main(experiment_class, argv)
+    finally:
+        save_model_fn()  # Save at the end of training or in case of exception.
