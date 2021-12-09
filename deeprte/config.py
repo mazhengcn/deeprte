@@ -1,11 +1,11 @@
 import functools
-import pathlib
 
 import ml_collections
 from jaxline import base_config
 from ml_collections import config_dict
 
-from deeprte import dataset
+from deeprte import dataset, solution
+from deeprte.models import rte
 
 N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
@@ -35,37 +35,49 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 100
-    train_batch_size = 10
+    num_epochs = 20
+    train_batch_size = 12
 
     steps_from_epochs = functools.partial(
         get_steps_from_epochs, train_batch_size
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 50
+    test_batch_size = 40
 
     # Datasetconfig.
     dataset_config = dict(
         data_path=config_dict.placeholder(str),
-        buffer_size=500,
+        buffer_size=5_000,
         threadpool_size=48,
         max_intra_op_parallelism=1,
     )
 
     # Solution config
-    config.solution_kwargs = ml_collections.ConfigDict(
-        dict(config=CONFIG.rte_operator)
-    )
+    solution_ctor = solution.RTEOperator
+    solution_config = CONFIG.rte_operator
 
     # Model config
-    config.model_kwargs = ml_collections.ConfigDict(dict(config=CONFIG.model))
+    model_ctor = rte.RTESupervised
+    model_config = CONFIG.model
 
     # Solver config
     config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
             config=dict(
-                save_final_checkpoint_as_npy=False,
+                dataset=dataset_config,
+                solution=dict(
+                    constructor=solution_ctor,
+                    kwargs=dict(config=solution_config),
+                ),
+                model=dict(constructor=model_ctor, kwargs={"name": "rte"}),
+                training=dict(
+                    batch_size=train_batch_size,
+                    collocation_sizes=500,
+                    num_epochs=num_epochs,
+                    num_train_examples=N_TRAIN_EXAMPLES,
+                    repeat=1,
+                ),
                 optimizer=dict(
                     base_lr=1e-3,
                     scale_by_batch=False,
@@ -75,14 +87,6 @@ def get_config() -> ml_collections.ConfigDict:
                     ),
                     optimizer="adam",
                     adam_kwargs={},
-                ),
-                dataset=dataset_config,
-                training=dict(
-                    batch_size=train_batch_size,
-                    collocation_sizes=500,
-                    num_epochs=num_epochs,
-                    num_train_examples=N_TRAIN_EXAMPLES,
-                    repeat=1,
                 ),
                 evaluation=dict(
                     batch_size=test_batch_size,
@@ -101,13 +105,14 @@ def get_config() -> ml_collections.ConfigDict:
     # Global config
     config.training_steps = num_steps
     config.interval_type = "steps"
-    config.save_checkpoint_interval = steps_from_epochs(40)
+    config.save_checkpoint_interval = steps_from_epochs(1)
     config.log_tensors_interval = steps_from_epochs(1)
     config.log_train_data_interval = steps_from_epochs(1)
 
     # Directory config
-    config.checkpoint_dir = pathlib.Path("./data/ckpt")
-
-    config.lock()
+    config.checkpoint_dir = "./data/ckpt"
+    config.restore_path = (
+        "data/ckpt/models/latest/step_333_2021-12-08T14:18:15"
+    )
 
     return config
