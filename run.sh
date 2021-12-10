@@ -2,6 +2,6 @@
 
 set -e
 
-export CUDA_VISIBLE_DEVICES="2"
+export CUDA_VISIBLE_DEVICES="0,1,2,5,6"
 
 python train.py --config=deeprte/config.py --config.experiment_kwargs.config.dataset.data_path=data/rte/rte_2d_converted.npz --jaxline_mode=train_eval_multithreaded
