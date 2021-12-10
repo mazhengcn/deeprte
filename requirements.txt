@@ -5,6 +5,6 @@ jax
 dm-haiku
 optax
 jaxline
-# tensorflow-cpu
-tf-nightly-cpu
+tensorflow-cpu
+# tf-nightly-cpu
 tensorflow_datasets
