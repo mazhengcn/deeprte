@@ -1,7 +1,5 @@
-Index: jaxline/train.py
-===================================================================
---- train_original.py
-+++ train_patched.py
+--- jaxline/train.py
++++ jaxline/train.py
 @@ -27,15 +27,26 @@
  from absl import logging
  import jax
@@ -58,3 +56,16 @@ Index: jaxline/train.py
        if config.best_model_eval_metric not in scalar_values:
          raise ValueError(f"config.best_model_eval_metric has been specified "
                           f"as {config.best_model_eval_metric}, but this key "
+
+
+--- jaxline/utils.py
++++ jaxlineutils.py
+@@ -328,7 +328,7 @@
+ def host_id_devices_for_rng(mode="unique_host_unique_device"):
+   if not DistributedRNGMode(mode).unique_host:
+     return None
+-  return jnp.broadcast_to(jax.host_id(), (jax.local_device_count(),))
++  return jnp.broadcast_to(jax.process_index(), (jax.local_device_count(),))
+ 
+ 
+ def specialize_rng_host_device(
