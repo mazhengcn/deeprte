@@ -1,15 +1,60 @@
 Index: jaxline/train.py
-====================================================================================
-28a29
-> from jax._src.numpy.lax_numpy import ndarray
-29a31
-> import numpy as np
-37,38c39,43
-<   f_list = lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x
-<   logging.info("global_step: %d, %s", step, jax.tree_map(f_list, scalar_values))
----
->   f_list = lambda x: x.tolist() if isinstance(x, (np.ndarray, jnp.ndarray)) else x
->   log_scalars = ""
->   for k, v in jax.tree_map(f_list, scalar_values).items():
->     log_scalars += f", {k}: {v:.4f}"
->   logging.info(f"global_step: {step:d}" + log_scalars)
+===================================================================
+--- train_original.py
++++ train_patched.py
+@@ -27,15 +27,26 @@
+ from absl import logging
+ import jax
+ import jax.numpy as jnp
++import numpy as np
+ from jaxline import utils
+ 
+ FLAGS = flags.FLAGS
+ 
+ 
++def _format_logs(prefix, results):
++  logging_str = f" - ".join(
++    [
++      f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
++      for k in sorted(results.keys())
++    ]
++  )
++  logging.info(f"{prefix} - {logging_str}")
++
++
+ def _log_outputs(step, scalar_values):
+   # f_list for less verbosity; e.g., "4." instead of "array(4., dtype=float32)".
+-  f_list = lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x
+-  logging.info("global_step: %d, %s", step, jax.tree_map(f_list, scalar_values))
++  f_list = lambda x: x.tolist() if isinstance(x, (np.ndarray, jnp.ndarray)) else x
++  _format_logs(f"global_step: {step:d}", jax.tree_map(f_list, scalar_values))
+ 
+ 
+ def _initialize_experiment(experiment_class, mode, rng, experiment_kwargs):
+@@ -71,7 +82,7 @@
+ ):
+   """Main training loop."""
+   logging.info("Training with config:\n%s", config)
+-  is_chief = jax.host_id() == 0
++  is_chief = jax.process_index() == 0
+ 
+   rng = jax.random.PRNGKey(config.random_seed)
+   with utils.log_activity("experiment init"):
+@@ -156,7 +167,7 @@
+   experiment = _initialize_experiment(
+       experiment_class, jaxline_mode, eval_rng, config.experiment_kwargs)
+ 
+-  if config.best_model_eval_metric and jax.host_id() == 0:
++  if config.best_model_eval_metric and jax.process_index() == 0:
+     # Initialize best state.
+     best_state = checkpointer.get_experiment_state("best")
+     if config.best_model_eval_metric_higher_is_better:
+@@ -228,7 +239,7 @@
+       writer.write_scalars(state.global_step, scalar_values)
+     old_checkpoint_path = checkpoint_path
+     # Decide whether to save a "best checkpoint".
+-    if config.best_model_eval_metric and jax.host_id() == 0:
++    if config.best_model_eval_metric and jax.process_index() == 0:
+       if config.best_model_eval_metric not in scalar_values:
+         raise ValueError(f"config.best_model_eval_metric has been specified "
+                          f"as {config.best_model_eval_metric}, but this key "

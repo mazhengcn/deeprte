@@ -35,15 +35,15 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 20
-    train_batch_size = 12
+    num_epochs = 2
+    train_batch_size = 10
 
     steps_from_epochs = functools.partial(
         get_steps_from_epochs, train_batch_size
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 40
+    test_batch_size = 100
 
     # Datasetconfig.
     dataset_config = dict(
@@ -95,7 +95,7 @@ def get_config() -> ml_collections.ConfigDict:
                     # while training, unless `--jaxline_mode` is set to
                     # `train_eval_multithreaded`, which asynchronously
                     # evaluates checkpoints.
-                    interval=steps_from_epochs(10),
+                    # interval=steps_from_epochs(10),
                     # interval=0,
                 ),
             )
@@ -111,8 +111,6 @@ def get_config() -> ml_collections.ConfigDict:
 
     # Directory config
     config.checkpoint_dir = "./data/ckpt"
-    config.restore_path = (
-        "data/ckpt/models/latest/step_333_2021-12-08T14:18:15"
-    )
+    config.restore_path = None
 
     return config

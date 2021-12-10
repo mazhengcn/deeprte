@@ -35,7 +35,7 @@ class RTESupervised(BaseModel):
 
         return loss, {
             "mse": loss,
-            "prmse": 100.0 * jnp.sqrt(loss / jnp.mean(labels ** 2)),
+            "rmspe": jnp.sqrt(loss / jnp.mean(labels ** 2)),
         }
 
     def metrics(
@@ -53,7 +53,7 @@ class RTESupervised(BaseModel):
             predictions, labels, axis=-1
         ) / jnp.mean(labels ** 2)
 
-        return {"prmse": relative_mse}
+        return {"rmspe": relative_mse}
 
 
 class RTEUnsupervised(BaseModel):

@@ -15,12 +15,12 @@ import jax.numpy as jnp
 import ml_collections
 import numpy as np
 import optax
-import tensorflow as tf
 from absl import flags, logging
 from jaxline import experiment, platform
 from jaxline import utils as jl_utils
 
 from deeprte import dataset, optimizers
+from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
 
@@ -30,14 +30,18 @@ OptState = tuple[
 Scalars = Mapping[str, jnp.ndarray]
 
 
-def _log_results(prefix, results):
-    logging_str = ", ".join(
+def _format_logs(prefix, results):
+    # f_list for less verbosity; e.g., "4." instead of
+    # "array(4., dtype=float32)".
+    logging_str = f" - ".join(
         [
-            "{}={:.4f}".format(k, float(results[k]))
+            f"{k}: {results[k]:.2%}"
+            if k[-2:] == "pe"
+            else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
-    logging.info("%s: %s", prefix, logging_str)
+    logging.info(f"{prefix} - {logging_str}")
 
 
 class Solver(experiment.AbstractExperiment):
@@ -224,7 +228,7 @@ class Solver(experiment.AbstractExperiment):
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
             logging.info(
-                f"Net parameters: {num_params / jax.local_device_count()}"
+                f"Net parameters: {num_params // jax.local_device_count():d}"
             )
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
@@ -293,14 +297,15 @@ class Solver(experiment.AbstractExperiment):
             lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
         )
 
-        # End time for measure running time
+        # End time for measuring running time
         time_sec = time.time() - start_time
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
 
-        logging.info(
-            f"[Evaluation at step {global_step_value} takes {time_sec}], Eval metrics: {metrics}"
+        _format_logs(
+            f"[Eval at step {global_step_value} takes {time_sec:.2f}s]",
+            metrics,
         )
 
         return metrics
@@ -325,13 +330,18 @@ class Solver(experiment.AbstractExperiment):
                     jnp.add, summed_metrics, metrics
                 )
 
+        # Compute mean_metrics
         mean_metrics = jax.tree_map(lambda x: x / num_examples, summed_metrics)
-        # Format as percentage of sqrt for some metrics.
-        for k, v in mean_metrics.items():
-            if "pr" in k:
-                mean_metrics[k] = jnp.sqrt(v) * 100.0
 
-        return mean_metrics
+        # Eval metrics dict
+        metrics = {}
+        # Take sqrt if it is squared
+        for k, v in mean_metrics.items():
+            metrics["eval_" + k] = (
+                jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+            )
+
+        return metrics
 
     def _eval_fn(
         self,
@@ -375,7 +385,7 @@ class Solver(experiment.AbstractExperiment):
 
     def _build_eval_input(self) -> Generator[dataset.Batch, None, None]:
         # Split for evaluation
-        split = dataset.Split.VALID
+        split = dataset.Split.TEST
 
         # Global batch size
         global_batch_size = self.config.evaluation.batch_size
@@ -454,20 +464,6 @@ class Solver(experiment.AbstractExperiment):
 
         return dummy_inputs
 
-    def save_final_checkpoint(self, global_step_value: int):
-        # Save final checkpoint.
-        if global_step_value == FLAGS.config.get("training_steps", 1) - 1:
-
-            def f_np(x):
-                return np.array(jax.device_get(jl_utils.get_first(x)))
-
-            np_params = jax.tree_map(f_np, self._params)
-            np_state = jax.tree_map(f_np, self._state)
-            path_npy = FLAGS.config.checkpoint_dir / "checkpoint.npy"
-            with tf.io.gfile.GFile(path_npy, "wb") as fp:
-                np.save(fp, (np_params, np_state))
-            logging.info(f"Saved final checkpoint at {path_npy}")
-
 
 def _get_step_date_label(global_step):
     # Date removing microseconds.
@@ -531,17 +527,25 @@ def _save_state_from_in_memory_checkpointer(
             state_dict[key] = jl_utils.get_first(
                 getattr(pickle_nest["experiment_module"], attribute)
             )
+
+        # Saving directory
         save_dir = (
             save_path / checkpoint_name / _get_step_date_label(global_step)
         )
 
+        # Save params and states in a dill file
         python_state_path = save_dir / "checkpoint.dill"
         save_dir.mkdir(parents=True, exist_ok=True)
         with open(python_state_path, "wb") as f:
             dill.dump(state_dict, f)
 
+        # Save flat params separately
+        numpy_params_path = save_dir / "params.npz"
+        flat_np_params = to_flat_dict(state_dict["params"])
+        np.savez(numpy_params_path, **flat_np_params)
+
         logging.info(
-            f'Saved "{checkpoint_name}" checkpoint to {python_state_path}'
+            f'Saved "{checkpoint_name}" checkpoint and flat numpy params under {save_dir}.'
         )
 
 
