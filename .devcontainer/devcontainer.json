@@ -37,7 +37,7 @@
   ],
 
   // Bind working directory.
-  "workspaceMount": "source=~/repos/deeprte,target=/workspaces/deeprte,type=bind",
+  "workspaceMount": "source=/home/zheng/repos/deeprte,target=/workspaces/deeprte,type=bind",
 
   // Default working directory
   "workspaceFolder": "/workspaces/deeprte",
