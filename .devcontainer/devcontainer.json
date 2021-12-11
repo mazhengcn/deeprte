@@ -37,15 +37,15 @@
   ],
 
   // Bind working directory.
-  "workspaceMount": "type=bind,consistency=cached,src=/home/zheng/repos/deeprte,dst=/workspace/deeprte",
+  "workspaceMount": "source=~/repos/deeprte,target=/workspaces/deeprte,type=bind",
+
+  // Default working directory
+  "workspaceFolder": "/workspaces/deeprte",
 
   // Volume mount data folder.
   "mounts": [
-    "type=volume,src=rte_data,target=${containerWorkspaceFolder}/data"
+    "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
   ],
-
-  // Default working directory
-  "workspaceFolder": "/workspace/deeprte",
 
   // Keep container running after disconnect.
   "shutdownAction": "none"
