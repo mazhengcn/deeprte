@@ -287,24 +287,23 @@ class Solver(experiment.AbstractExperiment):
         if not self._evaluating:
             self._initialize_evaluation()
 
-        # Current time
-        start_time = time.time()
+        # Get global step value on the first device for logging.
+        global_step_value = jl_utils.get_first(global_step)
+        logging.info(
+            f"Running evaluation at global_step {global_step_value}..."
+        )
 
+        t_0 = time.time()
         # Run evaluation for an epoch
         metrics = self._eval_epoch(self._params, self._state, rng)
         # Covert jnp.ndarry to list to have less verbose.
         metrics = jax.tree_map(
             lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
         )
-
-        # End time for measuring running time
-        time_sec = time.time() - start_time
-
-        # Get global step value on the first device for logging.
-        global_step_value = jl_utils.get_first(global_step)
+        t_diff = time.time() - t_0
 
         _format_logs(
-            f"[Eval at step {global_step_value} takes {time_sec:.2f}s]",
+            f"(Evaluation time {t_diff:.1f}s, global_step {global_step_value})",
             metrics,
         )
 

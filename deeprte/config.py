@@ -35,7 +35,7 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 2
+    num_epochs = 4000
     train_batch_size = 10
 
     steps_from_epochs = functools.partial(
@@ -59,7 +59,6 @@ def get_config() -> ml_collections.ConfigDict:
 
     # Model config
     model_ctor = rte.RTESupervised
-    model_config = CONFIG.model
 
     # Solver config
     config.experiment_kwargs = ml_collections.ConfigDict(
@@ -88,16 +87,7 @@ def get_config() -> ml_collections.ConfigDict:
                     optimizer="adam",
                     adam_kwargs={},
                 ),
-                evaluation=dict(
-                    batch_size=test_batch_size,
-                    # If `interval` is positive, synchronously evaluate at
-                    # regular intervals. Setting it to zero will not evaluate
-                    # while training, unless `--jaxline_mode` is set to
-                    # `train_eval_multithreaded`, which asynchronously
-                    # evaluates checkpoints.
-                    # interval=steps_from_epochs(10),
-                    # interval=0,
-                ),
+                evaluation=dict(batch_size=test_batch_size),
             )
         )
     )
@@ -105,12 +95,22 @@ def get_config() -> ml_collections.ConfigDict:
     # Global config
     config.training_steps = num_steps
     config.interval_type = "steps"
-    config.save_checkpoint_interval = steps_from_epochs(1)
+    config.save_checkpoint_interval = steps_from_epochs(40)
     config.log_tensors_interval = steps_from_epochs(1)
-    config.log_train_data_interval = steps_from_epochs(1)
+    config.log_train_data_interval = steps_from_epochs(2)
+
+    # If true, run evaluate() on the experiment once before you load a checkpoint.
+    # This is useful for getting initial values of metrics at random weights, or
+    # when debugging locally if you do not have any train job running.
+    config.eval_initial_weights = False
+
+    # Seed for the RNGs (default is 42).
+    config.random_seed = 23
 
     # Directory config
     config.checkpoint_dir = "./data/ckpt"
     config.restore_path = None
+
+    config.lock()
 
     return config
