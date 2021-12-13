@@ -314,14 +314,14 @@ def convert_dataset(
 
     data = np.load(data_path, allow_pickle=True)
 
-    if data_path.suffix == "npy":
+    if data_path.suffix == ".npy":
         data = data.item()
     # Load reference solutions, boundary functions and sigmas
     phi = data["list_Phi"]  # [B, I, J]
     # print(data["list_Psi"].shape)
     psi = data["list_Psi"]  # [B, I, J, M]
     # print(data["list_psiR"].shape)
-    psi_bc = np.swapaxes(data["list_psiR"], -2, -1)  # [B, I'*J', M']
+    psi_bc = np.swapaxes(data["list_psiL"], -2, -1)  # [B, I'*J', M']
 
     sigma_t = data["list_sigma_T"]  # [B, I, J]
     sigma_a = data["list_sigma_a"]  # [B, I, J]
@@ -355,8 +355,8 @@ def convert_dataset(
     r = np.stack(np.meshgrid(x, y, indexing="ij"), axis=-1)  # [I, J, 2]
     converted_data["grid"].update({"r": r})
 
-    # on right the boundary
-    vx_prime, vy_prime = vx[vx < 0], vy[vx < 0]  # [M', 1]
+    # on left the boundary
+    vx_prime, vy_prime = vx[vx > 0], vy[vx > 0]  # [M', 1]
     rvx_prime = np.stack(
         np.meshgrid(y, vx_prime, indexing="ij"), axis=-1
     )  # [I'*J', M', 2]
@@ -365,7 +365,7 @@ def convert_dataset(
     )  # [I'*J', M', 2]
     rv_prime = np.concatenate(
         (
-            np.ones_like(rvx_prime[..., 0:1]),
+            np.zeros_like(rvx_prime[..., 0:1]),
             rvx_prime[..., 0:1],
             rvx_prime[..., 1:2],
             rvy_prime[..., 1:2],
@@ -373,16 +373,18 @@ def convert_dataset(
         axis=-1,
     )  # [I'*J', M', 4]
     w_prime = (
-        2 * (1 / (nx + 1)) * w_angle[vx[:, 0] < 0] * np.ones_like(y)[:, None]
+        2 * (1 / (nx + 1)) * w_angle[vx[:, 0] > 0] * np.ones_like(y)[:, None]
     )  # [I'*J', M']
 
     converted_data["grid"].update({"rv_prime": rv_prime, "w_prime": w_prime})
 
     # Save converted dataset
     if save_npz:
+        npz_path = data_path.with_name(data_path.stem + "_converted")
         np.savez(
-            data_path.with_name(data_path.stem + "_converted"),
+            npz_path,
             **to_flat_dict(converted_data, sep="/"),
         )
+        logging.info(f"Saved converted dataset {npz_path}.")
 
     return converted_data
