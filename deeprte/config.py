@@ -10,8 +10,8 @@ from deeprte.models import rte
 N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
 
-def get_steps_from_epochs(batch_size, num_epochs):
-    return max(int(num_epochs * N_TRAIN_EXAMPLES // batch_size), 1)
+def get_steps_from_epochs(batch_size, num_epochs, repeat=1):
+    return max(int(repeat * num_epochs * N_TRAIN_EXAMPLES // batch_size), 1)
 
 
 CONFIG = ml_collections.ConfigDict(
@@ -35,11 +35,12 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 4000
+    num_epochs = 2000
     train_batch_size = 10
+    repeat = 4
 
     steps_from_epochs = functools.partial(
-        get_steps_from_epochs, train_batch_size
+        get_steps_from_epochs, train_batch_size, repeat=repeat
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
@@ -75,7 +76,7 @@ def get_config() -> ml_collections.ConfigDict:
                     collocation_sizes=500,
                     num_epochs=num_epochs,
                     num_train_examples=N_TRAIN_EXAMPLES,
-                    repeat=1,
+                    repeat=repeat,
                 ),
                 optimizer=dict(
                     base_lr=1e-3,
@@ -103,12 +104,13 @@ def get_config() -> ml_collections.ConfigDict:
     # This is useful for getting initial values of metrics at random weights, or
     # when debugging locally if you do not have any train job running.
     config.eval_initial_weights = False
+    # config.one_off_evaluate = True
 
     # Seed for the RNGs (default is 42).
     config.random_seed = 23
 
     # Directory config
-    config.checkpoint_dir = "./data/ckpt"
+    config.checkpoint_dir = "data/ckpt_bc_delta_funcs"
     config.restore_path = None
 
     config.lock()
