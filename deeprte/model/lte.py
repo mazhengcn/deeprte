@@ -5,12 +5,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from deeprte.base_model import BaseModel
-from deeprte.integrate import quad
+from deeprte.model.base import Model
+from deeprte.model.integrate import quad
 from deeprte.typing import Data, Losses
 
 
-class LinearTransport1D(BaseModel):
+class LinearTransport1D(Model):
     """Equation configurations container."""
 
     def __init__(self, num_vquads, kn=1.0, name="linear_transport"):

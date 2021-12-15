@@ -11,7 +11,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from absl import logging
 
-from deeprte.typing import F
+from deeprte.model.modules import F
 from deeprte.utils import flat_dict_to_rte_data, to_flat_dict
 
 Batch = Mapping[str, np.ndarray]
