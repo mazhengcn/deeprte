@@ -4,8 +4,8 @@ import ml_collections
 from jaxline import base_config
 from ml_collections import config_dict
 
-from deeprte import dataset, solution
-from deeprte.models import rte
+from deeprte import dataset
+from deeprte.model import rte
 
 N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
@@ -55,7 +55,7 @@ def get_config() -> ml_collections.ConfigDict:
     )
 
     # Solution config
-    solution_ctor = solution.RTEOperator
+    solution_ctor = rte.RTEOperator
     solution_config = CONFIG.rte_operator
 
     # Model config

@@ -3,7 +3,7 @@ from typing import Optional
 
 import jax.numpy as jnp
 
-from deeprte import mapping
+from deeprte.model import mapping
 
 
 def quad(

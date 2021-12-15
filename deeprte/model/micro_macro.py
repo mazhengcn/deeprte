@@ -5,12 +5,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from deeprte.base_model import BaseModel
-from deeprte.integrate import quad
+from deeprte.model.base import Model
+from deeprte.model.integrate import quad
 from deeprte.typing import Data, Losses
 
 
-class MicroMacro1D(BaseModel):
+class MicroMacro1D(Model):
     """Equation configurations container."""
 
     def __init__(

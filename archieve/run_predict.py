@@ -5,8 +5,8 @@ import ml_collections
 import numpy as np
 from absl import app
 
-from deeprte.models.rte_op import RTEOperator
-from deeprte.modules import GreenFunction
+from deeprte.model.modules import GreenFunction
+from deeprte.model.rte_op import RTEOperator
 from deeprte.typing import GraphOfMapping
 from deeprte.utils import get_model_haiku_params
 

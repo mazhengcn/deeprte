@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Union
+from typing import Any
 
 import jax.numpy as jnp
 
@@ -9,10 +9,3 @@ Logs = Mapping[str, jnp.float32]
 State = Mapping[str, Any]
 Metric = Mapping[str, Any]
 Losses = Mapping[str, jnp.ndarray]
-
-
-class F(NamedTuple):
-    """Graph of a function (x, y=f(x)) as a namedtuple."""
-
-    x: Union[jnp.float32, jnp.ndarray] = None
-    y: jnp.ndarray = 0

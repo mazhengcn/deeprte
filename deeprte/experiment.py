@@ -44,7 +44,7 @@ def _format_logs(prefix, results):
     logging.info(f"{prefix} - {logging_str}")
 
 
-class Solver(experiment.AbstractExperiment):
+class RTExperiment(experiment.AbstractExperiment):
     """RTE solver."""
 
     # A map from object properties that will be checkpointed to their name
@@ -483,10 +483,10 @@ def _restore_state_to_in_memory_checkpointer(restore_path):
 
     # Assign state to a dummy experiment instance for the in-memory checkpointer,
     # broadcasting to devices.
-    dummy_solver = Solver(
+    dummy_solver = RTExperiment(
         mode="train", init_rng=0, config=FLAGS.config.experiment_kwargs.config
     )
-    for attribute, key in Solver.CHECKPOINT_ATTRS.items():
+    for attribute, key in RTExperiment.CHECKPOINT_ATTRS.items():
         setattr(
             dummy_solver,
             attribute,
