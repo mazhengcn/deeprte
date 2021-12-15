@@ -37,12 +37,6 @@
     "seccomp=unconfined"
   ],
 
-  // Bind working directory.
-  // "workspaceMount": "source=/home/zheng/repos/deeprte,target=/workspaces/deeprte,type=bind",
-
-  // Default working directory
-  // "workspaceFolder": "/workspaces/deeprte",
-
   // Volume mount data folder.
   "mounts": [
     "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
