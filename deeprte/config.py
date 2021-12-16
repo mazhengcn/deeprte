@@ -1,3 +1,4 @@
+import datetime
 import functools
 
 import ml_collections
@@ -28,6 +29,11 @@ CONFIG = ml_collections.ConfigDict(
         "model": {},
     }
 )
+
+
+def _get_date_label(prefix):
+    data_str = datetime.datetime.now().isoformat().split(".")[0]
+    return f"{prefix}_ckpt_{data_str}"
 
 
 def get_config() -> ml_collections.ConfigDict:
@@ -110,7 +116,7 @@ def get_config() -> ml_collections.ConfigDict:
     config.random_seed = 23
 
     # Directory config
-    config.checkpoint_dir = "data/ckpt_bc_delta_funcs"
+    config.checkpoint_dir = _get_date_label("data/delta_bcs")
     config.restore_path = None
 
     config.lock()
