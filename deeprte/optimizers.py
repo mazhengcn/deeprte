@@ -36,8 +36,10 @@ def get_learning_rate_schedule(
             init_value=base_lr, boundaries_and_scales=boundaries_and_scales
         )
     elif schedule_type == "exponential":
-        transition_steps = optimizer_config.exp_decay_kwargs.transition_steps
-        decay_rate = optimizer_config.exp_decay_kwargs.decay_rate
+        transition_steps = (
+            optimizer_config.exponential_decay_kwargs.transition_steps
+        )
+        decay_rate = optimizer_config.exponential_decay_kwargs.decay_rate
         schedule_fn = optax.exponential_decay(
             init_value=base_lr,
             transition_steps=transition_steps,
