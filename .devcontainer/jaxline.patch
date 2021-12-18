@@ -59,7 +59,7 @@
 
 
 --- jaxline/utils.py
-+++ jaxlineutils.py
++++ jaxline/utils.py
 @@ -328,7 +328,7 @@
  def host_id_devices_for_rng(mode="unique_host_unique_device"):
    if not DistributedRNGMode(mode).unique_host:

@@ -1,18 +1,11 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.205.2/containers/python-3
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/python-3
 {
   // Dev container's name.
   "name": "deeprte-dev",
 
   // Dockerfile and build args.
-  "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      // Update 'VARIANT' to pick a CUDA version: 11.1, 11.2, 11.3, 11.4.
-      // Append -3.6, -3.7, -3.8, -3.9, etc. to pin a Python version.
-      "VARIANT": "11.4-3.9"
-    }
-  },
+  "build": { "dockerfile": "Dockerfile", "args": { "VARIANT": "11.4-3.9" } },
 
   // Set *default* container specific settings.json values on container create.
   "settings": {
