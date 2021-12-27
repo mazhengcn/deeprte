@@ -1,6 +1,6 @@
 # [Choice] CUDA and Python version: 11.4-3.9
-ARG VARIANT=11.4-3.9
-FROM zhengma/cuda-python:${VARIANT}
+ARG VARIANT=3.9-11.4
+FROM zhengma/python-3-cuda:${VARIANT}
 
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
 COPY requirements-dev.txt jaxline.patch /tmp/pip-tmp/
