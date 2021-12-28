@@ -15,9 +15,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import dataset, optimizers
 
-OptState = tuple[
-    optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
-]
+OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jnp.ndarray]
 
 
@@ -26,9 +24,7 @@ def _format_logs(prefix, results):
     # "array(4., dtype=float32)".
     logging_str = f" - ".join(
         [
-            f"{k}: {results[k]:.2%}"
-            if k[-2:] == "pe"
-            else f"{k}: {results[k]}"
+            f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
@@ -128,9 +124,7 @@ class Experiment(experiment.AbstractExperiment):
         # Gradient function w.r.t. params
         grad_fn = jax.grad(self._loss, has_aux=True)
         # Compute loss and gradients.
-        scaled_grads, (loss_scalars, state) = grad_fn(
-            params, state, rng, batch
-        )
+        scaled_grads, (loss_scalars, state) = grad_fn(params, state, rng, batch)
         grads = jax.lax.psum(scaled_grads, axis_name="i")
 
         # Grab the learning rate to log before performing the step.
@@ -271,9 +265,7 @@ class Experiment(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(
-        self, global_step, rng: jnp.ndarray, **unused_args
-    ) -> Scalars:
+    def evaluate(self, global_step, rng: jnp.ndarray, **unused_args) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
