@@ -1,6 +1,4 @@
 import collections
-import io
-import pathlib
 from typing import Mapping
 
 import haiku as hk

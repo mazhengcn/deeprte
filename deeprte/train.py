@@ -1,7 +1,7 @@
 import functools
 import os
 
-from absl import flags
+from absl import app, flags
 from jaxline import platform
 
 from deeprte.checkpoint import (
@@ -9,6 +9,7 @@ from deeprte.checkpoint import (
     save_state_from_in_memory_checkpointer,
     setup_signals,
 )
+from deeprte.experiment import Experiment
 
 FLAGS = flags.FLAGS
 
@@ -36,3 +37,8 @@ def main(experiment_class, argv):
         platform.main(experiment_class, argv)
     finally:
         save_model_fn()  # Save at the end of training or in case of exception.
+
+
+if __name__ == "__main__":
+    flags.mark_flag_as_required("config")
+    app.run(functools.partial(main, Experiment))
