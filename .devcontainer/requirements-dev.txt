@@ -5,7 +5,8 @@ matplotlib
 
 # Tensorflow cpu version
 tensorflow_datasets
-tensorflow-cpu
+# tensorflow-cpu
+tf-nightly-cpu
 
 # Install jax and jaxlib
 jax==0.2.26
