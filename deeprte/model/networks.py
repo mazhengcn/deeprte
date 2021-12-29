@@ -1,6 +1,5 @@
 import numbers
 from collections.abc import Callable, Iterable, Sequence
-from typing import Union
 
 import haiku as hk
 import jax
@@ -50,7 +49,7 @@ class Linear(hk.Module):
 
     def __init__(
         self,
-        num_output: Union[int, Sequence[int]],
+        num_output: int | Sequence[int],
         initializer: str = "linear",
         num_input_dims: int = 1,
         use_bias: bool = True,
@@ -115,9 +114,7 @@ class Linear(hk.Module):
             f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
         )
 
-        output = jnp.einsum(
-            equation, inputs, weights, precision=self.precision
-        )
+        output = jnp.einsum(equation, inputs, weights, precision=self.precision)
 
         if self.use_bias:
             bias = hk.get_parameter(
@@ -134,7 +131,7 @@ class Linear(hk.Module):
 class MLP(hk.Module):
     def __init__(
         self,
-        output_sizes: Union[Iterable[int], Iterable[Sequence[int]]],
+        output_sizes: Iterable[int] | Iterable[Sequence[int]],
         initializer: str = "linear",
         squeeze_output: bool = True,
         num_input_dims: int = 1,

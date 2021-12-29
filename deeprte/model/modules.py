@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Optional
 
 import haiku as hk
 import jax
@@ -12,7 +12,7 @@ from deeprte.model.networks import MLP
 class F(NamedTuple):
     """Graph of a function (x, y=f(x)) as a namedtuple."""
 
-    x: Union[jnp.float32, jnp.ndarray] = None
+    x: jnp.float32 | jnp.ndarray = None
     y: jnp.ndarray = 0
 
 
