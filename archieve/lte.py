@@ -5,9 +5,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from deeprte.deeprte_typings import Data, Losses
 from deeprte.model.base import Model
 from deeprte.model.integrate import quad
-from deeprte.typing import Data, Losses
 
 
 class LinearTransport1D(Model):
