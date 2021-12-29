@@ -3,7 +3,6 @@ from __future__ import annotations
 import enum
 import pathlib
 from collections.abc import Generator, Mapping, Sequence
-from typing import Union
 
 import jax
 import numpy as np
@@ -59,7 +58,7 @@ class Split(enum.Enum):
 
 
 def load(
-    data_path: Union[str, pathlib.Path],
+    data_path: str | pathlib.Path,
     split: Split,
     is_training: bool,
     # batch_sizes should be:
@@ -69,10 +68,10 @@ def load(
     # collocation_sizes should be:
     # total_collocation_size or
     # [residual_size, boundary_size, quadrature_size]
-    collocation_sizes: Union[int, Sequence[int], None],
+    collocation_sizes: int | Sequence[int] | None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    repeat: Union[int, None] = 1,
+    repeat: int | None = 1,
     # shuffle buffer size
     buffer_size: int = 5_000,
     # Dataset options
@@ -131,8 +130,8 @@ def load(
 
 def sample_from_dataset(
     dataset: tf.data.Dataset,
-    collocation_sizes: Union[int, Sequence[int]],
-    total_grid_sizes: Union[int, Sequence[int]],
+    collocation_sizes: int | Sequence[int],
+    total_grid_sizes: int | Sequence[int],
     sampler: str = "uniform",
     seed: int = jax.process_index(),
 ):
@@ -213,7 +212,7 @@ def slice_inputs(indices_dataset: tf.data.Dataset, inputs: tf.data.Dataset):
 
 
 def _repeat_batch(
-    batch_sizes: Union[int, Sequence[int]],
+    batch_sizes: int | Sequence[int],
     ds: tf.data.Dataset,
     repeat: int = 1,
 ) -> tf.data.Dataset:
@@ -238,7 +237,7 @@ def _repeat_batch(
 
 
 def _load_and_split_dataset(
-    path_npz: Union[str, pathlib.Path], split: Split, end: int, from_: int = 0
+    path_npz: str | pathlib.Path, split: Split, end: int, from_: int = 0
 ) -> tuple[tuple[tf.data.Dataset, Mapping[str, np.ndarray]], Split]:
 
     if not isinstance(path_npz, pathlib.Path):

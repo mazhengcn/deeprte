@@ -1,7 +1,6 @@
 import functools
 import time
 from collections.abc import Generator, Mapping, Sequence
-from typing import Union
 
 import haiku as hk
 import jax
@@ -412,7 +411,7 @@ class Experiment(experiment.AbstractExperiment):
         split: dataset.Split,
         is_training: bool,
         batch_sizes: Sequence[int],
-        collocation_sizes: Union[int, Sequence[int]],
+        collocation_sizes: int | Sequence[int],
         repeat: int,
     ) -> Generator[dataset.Batch, None, None]:
         """Wrapper for dataset loading."""

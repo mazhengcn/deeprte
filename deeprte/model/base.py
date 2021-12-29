@@ -1,12 +1,10 @@
 import abc
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Optional
 
 import haiku as hk
 import jax.numpy as jnp
 from ml_collections import ConfigDict
-
-from deeprte.typing import Data, Logs
 
 TemplateFn = Callable[..., Any]
 
@@ -16,14 +14,17 @@ class Model(object, metaclass=abc.ABCMeta):
     At least the `self.loss` method should be implemented.
     """
 
-    def __init__(self, name: Optional[str]) -> None:
+    def __init__(self, name: Optional[str]):
         self._loss_fn = None
         self._regs = None
 
     @abc.abstractmethod
     def loss(
-        self, fun, batch: Data, rng: Optional[jnp.ndarray] = None
-    ) -> tuple[jnp.float32, Logs]:
+        self,
+        fun,
+        batch: Mapping[str, jnp.ndarray],
+        rng: Optional[jnp.ndarray] = None,
+    ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
         pass
 
     @abc.abstractmethod
