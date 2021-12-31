@@ -1,3 +1,18 @@
+# Copyright 2022 Zheng Ma
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import datetime
 import functools
 
@@ -41,9 +56,9 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    num_epochs = 2000
+    num_epochs = 10_000
     train_batch_size = 10
-    repeat = 4
+    repeat = 1
 
     steps_from_epochs = functools.partial(
         get_steps_from_epochs, train_batch_size, repeat=repeat
@@ -88,8 +103,9 @@ def get_config() -> ml_collections.ConfigDict:
                     base_lr=1e-3,
                     scale_by_batch=False,
                     schedule_type="constant",
-                    exponential_decay_kwargs=dict(
-                        transition_steps=100, decay_rate=0.96
+                    exp_decay_kwargs=dict(
+                        transition_steps=steps_from_epochs(500),
+                        decay_rate=0.96,
                     ),
                     optimizer="adam",
                     adam_kwargs={},
@@ -106,17 +122,21 @@ def get_config() -> ml_collections.ConfigDict:
     config.log_tensors_interval = steps_from_epochs(1)
     config.log_train_data_interval = steps_from_epochs(2)
 
-    # If true, run evaluate() on the experiment once before you load a checkpoint.
-    # This is useful for getting initial values of metrics at random weights, or
-    # when debugging locally if you do not have any train job running.
-    config.eval_initial_weights = False
-    # config.one_off_evaluate = True
+    # When True, the eval job immediately loads a checkpoint runs evaluate()
+    # once, then terminates.
+    config.one_off_evaluate = False
 
     # Seed for the RNGs (default is 42).
-    config.random_seed = 23
+    config.random_seed = 42
 
     # Directory config
-    config.checkpoint_dir = _get_date_label("data/delta_bcs")
+    train_ckpt_dir = _get_date_label("data/experiments/deltabc_ckpt")
+    eval_ckpt_dir = "data/experiments/example2_eval"
+    config.checkpoint_dir = train_ckpt_dir
+    restore_dir = (
+        "data/experiments/deltabc_ckpt_ckpt_2021-12-24T00:22:08/models/"
+    )
+    # config.restore_path = restore_dir + "latest/step_400000_2021-12-24T03:05:26"
     config.restore_path = None
 
     config.lock()
