@@ -5,7 +5,7 @@
   "name": "deeprte-dev",
 
   // Dockerfile and build args.
-  "build": { "dockerfile": "Dockerfile", "args": { "VARIANT": "3.10-11.4" } },
+  "build": { "dockerfile": "Dockerfile", "args": { "VARIANT": "3.10-11.5" } },
 
   // Set *default* container specific settings.json values on container create.
   "settings": {
@@ -20,12 +20,11 @@
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
 
+  // Forward port for tensorboard server.
+  "forwardPorts": [6006],
+
   // Runtime args.
-  "runArgs": [
-    "--name=deeprte_dev",
-    "--gpus=all",
-    "--shm-size=1g"
-  ],
+  "runArgs": ["--name=deeprte_dev", "--gpus=all", "--shm-size=1g"],
 
   // Volume mount data folder.
   "mounts": [
