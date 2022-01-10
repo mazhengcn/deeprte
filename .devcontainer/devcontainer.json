@@ -24,18 +24,12 @@
   "runArgs": [
     "--name=deeprte_dev",
     "--gpus=all",
-    "--shm-size=1g",
-    "--cap-add=SYS_PTRACE",
-    "--security-opt",
-    "seccomp=unconfined"
+    "--shm-size=1g"
   ],
 
   // Volume mount data folder.
   "mounts": [
-    "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume",
-    // Volume mount to synchronize time with host
-    "source=/etc/timezone,target=/etc/timezone,type=bind,readonly",
-    "source=/etc/localtime,target=/etc/localtime,type=bind,readonly"
+    "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
   ],
 
   // Keep container running after disconnect.
