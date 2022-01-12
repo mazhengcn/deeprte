@@ -16,8 +16,9 @@
 
 import functools
 import os
+import pathlib
 
-from absl import app, flags
+from absl import app, flags, logging
 from jaxline import platform
 
 from deeprte.checkpoint import (
@@ -46,6 +47,13 @@ def main(experiment_class, argv):
             save_state_from_in_memory_checkpointer, save_dir, experiment_class
         )
     setup_signals(save_model_fn)  # Save on Ctrl+C (continue) or Ctrl+\ (exit).
+
+    if FLAGS.jaxline_mode.startswith("train"):
+        if not pathlib.Path(FLAGS.config.checkpoint_dir).exists():
+            pathlib.Path(FLAGS.config.checkpoint_dir).mkdir()
+        logging.get_absl_handler().use_absl_log_file(
+            "train", FLAGS.config.checkpoint_dir
+        )
 
     try:
         platform.main(experiment_class, argv)

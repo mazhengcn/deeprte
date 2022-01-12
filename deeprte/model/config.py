@@ -20,17 +20,23 @@ import copy
 import ml_collections
 
 
-def model_config(name: str) -> ml_collections.ConfigDict:
+def model_config(name: str = "supervised") -> ml_collections.ConfigDict:
+    """Get the ConfigDict of DeepRTE model."""
+
+    if name not in CONFIG_DIFFS:
+        raise ValueError(f"Invalid model name {name}.")
+
     cfg = copy.deepcopy(CONFIG)
+    cfg.update_from_flattened_dict(CONFIG_DIFFS[name])
+
     return cfg
 
 
-MODEL_PRESETS = {"supervised": "model_1_su", "unsupervised": "model_1_unsu"}
-
-CONFIG_DIFFS = {"model_1_su": {}, "model_1_unsu": {}}
+CONFIG_DIFFS = {"supervised": {"model": {}}, "unsupervised": {"model": {}}}
 
 CONFIG = ml_collections.ConfigDict(
     {
+        "data": {},
         "rte_operator": {
             "green_function": {
                 "green_function_mlp": {"widths": [128, 128, 128, 128, 1]},
@@ -38,7 +44,8 @@ CONFIG = ml_collections.ConfigDict(
                     "attention_net": {"widths": [64, 1]},
                     "pointwise_mlp": {"widths": [64, 2]},
                 },
-            }
+            },
+            "activation": "gelu",
         },
         "model": {},
     }

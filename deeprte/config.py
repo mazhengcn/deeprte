@@ -22,28 +22,13 @@ from ml_collections import config_dict
 
 from deeprte import dataset
 from deeprte.model import rte
+from deeprte.model.config import model_config
 
 N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
 
 def get_steps_from_epochs(batch_size, num_epochs, repeat=1):
     return max(int(repeat * num_epochs * N_TRAIN_EXAMPLES // batch_size), 1)
-
-
-CONFIG = ml_collections.ConfigDict(
-    {
-        "rte_operator": {
-            "green_function": {
-                "green_function_mlp": {"widths": [128, 128, 128, 128, 1]},
-                "coefficient_net": {
-                    "attention_net": {"widths": [64, 1]},
-                    "pointwise_mlp": {"widths": [64, 2]},
-                },
-            }
-        },
-        "model": {},
-    }
-)
 
 
 def _get_date_label(prefix):
@@ -56,6 +41,7 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
+    # num_epochs = 10_000
     num_epochs = 10_000
     train_batch_size = 10
     repeat = 1
@@ -75,9 +61,10 @@ def get_config() -> ml_collections.ConfigDict:
         max_intra_op_parallelism=1,
     )
 
+    model_cfg = model_config()
     # Solution config
     solution_ctor = rte.RTEOperator
-    solution_config = CONFIG.rte_operator
+    solution_config = model_cfg.rte_operator
 
     # Model config
     model_ctor = rte.RTESupervised
@@ -130,14 +117,9 @@ def get_config() -> ml_collections.ConfigDict:
     config.random_seed = 42
 
     # Directory config
-    train_ckpt_dir = _get_date_label("data/experiments/deltabc_ckpt")
-    eval_ckpt_dir = "data/experiments/example2_eval"
-    config.checkpoint_dir = train_ckpt_dir
-    restore_dir = (
-        "data/experiments/deltabc_ckpt_ckpt_2021-12-24T00:22:08/models/"
-    )
-    # config.restore_path = restore_dir + "latest/step_400000_2021-12-24T03:05:26"
-    config.restore_path = None
+    # Should be set in the shell scripts
+    config.checkpoint_dir = ""
+    config.restore_path = ""
 
     config.lock()
 
