@@ -1,4 +1,4 @@
---- jaxline/train.py
+--- jaxline.orig/train.py
 +++ jaxline/train.py
 @@ -27,15 +27,26 @@
  from absl import logging
@@ -58,8 +58,8 @@
                           f"as {config.best_model_eval_metric}, but this key "
 
 
---- jaxline/utils.py
-+++ jaxlineutils.py
+--- jaxline.orig/utils.py
++++ jaxline/utils.py
 @@ -328,7 +328,7 @@
  def host_id_devices_for_rng(mode="unique_host_unique_device"):
    if not DistributedRNGMode(mode).unique_host:

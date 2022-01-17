@@ -1,18 +1,11 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.205.2/containers/python-3
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/python-3
 {
   // Dev container's name.
   "name": "deeprte-dev",
 
   // Dockerfile and build args.
-  "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      // Update 'VARIANT' to pick a CUDA version: 11.1, 11.2, 11.3, 11.4.
-      // Append -3.6, -3.7, -3.8, -3.9, etc. to pin a Python version.
-      "VARIANT": "11.4-3.9"
-    }
-  },
+  "build": { "dockerfile": "Dockerfile", "args": { "VARIANT": "3.10-11.5" } },
 
   // Set *default* container specific settings.json values on container create.
   "settings": {
@@ -22,20 +15,21 @@
   },
 
   // Add the IDs of extensions you want installed when the container is created.
-  "extensions": ["ms-python.python", "ms-python.vscode-pylance"],
+  "extensions": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "esbenp.prettier-vscode",
+    "eamodio.gitlens"
+  ],
 
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
 
+  // Forward port for tensorboard server.
+  "forwardPorts": [6006],
+
   // Runtime args.
-  "runArgs": [
-    "--name=deeprte_dev",
-    "--gpus=all",
-    "--shm-size=1g",
-    "--cap-add=SYS_PTRACE",
-    "--security-opt",
-    "seccomp=unconfined"
-  ],
+  "runArgs": ["--name=deeprte_dev", "--gpus=all", "--shm-size=1g"],
 
   // Volume mount data folder.
   "mounts": [

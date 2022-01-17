@@ -1,6 +1,20 @@
+# Copyright 2022 Zheng Ma
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import numbers
 from collections.abc import Callable, Iterable, Sequence
-from typing import Union
 
 import haiku as hk
 import jax
@@ -50,7 +64,7 @@ class Linear(hk.Module):
 
     def __init__(
         self,
-        num_output: Union[int, Sequence[int]],
+        num_output: int | Sequence[int],
         initializer: str = "linear",
         num_input_dims: int = 1,
         use_bias: bool = True,
@@ -115,9 +129,7 @@ class Linear(hk.Module):
             f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
         )
 
-        output = jnp.einsum(
-            equation, inputs, weights, precision=self.precision
-        )
+        output = jnp.einsum(equation, inputs, weights, precision=self.precision)
 
         if self.use_bias:
             bias = hk.get_parameter(
@@ -134,7 +146,7 @@ class Linear(hk.Module):
 class MLP(hk.Module):
     def __init__(
         self,
-        output_sizes: Union[Iterable[int], Iterable[Sequence[int]]],
+        output_sizes: Iterable[int] | Iterable[Sequence[int]],
         initializer: str = "linear",
         squeeze_output: bool = True,
         num_input_dims: int = 1,

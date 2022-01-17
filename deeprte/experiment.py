@@ -1,7 +1,21 @@
+# Copyright 2022 Zheng Ma
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import functools
 import time
 from collections.abc import Generator, Mapping, Sequence
-from typing import Union
 
 import haiku as hk
 import jax
@@ -15,9 +29,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import dataset, optimizers
 
-OptState = tuple[
-    optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
-]
+OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jnp.ndarray]
 
 
@@ -26,9 +38,7 @@ def _format_logs(prefix, results):
     # "array(4., dtype=float32)".
     logging_str = f" - ".join(
         [
-            f"{k}: {results[k]:.2%}"
-            if k[-2:] == "pe"
-            else f"{k}: {results[k]}"
+            f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
@@ -128,9 +138,7 @@ class Experiment(experiment.AbstractExperiment):
         # Gradient function w.r.t. params
         grad_fn = jax.grad(self._loss, has_aux=True)
         # Compute loss and gradients.
-        scaled_grads, (loss_scalars, state) = grad_fn(
-            params, state, rng, batch
-        )
+        scaled_grads, (loss_scalars, state) = grad_fn(params, state, rng, batch)
         grads = jax.lax.psum(scaled_grads, axis_name="i")
 
         # Grab the learning rate to log before performing the step.
@@ -271,9 +279,7 @@ class Experiment(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(
-        self, global_step, rng: jnp.ndarray, **unused_args
-    ) -> Scalars:
+    def evaluate(self, global_step, rng: jnp.ndarray, **unused_args) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
@@ -420,7 +426,7 @@ class Experiment(experiment.AbstractExperiment):
         split: dataset.Split,
         is_training: bool,
         batch_sizes: Sequence[int],
-        collocation_sizes: Union[int, Sequence[int]],
+        collocation_sizes: int | Sequence[int],
         repeat: int,
     ) -> Generator[dataset.Batch, None, None]:
         """Wrapper for dataset loading."""
