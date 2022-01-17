@@ -5,8 +5,8 @@ matplotlib
 
 # Tensorflow cpu version
 tensorflow_datasets
-tensorflow-cpu
-# tf-nightly-cpu
+# tensorflow-cpu
+tf-nightly-cpu
 
 # Install jax and jaxlib
 jax==0.2.26
@@ -14,7 +14,6 @@ jaxlib==0.1.75+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Install Haiku, Optax
-# git+git://github.com/deepmind/tree
 git+git://github.com/deepmind/dm-haiku
 git+git://github.com/deepmind/optax
 

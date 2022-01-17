@@ -50,5 +50,5 @@ setup(
     packages=find_namespace_packages(exclude=["examples"]),
     package_data={project_name: ["*.txt"]},
     install_requires=install_requires,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )

@@ -16,7 +16,7 @@
 
 import functools
 from collections.abc import Callable, Sequence
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import haiku as hk
 import jax
@@ -77,11 +77,11 @@ def _expand_axes(axes, values, name="sharded_apply"):
 
 def vmap(
     func: Callable,
-    shard_size: Union[int, None] = None,
+    shard_size: int | None = None,
     argnums: frozenset = None,
     excluded: frozenset = None,
-    in_axes: Optional[Union[int, tuple]] = 0,
-    out_axes: Optional[Union[int, tuple]] = 0,
+    in_axes: Optional[int | tuple] = 0,
+    out_axes: Optional[int | tuple] = 0,
     use_hk: Optional[bool] = False,
 ) -> Callable[..., Any]:
 
@@ -112,9 +112,9 @@ def vmap(
 
 def sharded_map(
     func: Callable[..., PYTREE_JAX_ARRAY],
-    shard_size: Union[int, None] = 1,
-    in_axes: Union[int, PYTREE] = 0,
-    out_axes: Union[int, PYTREE] = 0,
+    shard_size: int | None = 1,
+    in_axes: int | PYTREE = 0,
+    out_axes: int | PYTREE = 0,
     use_hk: bool = False,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
     """Sharded vmap.
@@ -141,9 +141,9 @@ def sharded_map(
 
 def sharded_apply(
     fun: Callable[..., PYTREE_JAX_ARRAY],  # pylint: disable=g-bare-generic
-    shard_size: Union[int, None] = 1,
-    in_axes: Union[int, PYTREE] = 0,
-    out_axes: Union[int, PYTREE] = 0,
+    shard_size: int | None = 1,
+    in_axes: int | PYTREE = 0,
+    out_axes: int | PYTREE = 0,
     new_out_axes: bool = False,
     use_hk: bool = False,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:

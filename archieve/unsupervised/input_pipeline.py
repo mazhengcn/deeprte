@@ -2,7 +2,8 @@ from typing import Dict, Mapping
 
 import numpy as np
 import tensorflow as tf
-from deeprte.typing import GraphOfMapping
+
+from deeprte.deeprte_typings import GraphOfMapping
 
 FeatureDict = Mapping[str, np.ndarray]
 
@@ -188,9 +189,7 @@ def create_tf_dataset(
                 GraphOfMapping(xy, batch["sigma"]),
                 GraphOfMapping(quads, w * batch["bc_psi"]),
             ),
-            "label": tf.gather(
-                batch["psi_label"], collocation_indices, axis=1
-            ),
+            "label": tf.gather(batch["psi_label"], collocation_indices, axis=1),
         }
 
     def test_map_fn(batch):
