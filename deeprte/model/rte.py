@@ -51,7 +51,7 @@ class RTEOperator(Solution):
             green_func_module, (psi_bc.x, psi_bc.y), argnum=1, use_hk=True
         )(rv, sigma)
 
-        return 0.15 * sol
+        return sol
 
     def apply(
         self,
