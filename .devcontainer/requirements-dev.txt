@@ -1,7 +1,6 @@
 absl-py
 numpy
 scipy
-matplotlib
 
 # Tensorflow cpu version
 tensorflow_datasets
@@ -9,7 +8,7 @@ tensorflow_datasets
 tf-nightly-cpu
 
 # Install jax and jaxlib
-jax==0.2.26
+jax==0.2.27
 jaxlib==0.1.75+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
