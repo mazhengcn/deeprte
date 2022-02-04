@@ -25,9 +25,6 @@
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
 
-  // Forward port for tensorboard server.
-  "forwardPorts": [6006],
-
   // Runtime args.
   "runArgs": ["--name=deeprte_dev", "--gpus=all", "--shm-size=1g"],
 
