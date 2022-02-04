@@ -11,8 +11,7 @@
   "settings": {
     "python.defaultInterpreterPath": "/usr/local/python/bin/python",
     "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
-    "python.formatting.provider": "black",
-    "python.experiments.optInto": ["pythonInterpreterInfoPinned"]
+    "python.formatting.provider": "black"
   },
 
   // Add the IDs of extensions you want installed when the container is created.
