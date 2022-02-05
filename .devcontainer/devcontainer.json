@@ -19,7 +19,8 @@
     "ms-python.python",
     "ms-python.vscode-pylance",
     "esbenp.prettier-vscode",
-    "eamodio.gitlens"
+    "eamodio.gitlens",
+    "vivaxy.vscode-conventional-commits"
   ],
 
   // Use 'postCreateCommand' to run commands after the container is created.
