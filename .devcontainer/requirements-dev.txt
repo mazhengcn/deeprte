@@ -4,8 +4,7 @@ scipy
 
 # Tensorflow cpu version
 tensorflow_datasets
-# tensorflow-cpu
-tf-nightly-cpu
+tensorflow-cpu>=2.8.0
 
 # Install jax and jaxlib
 jax==0.2.28
