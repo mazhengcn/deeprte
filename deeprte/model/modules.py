@@ -22,14 +22,21 @@ import jax.numpy as jnp
 from ml_collections import ConfigDict
 
 from deeprte.model.mapping import vmap
-from deeprte.model.networks import MLP
+from deeprte.model.networks import MLP, Linear
 
 
-class F(NamedTuple):
-    """Graph of a function (x, y=f(x)) as a namedtuple."""
+class FunctionInputs(NamedTuple):
+    """Graph of the function (x, y=f(x)) as a namedtuple.
+    When initializing with no arguments, returns an object with
+    (x=None, f=0) for handling axes in vmap.
 
-    x: jnp.float32 | jnp.ndarray = None
-    y: jnp.ndarray = 0
+    Attributes:
+        x: a point or a set of points to evaluate the function.
+        f: function values at a point or a set of points.
+    """
+
+    x: None | jnp.float32 | jnp.ndarray = None
+    f: int | jnp.ndarray = 0
 
 
 class GreenFunctionNet(hk.Module):
@@ -45,7 +52,10 @@ class GreenFunctionNet(hk.Module):
         self.config = config
 
     def __call__(
-        self, r: jnp.ndarray, r_prime: jnp.ndarray, coefficient_fn: F
+        self,
+        r: jnp.ndarray,
+        r_prime: jnp.ndarray,
+        coefficient_fn: FunctionInputs,
     ) -> jnp.ndarray:
         """Compute Green's function with coefficient net as inputs.
 
@@ -69,11 +79,15 @@ class GreenFunctionNet(hk.Module):
         # Green's function inputs.
         inputs = jnp.concatenate([r, r_prime, coefficients])
 
+        inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(
+            inputs
+        )
+
         # MLP
-        outputs = MLP(
-            c.green_function_mlp.widths,
-            name="green_function_mlp",
-        )(inputs)
+        outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(
+            inputs
+        )
+
         # Wrap with exponential function to keep it non-negative.
         outputs = jnp.exp(outputs)
 
@@ -90,7 +104,9 @@ class CoefficientNet(hk.Module):
 
         self.config = config
 
-    def __call__(self, r: jnp.ndarray, coefficient_fn: F) -> jnp.ndarray:
+    def __call__(
+        self, r: jnp.ndarray, coefficient_fn: FunctionInputs
+    ) -> jnp.ndarray:
         """Compute coefficients of the equation as the inputs of Green's function.
 
         Args:
@@ -103,32 +119,29 @@ class CoefficientNet(hk.Module):
             Coefficient information at spatial position r.
             Shape (num_coefficients,) or ().
         """
-
         c = self.config
-        coeff_positions, coeff_values = coefficient_fn.x, coefficient_fn.y
+        coeff_positions, coeff_values = coefficient_fn.x, coefficient_fn.f
 
         x, v = r[:2], r[2:]
-        angles_global = v / jnp.sqrt(jnp.sum(v ** 2, axis=-1) + 1e-16)
+        angles_global = v / jnp.sqrt(jnp.sum(v**2, axis=-1) + 1e-16)
         rel_vec = x - coeff_positions
-        rel_dist2 = jnp.sqrt(jnp.sum(rel_vec ** 2, axis=-1) + 1e-16)
+        rel_dist2 = jnp.sqrt(jnp.sum(rel_vec**2, axis=-1) + 1e-16)
 
         positions_local = jnp.matmul(rel_vec, angles_global)
         angles_local = positions_local / (rel_dist2 + 1e-8)
         frames_local = jnp.stack((angles_local, positions_local), axis=-1)
 
-        attn_logits_net = MLP(
-            c.attention_net.widths,
-            name="attention_net",
-        )
+        attn_mod = MLP(c.attention_net.widths, name="attention_net")
 
         def attn_logits_fn(q, k):
             qk = jnp.concatenate([q, k])
-            attn_logits_per_example = attn_logits_net(qk)
+            attn_logits_per_example = attn_mod(qk)
             return attn_logits_per_example
 
         attn_logits = vmap(
             attn_logits_fn, argnums={1}, use_hk=True, out_axes=-1
         )(r, frames_local)
+
         masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)
 
         attn_weights = jax.nn.softmax(masked_attn_logits)
@@ -136,7 +149,4 @@ class CoefficientNet(hk.Module):
         # Take exponential w.r.t to sigma_a
         attn = jnp.exp(-attn)
 
-        # Point-wise MLP
-        coeff_outputs = MLP(c.pointwise_mlp.widths, name="pointwise_mlp")(attn)
-
-        return coeff_outputs
+        return attn
