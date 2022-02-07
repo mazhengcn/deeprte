@@ -15,17 +15,15 @@
 
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 
-
-DATA_PATH="data/rte/rte_2d_bc_delta_funcs_converted.npz"
-
-TIME_STAMP="$(date --iso-8601="seconds")"
+TIMESTAMP="$(date --iso-8601="seconds")"
+DATAPATH="data/train/square_full_1.npz"
 
 python deeprte/train.py \
     --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${DATA_PATH} \
-    --config.experiment_kwargs.config.training.batch_size="40" \
-    --config.checkpoint_dir="data/experiments/bc_delta_${TIME_STAMP%+*}" \
+    --config.experiment_kwargs.config.dataset.data_path=${DATAPATH} \
+    --config.experiment_kwargs.config.training.batch_size="32" \
+    --config.checkpoint_dir="data/experiments/square_full_1_${TIMESTAMP%+*}" \
     --jaxline_mode="train_eval_multithreaded" \
     --alsologtostderr="true"
