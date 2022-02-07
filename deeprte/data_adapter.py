@@ -106,7 +106,7 @@ def get_boundary_grid(
         constant_values=boundary_value,
     )
 
-    pos_weights = delta * np.ones(num_coords)
+    pos_weights = delta * np.ones(num_coords, dtype=np.float32)
     vel_coords = v_coords[inflow_vel_indices]
     vel_weights = v_weights[inflow_vel_indices]
 
