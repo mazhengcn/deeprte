@@ -167,7 +167,7 @@ def mat_to_np_dict(
         x = np.arange(0.0 + 0.5 * dx, 1.0, dx, dtype=np.float32)
         y = np.arange(0.0 + 0.5 * dy, 1.0, dy, dtype=np.float32)
         r_coords = cartesian_product(x[:, None], y[:, None])
-        grid_dict = {"r": r_coords, "v": v_coords, "v_weights": v_weights}
+        grid_dict = {"r": r_coords, "v": v_coords, "w_angle": v_weights}
 
         rv_primes, w_primes = [], []
         for key in mat_data.keys() & BOUNDARY_KEYS.keys():
