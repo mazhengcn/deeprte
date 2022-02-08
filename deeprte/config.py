@@ -51,7 +51,7 @@ def get_config() -> ml_collections.ConfigDict:
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 400
+    test_batch_size = 200
 
     # Datasetconfig.
     dataset_config = dict(
