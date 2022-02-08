@@ -26,6 +26,58 @@ TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
     0.87962566103423978, dtype=np.float32
 )
 
+# TODO: Add residual connection and dropout function for future use.
+def apply_dropout(*, tensor, safe_key, rate, is_training, broadcast_dim=None):
+    """Applies dropout to a tensor."""
+    if is_training and rate != 0.0:
+        shape = list(tensor.shape)
+        if broadcast_dim is not None:
+            shape[broadcast_dim] = 1
+        keep_rate = 1.0 - rate
+        keep = jax.random.bernoulli(safe_key.get(), keep_rate, shape=shape)
+        return keep * tensor / keep_rate
+    else:
+        return tensor
+
+
+def dropout_wrapper(
+    module,
+    input_act,
+    mask,
+    safe_key,
+    global_config,
+    output_act=None,
+    is_training=True,
+    **kwargs,
+):
+    """Applies module + dropout + residual update."""
+    if output_act is None:
+        output_act = input_act
+
+    gc = global_config
+    residual = module(input_act, mask, is_training=is_training, **kwargs)
+    dropout_rate = 0.0 if gc.deterministic else module.config.dropout_rate
+
+    if module.config.shared_dropout:
+        if module.config.orientation == "per_row":
+            broadcast_dim = 0
+        else:
+            broadcast_dim = 1
+    else:
+        broadcast_dim = None
+
+    residual = apply_dropout(
+        tensor=residual,
+        safe_key=safe_key,
+        rate=dropout_rate,
+        is_training=is_training,
+        broadcast_dim=broadcast_dim,
+    )
+
+    new_act = output_act + residual
+
+    return new_act
+
 
 def get_initializer_scale(initializer_name, input_shape):
     """Get Initializer for weights and scale to multiply activations by."""
@@ -55,11 +107,11 @@ def get_initializer_scale(initializer_name, input_shape):
 
 
 class Linear(hk.Module):
-    """Protein folding specific Linear module.
+    """RTE specific Linear module.
 
     This differs from the standard Haiku Linear in a few ways:
-      * It supports inputs and outputs of arbitrary rank
-      * Initializers are specified by strings
+        * It supports inputs and outputs of arbitrary rank
+        * Initializers are specified by strings
     """
 
     def __init__(
@@ -76,14 +128,14 @@ class Linear(hk.Module):
 
         Args:
           num_output: Number of output channels. Can be tuple when outputting
-              multiple dimensions.
+                multiple dimensions.
           initializer: What initializer to use, should be one of
-            {'linear', 'relu','zeros'}
+                {'linear', 'relu','zeros'}
           num_input_dims: Number of dimensions from the end to project.
           use_bias: Whether to include trainable bias
           bias_init: Value used to initialize bias.
           precision: What precision to use for matrix multiplication, defaults
-            to None.
+                to None.
           name: Name of module, used for name scopes.
         """
         super().__init__(name=name)
@@ -144,6 +196,8 @@ class Linear(hk.Module):
 
 
 class MLP(hk.Module):
+    """RTE MLP using specific Linear module."""
+
     def __init__(
         self,
         output_sizes: Iterable[int] | Iterable[Sequence[int]],
