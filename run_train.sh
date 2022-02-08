@@ -15,7 +15,7 @@
 
 set -e
 
-export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0,3,4,5,7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 DATAPATH="data/train/square_full_1.npz"
@@ -23,7 +23,7 @@ DATAPATH="data/train/square_full_1.npz"
 python deeprte/train.py \
     --config=deeprte/config.py \
     --config.experiment_kwargs.config.dataset.data_path=${DATAPATH} \
-    --config.experiment_kwargs.config.training.batch_size="32" \
+    --config.experiment_kwargs.config.training.batch_size="30" \
     --config.checkpoint_dir="data/experiments/square_full_1_${TIMESTAMP%+*}" \
     --jaxline_mode="train_eval_multithreaded" \
     --alsologtostderr="true"
