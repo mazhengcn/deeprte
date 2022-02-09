@@ -12,13 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 set -e
 
 export CUDA_VISIBLE_DEVICES="0,3,4,5,7"
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-DATAPATH="data/train/square_full_1.npz"
+TIMESTAMP=${1:-"$(date --iso-8601="seconds")"}
+DATAPATH=${2:-"data/train/square_full_1.npz"}
 
 python deeprte/train.py \
     --config=deeprte/config.py \

@@ -18,9 +18,8 @@
 # Usage: bash download_rte_datasets.sh /path/to/download/directory
 set -e
 
-DOANLOAD_DIR=${1:-"data/matlab/"}
-
-SERVER_URL="xuzhiqin_02@202.120.13.117"
-REMOTE_DATA_DIR="/cluster/home/xuzhiqin_02/rte_data/"
+SERVER_URL=${1:-"xuzhiqin_02@202.120.13.117"}
+REMOTE_DATA_DIR=${2:-"/cluster/home/xuzhiqin_02/rte_data/"}
+DOANLOAD_DIR=${3:-"data/matlab/"}
 
 rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" ${DOANLOAD_DIR}

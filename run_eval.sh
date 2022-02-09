@@ -12,15 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 set -e
 
 export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
-RESTORE_PATH="data/experiments/rect_delta_bc_r_2022-01-23T22:46:41/models/latest/step_400000_2022-01-24T03:31:39"
-TEST_DATA_PATH="data/experiments/test/rte_example2_converted.npz"
-EVAL_CKPT_DIR="data/experiments/eval"
+RESTORE_PATH=${1:-"data/experiments/rect_delta_bc_r_2022-01-23T22:46:41/models/latest/step_400000_2022-01-24T03:31:39"}
+TEST_DATA_PATH=${2:-"data/experiments/test/rte_example2_converted.npz"}
+EVAL_CKPT_DIR=${3:-"data/experiments/eval"}
 
 python deeprte/train.py \
     --config=deeprte/config.py \
