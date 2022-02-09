@@ -15,8 +15,8 @@
 set -e
 
 SOURCE_DIR=${1:-"data/matlab/"}
-DATAFILES=${2:-"e1_L_delta_2.mat,e1_R_delta_2.mat,e1_B_delta_2.mat,e1_T_delta_2.mat"}
-SAVE_PATH=${3:-"data/train/square_full_2.npz"}
+DATAFILES=${2:-"e1_L_delta_1.mat,e1_R_delta_1.mat,e1_B_delta_1.mat,e1_T_delta_1.mat"}
+SAVE_PATH=${3:-"data/train/square_full_1.npz"}
 
 python deeprte/data_adapter.py \
     --source_dir=${SOURCE_DIR} \
