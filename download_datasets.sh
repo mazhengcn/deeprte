@@ -20,6 +20,6 @@ set -e
 
 SERVER_URL=${1:-"xuzhiqin_02@202.120.13.117"}
 REMOTE_DATA_DIR=${2:-"/cluster/home/xuzhiqin_02/rte_data/"}
-DOANLOAD_DIR=${3:-"data/matlab/"}
+DOWNLOAD_DIR=${3:-"data/matlab/"}
 
-rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" ${DOANLOAD_DIR}
+rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" ${DOWNLOAD_DIR}
