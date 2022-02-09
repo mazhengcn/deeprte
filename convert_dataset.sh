@@ -12,12 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 set -e
 
-SOURCE_DIR="data/matlab/"
-DATAFILES="e1_L_delta_2.mat,e1_R_delta_2.mat,e1_B_delta_2.mat,e1_T_delta_2.mat"
-SAVE_PATH="data/train/square_full_2.npz"
+SOURCE_DIR=${1:-"data/matlab/"}
+DATAFILES=${2:-"e1_L_delta_2.mat,e1_R_delta_2.mat,e1_B_delta_2.mat,e1_T_delta_2.mat"}
+SAVE_PATH=${3:-"data/train/square_full_2.npz"}
 
 python deeprte/data_adapter.py \
     --source_dir=${SOURCE_DIR} \
