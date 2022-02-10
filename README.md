@@ -32,17 +32,17 @@ e1_L_delta_*.mat, e1_R_delta_*.mat, e1_B_delta_*.mat, e1_T_delta_*.mat
 
 which stands for 4 boundary positions (left, right, bottom, top) and other datasets. For each MATLAB dataset, it has the following keys and array shapes
 
-| Key            | Array Shape     | Description                                                           |
-| -------------- | --------------- | --------------------------------------------------------------------- |
-| `list_Psi`     | `[2M, I, J, N]` | $\psi$: numerical solutions as training labels                        |
-| `list_psiL`    | `[M, J, N]`     | $\psi^{-}_{L}$: left boundary values                                  |
-| `list_psiR`    | `[M, J, N]`     | $\psi^{-}_{R}$: right boundary values                                 |
-| `list_psiB`    | `[M, I, N]`     | $\psi^{-}_{B}$: bottom boundary values                                |
-| `list_psiT`    | `[M, I, N]`     | $\psi^{-}_{T}$: top boundary values                                   |
-| `list_sigma_a` | `[I, J, N]`     | $\sigma_a$: absorption coefficient functions                          |
-| `list_sigma_T` | `[I, J, N]`     | $\sigma_T$: total coefficient functions                               |
-| `ct` and `st`  | `[1, M]`        | $v_x$ and $v_y$: discrete coordinates (quadratures) in velocity space |
-| `omega`        | `[1, M]`        | $w$: weights of velocity coordinates                                  |
+| Key            | Array Shape     | Description                                          |
+| -------------- | --------------- | ---------------------------------------------------- |
+| `list_Psi`     | `[2M, I, J, N]` | numerical solutions as training labels               |
+| `list_psiL`    | `[M, J, N]`     | left boundary values                                 |
+| `list_psiR`    | `[M, J, N]`     | right boundary values                                |
+| `list_psiB`    | `[M, I, N]`     | bottom boundary values                               |
+| `list_psiT`    | `[M, I, N]`     | top boundary values                                  |
+| `list_sigma_a` | `[I, J, N]`     | absorption coefficient function                      |
+| `list_sigma_T` | `[I, J, N]`     | total coefficient function                           |
+| `ct` and `st`  | `[1, M]`        | discrete coordinates (quadratures) in velocity space |
+| `omega`        | `[1, M]`        | weights of velocity coordinates                      |
 
 ### Convert datasets
 
@@ -80,13 +80,13 @@ The Numpy dataset will be used for training, testing and evaluating the DeepRTE 
 | ---------------- | --------------- | ------------------------------------------------------------- |
 | `data/psi_label` | `[N, I, J, 2M]` | Label solutions                                               |
 | `data/psi_bc`    | `[N, I*J, M]`   | Boundary values                                               |
-| `data/sigma_t`   | `[N, I, J]`     | $\sigma_t$ values on grid                                     |
-| `data/sigma_a`   | `[N, I, J]`     | $\sigma_a$ values on grid                                     |
-| `data/phi`       | `[N, I, J]`     | $\phi(x)$: density for evaluation only                        |
-| `grid/r`         | `[I, J, d]`     | $r=(x, y)$: position coordinates on the grid                  |
-| `grid/v`         | `[2M, d]`       | $v=(v_x, v_y)$: velocity coordinates (quadratures)            |
+| `data/sigma_t`   | `[N, I, J]`     | total coefficient values on grid                              |
+| `data/sigma_a`   | `[N, I, J]`     | absorption values on grid                                     |
+| `data/phi`       | `[N, I, J]`     | density for evaluation only                                   |
+| `grid/r`         | `[I, J, d]`     | position coordinates on the grid                              |
+| `grid/v`         | `[2M, d]`       | velocity coordinates (quadratures)                            |
 | `grid/w_angle`   | `[2M]`          | Weights (quadratures) associated with velocity coordinates    |
-| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of $r$ and $v$              |
+| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of `r` and `v`              |
 | `grid/w_prime`   | `[I*J, M]`      | Weights (quadratures) associated with phase space coordinates |
 
 **Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of `"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
