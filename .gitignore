@@ -2,7 +2,7 @@
 # .vscode/
 data/
 archive/
-svgs/
+# svgs/
 # notebooks/
 
 # Byte-compiled / optimized / DLL files
