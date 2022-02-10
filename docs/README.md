@@ -1,0 +1,131 @@
+# DeepRTE
+
+## Prepare datasets
+
+### Download datasets
+
+First we need to copy datasets to our `/path/to/project_root` folder and currently the downloaded datasets are MATLAB `.mat` files. You can do this by running the following script:
+
+- Default:
+
+  ```bash
+  ./download_datasets.sh
+  ```
+
+  will download all datasets using `rsync` from directory `/cluster/home/xuzhiqin_02/rte_data/` in host `xuzhiqin_02@202.120.13.117` to `.data/matlab/` (if this dir exists, otherwise you need to create it).
+
+- With custom arguments:
+
+  ```bash
+  ./download_datasets.sh <SERVER_URL> <REMOTE_DATA_DIR> <DOWNLOAD_DIR>
+  ```
+
+  will download datasets from `SERVER_URL:REMOTE_DATA_DIR` to `DOWNLOAD_DIR`.
+
+### MATLAB Datasets
+
+After previous step, you should have your MATLAB datasets in directory `<DOWNLOAD_DIR>`. By defaults, you should see the following datasets:
+
+```bash
+e1_L_delta_*.mat, e1_R_delta_*.mat, e1_B_delta_*.mat, e1_T_delta_*.mat
+```
+
+which stands for 4 boundary positions (left, right, bottom, top) and other datasets. For each MATLAB dataset, it has the following keys and array shapes
+
+| Key            | Array Shape     | Description                                                           |
+| -------------- | --------------- | --------------------------------------------------------------------- |
+| `list_Psi`     | `[2M, I, J, N]` | <img src="svgs/7e3c241c2dec821bd6c6fbd314fe4762.svg?invert_in_darkmode" align=middle width=11.29760774999999pt height=22.831056599999986pt/>: numerical solutions as training labels                        |
+| `list_psiL`    | `[M, J, N]`     | <img src="svgs/caadd1c772ec148cfd2ec8060a462097.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: left boundary values                                  |
+| `list_psiR`    | `[M, J, N]`     | <img src="svgs/36acbae07bcb10facebdccfe6bc52e47.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: right boundary values                                 |
+| `list_psiB`    | `[M, I, N]`     | <img src="svgs/9d24820a862241dcef61cbd4543dde79.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: bottom boundary values                                |
+| `list_psiT`    | `[M, I, N]`     | <img src="svgs/f0f5d64a8837e8c76a26571f9e64f495.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: top boundary values                                   |
+| `list_sigma_a` | `[I, J, N]`     | <img src="svgs/ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/>: absorption coefficient functions                          |
+| `list_sigma_T` | `[I, J, N]`     | <img src="svgs/5217bdd6d233889406ad03c4202559db.svg?invert_in_darkmode" align=middle width=18.926824949999986pt height=14.15524440000002pt/>: total coefficient functions                               |
+| `ct` and `st`  | `[1, M]`        | <img src="svgs/247357cb886ab8ec3fc4061854468659.svg?invert_in_darkmode" align=middle width=15.42243944999999pt height=14.15524440000002pt/> and <img src="svgs/799843dad8d6c363e206801ebd232fad.svg?invert_in_darkmode" align=middle width=15.04767329999999pt height=14.15524440000002pt/>: discrete coordinates (quadratures) in velocity space |
+| `omega`        | `[1, M]`        | <img src="svgs/31fae8b8b78ebe01cbfbe2fe53832624.svg?invert_in_darkmode" align=middle width=12.210846449999991pt height=14.15524440000002pt/>: weights of velocity coordinates                                  |
+
+### Convert datasets
+
+Then we need to convert/concatenate MATLAB datasets into one single `*.npz` dataset for training and testing by running:
+
+- Default:
+
+  ```bash
+  ./convert_dataset.sh
+  ```
+
+  which will convert
+
+  ```bash
+  e1_L_delta_*.mat, e1_R_delta_*.mat, e1_B_delta_*.mat, e1_T_delta_*.mat
+  ```
+
+  into `./data/train/square_full_*.npz`.
+
+- With custom arguments:
+
+  ```bash
+  ./convert_dataset.sh <SOURCE_DIR> <DATAFILES> <SAVE_PATH>
+  ```
+
+  which will converte a list of datasets with names `DATAFILES` under directory `SOURCE_DIR` to `SAVE_PATH`.
+
+**Note:** all the arguments have default values, please check [`conver_dataset.sh`](./convert_dataset.sh) for details.
+
+### Numpy dataset
+
+The Numpy dataset will be used for training, testing and evaluating the DeepRTE model. Besides obtaining the dataset from MATLAB code, you can also provide it using any method as long as it is saved as the following flat Numpy dict:
+
+| Key              | Array shape     | Description                                                   |
+| ---------------- | --------------- | ------------------------------------------------------------- |
+| `data/psi_label` | `[N, I, J, 2M]` | Label solutions                                               |
+| `data/psi_bc`    | `[N, I*J, M]`   | Boundary values                                               |
+| `data/sigma_t`   | `[N, I, J]`     | <img src="svgs/5ba3f1b75931f41283dac26b10c8c182.svg?invert_in_darkmode" align=middle width=14.35889894999999pt height=14.15524440000002pt/> values on grid                                     |
+| `data/sigma_a`   | `[N, I, J]`     | <img src="svgs/ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/> values on grid                                     |
+| `data/phi`       | `[N, I, J]`     | <img src="svgs/1dd66ca1cb582bf5f23f25067f3537c2.svg?invert_in_darkmode" align=middle width=31.974965549999986pt height=24.65753399999998pt/>: density for evaluation only                        |
+| `grid/r`         | `[I, J, d]`     | <img src="svgs/ce357ce15d946d3c6ad475e587ce5e1d.svg?invert_in_darkmode" align=middle width=67.92609614999999pt height=24.65753399999998pt/>: position coordinates on the grid                  |
+| `grid/v`         | `[2M, d]`       | <img src="svgs/05f7c697872a2dc2beda47aca238b3b6.svg?invert_in_darkmode" align=middle width=82.68069149999998pt height=24.65753399999998pt/>: velocity coordinates (quadratures)            |
+| `grid/w_angle`   | `[2M]`          | Weights (quadratures) associated with velocity coordinates    |
+| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of <img src="svgs/89f2e0d2d24bcf44db73aab8fc03252c.svg?invert_in_darkmode" align=middle width=7.87295519999999pt height=14.15524440000002pt/> and <img src="svgs/6c4adbc36120d62b98deef2a20d5d303.svg?invert_in_darkmode" align=middle width=8.55786029999999pt height=14.15524440000002pt/>              |
+| `grid/w_prime`   | `[I*J, M]`      | Weights (quadratures) associated with phase space coordinates |
+
+**Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of `"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
+
+```bash
+{
+    'data': {'sigma_t': (2000, 40, 40), 'sigma_a': (2000, 40, 40), 'psi_label': (2000, 40, 40, 24), 'phi': (2000, 40, 40), 'psi_bc': (2000, 160, 12)},
+    'grid': {'r': (40, 40, 2), 'v': (24, 2), 'w_angle': (24,), 'rv_prime': (160, 12, 4), 'w_prime': (160, 12)}
+}
+```
+
+## Run DeepRTE training experiment
+
+The training task can be excuted by a simple command:
+
+```bash
+./run_train.sh <DATA_PATH>
+```
+
+which will do the following things:
+
+- Read train configuration from [`deeprte/config.py`](./deeprte/config.py) and model configuration from [`deeprte/model/config.py`](./deeprte/model/config.py).
+- Load training dataset from `DATA_PATH`.
+- Run training and evaluation in multithread mode.
+- Save configs, checkpoints, model parameters, etc. into [`./data/experiments`](./data/experiments/)`/square_full_*_${TIMESTAMPS}`.
+
+## Run DeepRTE evaluation
+
+The evaluation can be processed by the following command:
+
+```bash
+./run_eval.sh <RESTORE_PATH> <TEST_DATA_PATH> <EVAL_CKPT_DIR>
+```
+
+which will do:
+
+- Read configs from [`deeprte/config.py`](./deeprte/config.py) and [`deeprte/model/config.py`](./deeprte/model/config.py).
+- Load model parameters from `RESTORE_PATH`.
+- Load evaluation dataset from `TEST_DATA_PATH`.
+- Save evaluation logs to `EVAL_CKPT_DIR`.
+
+**Note:** all the arguments have default values, please check [`run_eval.sh`](run_eval.sh) for reference.
