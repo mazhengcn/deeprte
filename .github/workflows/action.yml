@@ -37,7 +37,7 @@ jobs:
       - name: Build readmes
         run: |
           echo $(pwd)
-          python3 -m readme2tex --readme './docs/README.tex.md' --output './README.md' --nocdn --svgdir './docs/svgs' \;
+          cd .. && python3 -m readme2tex --readme ./README.tex.md --output ./README.md --nocdn --svgdir ./docs/svgs \;
       # - name: Copy built .md files
       #   run: |
       #     find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
