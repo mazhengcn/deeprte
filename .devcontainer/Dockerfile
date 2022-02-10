@@ -9,8 +9,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
 
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
 COPY requirements-dev.txt jaxline.patch /tmp/pip-tmp/
-# Temporary hack to build dm-tree from source in Python 3.10, so we need to install cmake first.
-# RUN pip3 --disable-pip-version-check --no-cache-dir install cmake
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements-dev.txt
 
 # Apply JAXline and tensorboard patch

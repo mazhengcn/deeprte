@@ -1,0 +1,11 @@
+{
+  "conventionalCommits.scopes": [
+    "devcontainer",
+    "dataset",
+    "geometry",
+    "model",
+    "config",
+    "train",
+    "scripts"
+  ]
+}
