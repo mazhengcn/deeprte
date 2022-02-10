@@ -34,15 +34,15 @@ which stands for 4 boundary positions (left, right, bottom, top) and other datas
 
 | Key            | Array Shape     | Description                                                           |
 | -------------- | --------------- | --------------------------------------------------------------------- |
-| `list_Psi`     | `[2M, I, J, N]` | <img src="./docs/svgs//7e3c241c2dec821bd6c6fbd314fe4762.svg?invert_in_darkmode" align=middle width=11.29760774999999pt height=22.831056599999986pt/>: numerical solutions as training labels                        |
-| `list_psiL`    | `[M, J, N]`     | <img src="./docs/svgs//caadd1c772ec148cfd2ec8060a462097.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: left boundary values                                  |
-| `list_psiR`    | `[M, J, N]`     | <img src="./docs/svgs//36acbae07bcb10facebdccfe6bc52e47.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: right boundary values                                 |
-| `list_psiB`    | `[M, I, N]`     | <img src="./docs/svgs//9d24820a862241dcef61cbd4543dde79.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: bottom boundary values                                |
-| `list_psiT`    | `[M, I, N]`     | <img src="./docs/svgs//f0f5d64a8837e8c76a26571f9e64f495.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: top boundary values                                   |
-| `list_sigma_a` | `[I, J, N]`     | <img src="./docs/svgs//ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/>: absorption coefficient functions                          |
-| `list_sigma_T` | `[I, J, N]`     | <img src="./docs/svgs//5217bdd6d233889406ad03c4202559db.svg?invert_in_darkmode" align=middle width=18.926824949999986pt height=14.15524440000002pt/>: total coefficient functions                               |
-| `ct` and `st`  | `[1, M]`        | <img src="./docs/svgs//247357cb886ab8ec3fc4061854468659.svg?invert_in_darkmode" align=middle width=15.42243944999999pt height=14.15524440000002pt/> and <img src="./docs/svgs//799843dad8d6c363e206801ebd232fad.svg?invert_in_darkmode" align=middle width=15.04767329999999pt height=14.15524440000002pt/>: discrete coordinates (quadratures) in velocity space |
-| `omega`        | `[1, M]`        | <img src="./docs/svgs//31fae8b8b78ebe01cbfbe2fe53832624.svg?invert_in_darkmode" align=middle width=12.210846449999991pt height=14.15524440000002pt/>: weights of velocity coordinates                                  |
+| `list_Psi`     | `[2M, I, J, N]` | <img src="./docs/svgs/7e3c241c2dec821bd6c6fbd314fe4762.svg?invert_in_darkmode" align=middle width=11.29760774999999pt height=22.831056599999986pt/>: numerical solutions as training labels                        |
+| `list_psiL`    | `[M, J, N]`     | <img src="./docs/svgs/caadd1c772ec148cfd2ec8060a462097.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: left boundary values                                  |
+| `list_psiR`    | `[M, J, N]`     | <img src="./docs/svgs/36acbae07bcb10facebdccfe6bc52e47.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: right boundary values                                 |
+| `list_psiB`    | `[M, I, N]`     | <img src="./docs/svgs/9d24820a862241dcef61cbd4543dde79.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: bottom boundary values                                |
+| `list_psiT`    | `[M, I, N]`     | <img src="./docs/svgs/f0f5d64a8837e8c76a26571f9e64f495.svg?invert_in_darkmode" align=middle width=21.57160994999999pt height=28.310511900000005pt/>: top boundary values                                   |
+| `list_sigma_a` | `[I, J, N]`     | <img src="./docs/svgs/ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/>: absorption coefficient functions                          |
+| `list_sigma_T` | `[I, J, N]`     | <img src="./docs/svgs/5217bdd6d233889406ad03c4202559db.svg?invert_in_darkmode" align=middle width=18.926824949999986pt height=14.15524440000002pt/>: total coefficient functions                               |
+| `ct` and `st`  | `[1, M]`        | <img src="./docs/svgs/247357cb886ab8ec3fc4061854468659.svg?invert_in_darkmode" align=middle width=15.42243944999999pt height=14.15524440000002pt/> and <img src="./docs/svgs/799843dad8d6c363e206801ebd232fad.svg?invert_in_darkmode" align=middle width=15.04767329999999pt height=14.15524440000002pt/>: discrete coordinates (quadratures) in velocity space |
+| `omega`        | `[1, M]`        | <img src="./docs/svgs/31fae8b8b78ebe01cbfbe2fe53832624.svg?invert_in_darkmode" align=middle width=12.210846449999991pt height=14.15524440000002pt/>: weights of velocity coordinates                                  |
 
 ### Convert datasets
 
@@ -80,13 +80,13 @@ The Numpy dataset will be used for training, testing and evaluating the DeepRTE 
 | ---------------- | --------------- | ------------------------------------------------------------- |
 | `data/psi_label` | `[N, I, J, 2M]` | Label solutions                                               |
 | `data/psi_bc`    | `[N, I*J, M]`   | Boundary values                                               |
-| `data/sigma_t`   | `[N, I, J]`     | <img src="./docs/svgs//5ba3f1b75931f41283dac26b10c8c182.svg?invert_in_darkmode" align=middle width=14.35889894999999pt height=14.15524440000002pt/> values on grid                                     |
-| `data/sigma_a`   | `[N, I, J]`     | <img src="./docs/svgs//ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/> values on grid                                     |
-| `data/phi`       | `[N, I, J]`     | <img src="./docs/svgs//1dd66ca1cb582bf5f23f25067f3537c2.svg?invert_in_darkmode" align=middle width=31.974965549999986pt height=24.65753399999998pt/>: density for evaluation only                        |
-| `grid/r`         | `[I, J, d]`     | <img src="./docs/svgs//ce357ce15d946d3c6ad475e587ce5e1d.svg?invert_in_darkmode" align=middle width=67.92609614999999pt height=24.65753399999998pt/>: position coordinates on the grid                  |
-| `grid/v`         | `[2M, d]`       | <img src="./docs/svgs//05f7c697872a2dc2beda47aca238b3b6.svg?invert_in_darkmode" align=middle width=82.68069149999998pt height=24.65753399999998pt/>: velocity coordinates (quadratures)            |
+| `data/sigma_t`   | `[N, I, J]`     | <img src="./docs/svgs/5ba3f1b75931f41283dac26b10c8c182.svg?invert_in_darkmode" align=middle width=14.35889894999999pt height=14.15524440000002pt/> values on grid                                     |
+| `data/sigma_a`   | `[N, I, J]`     | <img src="./docs/svgs/ddd111f40aa4eddaeb1a56280fa1bf7a.svg?invert_in_darkmode" align=middle width=16.523489399999992pt height=14.15524440000002pt/> values on grid                                     |
+| `data/phi`       | `[N, I, J]`     | <img src="./docs/svgs/1dd66ca1cb582bf5f23f25067f3537c2.svg?invert_in_darkmode" align=middle width=31.974965549999986pt height=24.65753399999998pt/>: density for evaluation only                        |
+| `grid/r`         | `[I, J, d]`     | <img src="./docs/svgs/ce357ce15d946d3c6ad475e587ce5e1d.svg?invert_in_darkmode" align=middle width=67.92609614999999pt height=24.65753399999998pt/>: position coordinates on the grid                  |
+| `grid/v`         | `[2M, d]`       | <img src="./docs/svgs/05f7c697872a2dc2beda47aca238b3b6.svg?invert_in_darkmode" align=middle width=82.68069149999998pt height=24.65753399999998pt/>: velocity coordinates (quadratures)            |
 | `grid/w_angle`   | `[2M]`          | Weights (quadratures) associated with velocity coordinates    |
-| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of <img src="./docs/svgs//89f2e0d2d24bcf44db73aab8fc03252c.svg?invert_in_darkmode" align=middle width=7.87295519999999pt height=14.15524440000002pt/> and <img src="./docs/svgs//6c4adbc36120d62b98deef2a20d5d303.svg?invert_in_darkmode" align=middle width=8.55786029999999pt height=14.15524440000002pt/>              |
+| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of <img src="./docs/svgs/89f2e0d2d24bcf44db73aab8fc03252c.svg?invert_in_darkmode" align=middle width=7.87295519999999pt height=14.15524440000002pt/> and <img src="./docs/svgs/6c4adbc36120d62b98deef2a20d5d303.svg?invert_in_darkmode" align=middle width=8.55786029999999pt height=14.15524440000002pt/>              |
 | `grid/w_prime`   | `[I*J, M]`      | Weights (quadratures) associated with phase space coordinates |
 
 **Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of `"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
@@ -129,3 +129,5 @@ which will do:
 - Save evaluation logs to `EVAL_CKPT_DIR`.
 
 **Note:** all the arguments have default values, please check [`run_eval.sh`](run_eval.sh) for reference.
+
+test
