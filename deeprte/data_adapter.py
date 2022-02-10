@@ -58,7 +58,7 @@ class BoundaryPosition(enum.Enum):
     def inner_normal(self):
         return {
             BoundaryPosition.LEFT: np.asarray([1, 0]),
-            BoundaryPosition.RIGHT: np.asanyarray([-1, 0]),
+            BoundaryPosition.RIGHT: np.asarray([-1, 0]),
             BoundaryPosition.BOTTOM: np.asarray([0, 1]),
             BoundaryPosition.TOP: np.asarray([0, -1]),
         }[self]
