@@ -4,12 +4,11 @@ scipy
 
 # Tensorflow cpu version
 tensorflow_datasets
-# tensorflow-cpu
-tf-nightly-cpu
+tensorflow-cpu>=2.8.0
 
 # Install jax and jaxlib
-jax==0.2.27
-jaxlib==0.1.75+cuda11.cudnn82
+jax==0.2.28
+jaxlib==0.1.76+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Install Haiku, Optax

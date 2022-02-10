@@ -43,7 +43,7 @@ def get_config() -> ml_collections.ConfigDict:
     # Batch size, training steps and data.
     # num_epochs = 10_000
     num_epochs = 10_000
-    train_batch_size = 10
+    train_batch_size = 32
     repeat = 1
 
     steps_from_epochs = functools.partial(
@@ -51,7 +51,7 @@ def get_config() -> ml_collections.ConfigDict:
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 100
+    test_batch_size = 200
 
     # Datasetconfig.
     dataset_config = dict(

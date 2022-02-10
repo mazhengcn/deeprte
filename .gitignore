@@ -1,6 +1,7 @@
 # Project related files
 .vscode/
 data/
+archive/
 # notebooks/
 
 # Byte-compiled / optimized / DLL files
