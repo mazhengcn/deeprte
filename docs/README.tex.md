@@ -129,3 +129,5 @@ which will do:
 - Save evaluation logs to `EVAL_CKPT_DIR`.
 
 **Note:** all the arguments have default values, please check [`run_eval.sh`](run_eval.sh) for reference.
+
+TEST

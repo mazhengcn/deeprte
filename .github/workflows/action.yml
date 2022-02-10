@@ -36,10 +36,10 @@ jobs:
           pip3 install readme2tex
       - name: Build readmes
         run: |
-          find . -type f -name '*.tex.md' -exec python3 -m readme2tex --readme "{}" --nocdn --output '{}##/' --svgdir ./docs/svgs/ \;
+          cd ./docs && find . -type f -name '*.tex.md' -exec python3 -m readme2tex --readme "{}" --nocdn --output './docs/{}.temp' --svgdir ./docs/svgs/ \;
       # - name: Copy built .md files
       #   run: |
-      #     find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
+          find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
       #     find . -type f -name 'README.md' -exec mv '{}' ./ \;
       - name: Commit the built files
         run: |
