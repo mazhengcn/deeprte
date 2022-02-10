@@ -4,7 +4,7 @@
 
 ### Download datasets
 
-First we need to copy datasets to our `/path/to/project_root` folder and currently the downloaded datasets are MATLAB `.mat` files. You can do this by running the following script:
+First we need to copy datasets to our `/path/to/project_root` folder and currently the downloaded datasets are MATLAB `.mat` files. Run the following command:
 
 - Default:
 
