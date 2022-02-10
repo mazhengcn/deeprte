@@ -78,16 +78,16 @@ The Numpy dataset will be used for training, testing and evaluating the DeepRTE 
 
 | Key              | Array shape     | Description                                                   |
 | ---------------- | --------------- | ------------------------------------------------------------- |
-| `data/psi_label` | `[N, I, J, 2M]` | Label solutions                                               |
-| `data/psi_bc`    | `[N, I*J, M]`   | Boundary values                                               |
+| `data/psi_label` | `[N, I, J, 2M]` | label solutions                                               |
+| `data/psi_bc`    | `[N, I*J, M]`   | boundary values                                               |
 | `data/sigma_t`   | `[N, I, J]`     | total coefficient values on grid                              |
 | `data/sigma_a`   | `[N, I, J]`     | absorption values on grid                                     |
 | `data/phi`       | `[N, I, J]`     | density for evaluation only                                   |
 | `grid/r`         | `[I, J, d]`     | position coordinates on the grid                              |
 | `grid/v`         | `[2M, d]`       | velocity coordinates (quadratures)                            |
-| `grid/w_angle`   | `[2M]`          | Weights (quadratures) associated with velocity coordinates    |
-| `grid/rv_prime`  | `[I*J, M, 2d]`  | Phase space coordinates by concat of `r` and `v`              |
-| `grid/w_prime`   | `[I*J, M]`      | Weights (quadratures) associated with phase space coordinates |
+| `grid/w_angle`   | `[2M]`          | weights (quadratures) associated with velocity coordinates    |
+| `grid/rv_prime`  | `[I*J, M, 2d]`  | phase space coordinates by concat of `r` and `v`              |
+| `grid/w_prime`   | `[I*J, M]`      | weights (quadratures) associated with phase space coordinates |
 
 **Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of `"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
 
