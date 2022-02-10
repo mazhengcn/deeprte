@@ -46,7 +46,7 @@ which stands for 4 boundary positions (left, right, bottom, top) and other datas
 
 ### Convert datasets
 
-Then we need to convert/concatenate MATLAB datasets into one single `*.npz` dataset for training and testing by running:
+Then we need to convert/concatenate MATLAB datasets into one single `*.npz` dataset for training and testing:
 
 - Default:
 
