@@ -25,8 +25,9 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from absl import logging
 
-from deeprte.model.modules import F
-from deeprte.utils import flat_dict_to_rte_data, to_flat_dict
+from deeprte.model.geometry.phase_space import PhaseSpace
+from deeprte.model.modules import FunctionInputs
+from deeprte.utils import flat_dict_to_rte_data
 
 Batch = Mapping[str, np.ndarray]
 AUTOTUNE = tf.data.AUTOTUNE
@@ -65,10 +66,10 @@ class Split(enum.Enum):
     @property
     def num_examples(self):
         return {
-            Split.TRAIN: 300,
-            Split.TRAIN_AND_VALID: 400,
-            Split.VALID: 100,
-            Split.TEST: 100,
+            Split.TRAIN: 1600,
+            Split.TRAIN_AND_VALID: 1600,
+            Split.VALID: 200,
+            Split.TEST: 400,
         }[self]
 
 
@@ -102,8 +103,6 @@ def load(
             )
 
     start, end = _shard(split, jax.process_index(), jax.process_count())
-
-    # total_batch_size = np.prod(batch_dims)
 
     (ds, (grid, total_grid_sizes)), _ = _load_and_split_dataset(
         data_path, split, from_=start, end=end
@@ -197,8 +196,8 @@ def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
             "inputs": (
                 rv_r,
                 rv_v,
-                F(x=r, y=sigma),
-                F(x=rv_prime, y=psi_bc * w_prime),
+                FunctionInputs(x=r, f=sigma),
+                FunctionInputs(x=rv_prime, f=psi_bc * w_prime),
             ),
             "labels": psi_label,
         }
@@ -252,7 +251,12 @@ def _repeat_batch(
 
 
 def _load_and_split_dataset(
-    path_npz: str | pathlib.Path, split: Split, end: int, from_: int = 0
+    path_npz: str | pathlib.Path,
+    split: Split,
+    end: int,
+    from_: int = 0,
+    pre_shuffle: bool = True,
+    seed: int = 0,
 ) -> tuple[tuple[tf.data.Dataset, Mapping[str, np.ndarray]], Split]:
 
     if not isinstance(path_npz, pathlib.Path):
@@ -263,7 +267,12 @@ def _load_and_split_dataset(
         rte_data = flat_dict_to_rte_data(npzfile)
         data, grid = rte_data["data"], rte_data["grid"]
 
-    # log_shapes(data, "Data")
+    if pre_shuffle:
+        rng = np.random.default_rng(seed=seed)
+        shuffled_indices = rng.permutation(data["psi_label"].shape[0])
+        data = tf.nest.map_structure(
+            lambda x: np.take(x, shuffled_indices, axis=0), data
+        )
 
     def _flatten_fn(example):
         return tf.nest.map_structure(lambda x: tf.reshape(x, [-1]), example)
@@ -271,8 +280,6 @@ def _load_and_split_dataset(
     ds = tf.data.Dataset.from_tensor_slices(
         tf.nest.map_structure(lambda arr: arr[from_:end], data)
     ).map(_flatten_fn, num_parallel_calls=AUTOTUNE)
-
-    # log_shapes(grid, "Grid")
 
     grid = preprocess_grid(grid)
 
@@ -299,10 +306,16 @@ def preprocess_grid(
     r = r.reshape(-1, r.shape[-1])
     grid["r"] = r
 
-    rv = np.concatenate((r[:, None] + 0.0 * v, v + 0.0 * r[:, None]), axis=-1)
+    # rv = np.concatenate((r[:, None] + 0.0 * v, v + 0.0 * r[:, None]), axis=-1)
+    rv = PhaseSpace(
+        position_coords=r,
+        velocity_coords=v,
+        position_weights=0.0,
+        velocity_weights=0.0,
+    ).single_state(cartesian_product=True)
     rv = rv.reshape(-1, rv.shape[-1])
-    total_grid_size = rv.shape[0]
     grid["rv"] = rv
+    total_grid_size = rv.shape[0]
 
     rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
     grid["rv_prime"] = rv_prime.reshape(-1, rv_prime.shape[-1])
@@ -316,89 +329,3 @@ def preprocess_grid(
 
 def unstack_np_array(arr, axis=0):
     return list(np.swapaxes(arr, axis, 0))
-
-
-def convert_dataset(
-    data_path: str, save_npz: bool = True
-) -> Mapping[str, Mapping[str, np.ndarray]]:
-    """Convert matlab dataset to numpy for use."""
-
-    if not isinstance(data_path, pathlib.Path):
-        data_path = pathlib.Path(data_path)
-
-    data = np.load(data_path, allow_pickle=True)
-
-    if data_path.suffix == ".npy":
-        data = data.item()
-    # Load reference solutions, boundary functions and sigmas
-    phi = data["list_Phi"]  # [B, I, J]
-    # print(data["list_Psi"].shape)
-    psi = data["list_Psi"]  # [B, I, J, M]
-    # print(data["list_psiR"].shape)
-    psi_bc = np.swapaxes(data["list_psiL"], -2, -1)  # [B, I'*J', M']
-
-    sigma_t = data["list_sigma_T"]  # [B, I, J]
-    sigma_a = data["list_sigma_a"]  # [B, I, J]
-
-    # theta = data["theta"].T  # [M, 1]
-    w_angle = data["omega"][0]  # [M]
-    vx = data["ct"].T  # [M, 1]
-    vy = data["st"].T  # [M, 1]
-    v = np.concatenate([vx, vy], axis=-1)
-
-    converted_data = {"data": {}, "grid": {}}
-
-    # sigma = np.stack([sigma_t, sigma_a], axis=-1)  # [B, I, J, 2]
-    converted_data["data"].update(
-        {
-            "sigma_t": sigma_t,
-            "sigma_a": sigma_a,
-            "psi_bc": psi_bc,
-            "psi_label": psi,
-            "phi": phi,
-        }
-    )
-    converted_data["grid"].update({"w_angle": w_angle, "v": v})
-
-    # Construct grid points
-    # interior
-    _, nx, ny, _ = psi.shape  # [B, I, J, M]
-    dx, dy = 1.0 / nx, 1.0 / ny
-    x = np.arange(0.0 + 0.5 * dx, 1.0, dx, dtype=np.float32)
-    y = np.arange(0.0 + 0.5 * dy, 1.0, dy, dtype=np.float32)
-    r = np.stack(np.meshgrid(x, y, indexing="ij"), axis=-1)  # [I, J, 2]
-    converted_data["grid"].update({"r": r})
-
-    # on left the boundary
-    vx_prime, vy_prime = vx[vx > 0], vy[vx > 0]  # [M', 1]
-    rvx_prime = np.stack(
-        np.meshgrid(y, vx_prime, indexing="ij"), axis=-1
-    )  # [I'*J', M', 2]
-    rvy_prime = np.stack(
-        np.meshgrid(y, vy_prime, indexing="ij"), axis=-1
-    )  # [I'*J', M', 2]
-    rv_prime = np.concatenate(
-        (
-            np.zeros_like(rvx_prime[..., 0:1]),
-            rvx_prime[..., 0:1],
-            rvx_prime[..., 1:2],
-            rvy_prime[..., 1:2],
-        ),
-        axis=-1,
-    )  # [I'*J', M', 4]
-    w_prime = (
-        2 * (1 / (nx + 1)) * w_angle[vx[:, 0] > 0] * np.ones_like(y)[:, None]
-    )  # [I'*J', M']
-
-    converted_data["grid"].update({"rv_prime": rv_prime, "w_prime": w_prime})
-
-    # Save converted dataset
-    if save_npz:
-        npz_path = data_path.with_name(data_path.stem + "_converted")
-        np.savez(
-            npz_path,
-            **to_flat_dict(converted_data, sep="/"),
-        )
-        logging.info(f"Saved converted dataset {npz_path}.")
-
-    return converted_data

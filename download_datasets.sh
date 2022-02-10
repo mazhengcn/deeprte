@@ -12,17 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Download RTE datasets from math-02 server
+#
+# Usage: bash download_rte_datasets.sh /path/to/download/directory
 set -e
 
-export CUDA_VISIBLE_DEVICES="0,3,4,5,7"
+SERVER_URL=${1:-"xuzhiqin_02@202.120.13.117"}
+REMOTE_DATA_DIR=${2:-"/cluster/home/xuzhiqin_02/rte_data/"}
+DOWNLOAD_DIR=${3:-"data/matlab/"}
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-DATA_PATH=${1:-"data/train/square_full_1.npz"}
-
-python deeprte/train.py \
-    --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${DATA_PATH} \
-    --config.experiment_kwargs.config.training.batch_size="30" \
-    --config.checkpoint_dir="data/experiments/square_full_1_${TIMESTAMP%+*}" \
-    --jaxline_mode="train_eval_multithreaded" \
-    --alsologtostderr="true"
+rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" ${DOWNLOAD_DIR}

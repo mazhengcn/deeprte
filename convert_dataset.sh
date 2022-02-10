@@ -14,15 +14,11 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="0,3,4,5,7"
+SOURCE_DIR=${1:-"data/matlab/"}
+DATAFILES=${2:-"e1_L_delta_1.mat,e1_R_delta_1.mat,e1_B_delta_1.mat,e1_T_delta_1.mat"}
+SAVE_PATH=${3:-"data/train/square_full_1.npz"}
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-DATA_PATH=${1:-"data/train/square_full_1.npz"}
-
-python deeprte/train.py \
-    --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${DATA_PATH} \
-    --config.experiment_kwargs.config.training.batch_size="30" \
-    --config.checkpoint_dir="data/experiments/square_full_1_${TIMESTAMP%+*}" \
-    --jaxline_mode="train_eval_multithreaded" \
-    --alsologtostderr="true"
+python deeprte/data_adapter.py \
+    --source_dir=${SOURCE_DIR} \
+    --datafiles=${DATAFILES} \
+    --save_path=${SAVE_PATH}

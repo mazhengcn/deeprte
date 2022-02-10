@@ -1,4 +1,3 @@
-#!/usr/bin/bash
 # Copyright 2022 Zheng Ma
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,17 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-set -e
 
-export CUDA_VISIBLE_DEVICES="0,3,4,5,7"
+from collections.abc import Mapping
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-DATA_PATH=${1:-"data/train/square_full_1.npz"}
+import haiku as hk
+import jax.numpy as jnp
+import numpy as np
 
-python deeprte/train.py \
-    --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${DATA_PATH} \
-    --config.experiment_kwargs.config.training.batch_size="30" \
-    --config.checkpoint_dir="data/experiments/square_full_1_${TIMESTAMP%+*}" \
-    --jaxline_mode="train_eval_multithreaded" \
-    --alsologtostderr="true"
+
+def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
+    """Convert a dictionary of NumPy arrays to Haiku parameters."""
+    hk_params = {}
+    for path, array in params.items():
+        scope, name = path.split("//")
+        if scope not in hk_params:
+            hk_params[scope] = {}
+        hk_params[scope][name] = jnp.array(array)
+
+    return hk_params

@@ -12,18 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 set -e
 
 export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
-RESTORE_PATH="data/experiments/gelu_deltabc_ckpt_ckpt_2022-01-10T10:07:57/models/latest/step_400000_2022-01-10T22:33:17"
+RESTORE_PATH=${1:-"data/experiments/rect_delta_bc_r_2022-01-23T22:46:41/models/latest/step_400000_2022-01-24T03:31:39"}
+TEST_DATA_PATH=${2:-"data/experiments/test/rte_example2_converted.npz"}
+EVAL_CKPT_DIR=${3:-"data/experiments/eval"}
 
 python deeprte/train.py \
     --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=data/rte/rte_example2_converted.npz \
-    --config.checkpoint_dir="data/experiments/example2_eval" \
+    --config.experiment_kwargs.config.dataset.data_path=${TEST_DATA_PATH} \
+    --config.checkpoint_dir=${EVAL_CKPT_DIR} \
     --config.restore_path=${RESTORE_PATH} \
     --config.one_off_evaluate="true" \
     --jaxline_mode="eval"

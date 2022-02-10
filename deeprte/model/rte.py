@@ -25,12 +25,16 @@ from deeprte import dataset
 from deeprte.model.base import Model, Solution
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
-from deeprte.model.modules import F, GreenFunctionNet
+from deeprte.model.modules import FunctionInputs, GreenFunctionNet
 
 
 class RTEOperator(Solution):
     def forward_fn(
-        self, r: jnp.ndarray, v: jnp.ndarray, sigma: F, psi_bc: F
+        self,
+        r: jnp.ndarray,
+        v: jnp.ndarray,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
     ) -> jnp.ndarray:
         """Compute solution with Green's function as kernel.
 
@@ -48,7 +52,7 @@ class RTEOperator(Solution):
         green_func_module = GreenFunctionNet(self.config.green_function)
 
         sol = quad(
-            green_func_module, (psi_bc.x, psi_bc.y), argnum=1, use_hk=True
+            green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True
         )(rv, sigma)
 
         return sol
@@ -60,8 +64,8 @@ class RTEOperator(Solution):
         rng: jnp.ndarray,
         r: jnp.ndarray,
         v: jnp.ndarray,
-        sigma: F,
-        psi_bc: F,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
         is_training: bool,
     ) -> jnp.ndarray:
 
@@ -71,7 +75,7 @@ class RTEOperator(Solution):
             _apply_fn = vmap(
                 vmap(_apply_fn, shard_size=128, argnums={3, 4}),
                 argnums={5, 6},
-                in_axes=(F(), F()),
+                in_axes=(FunctionInputs(), FunctionInputs()),
             )
 
         return _apply_fn(params, state, rng, r, v, sigma, psi_bc)
@@ -80,8 +84,8 @@ class RTEOperator(Solution):
         self,
         params: hk.Params,
         r: jnp.ndarray,
-        sigma: F,
-        psi_bc: F,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
         quadratures: tuple[jnp.ndarray, jnp.ndarray],
     ) -> jnp.ndarray:
         _apply = functools.partial(
@@ -91,7 +95,7 @@ class RTEOperator(Solution):
         _rho_fn = vmap(
             vmap(_rho_fn, shard_size=128, argnums={0}),
             argnums={1, 2},
-            in_axes=(F(), F()),
+            in_axes=(FunctionInputs(), FunctionInputs()),
         )
 
         rho = jax.jit(_rho_fn)(r, sigma, psi_bc)
@@ -112,7 +116,7 @@ class RTESupervised(Model):
         predict_fn = vmap(
             vmap(fn, argnums={0, 1}),
             excluded={0, 1},
-            in_axes=(F(), F()),
+            in_axes=(FunctionInputs(), FunctionInputs()),
         )
 
         # Predictions and labels
@@ -153,15 +157,17 @@ class RTEUnsupervised(Model):
 
         self.quad_points = (cs, omega)
 
-    @functools.partial(vmap, argnums={4, 5}, in_axes=(F(), F()))
+    @functools.partial(
+        vmap, argnums={4, 5}, in_axes=(FunctionInputs(), FunctionInputs())
+    )
     @functools.partial(vmap, argnums={2, 3})
     def residual(
         self,
         sol_fn: Callable[..., jnp.ndarray],
         r: jnp.ndarray,
         v: jnp.ndarray,
-        sigma: F,
-        psi_bc: F,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
     ) -> jnp.ndarray:
         """Compute residual of equation for a single point."""
 
@@ -180,14 +186,16 @@ class RTEUnsupervised(Model):
 
         return residual
 
-    @functools.partial(vmap, argnums={3, 4}, in_axes=(F(), F()))
+    @functools.partial(
+        vmap, argnums={3, 4}, in_axes=(FunctionInputs(), FunctionInputs())
+    )
     # @partial(vmap, argnums={2, 3})
     def boundary(
         self,
         sol_fn: Callable[..., jnp.ndarray],
         bc_pts,
-        sigma: F,
-        psi_bc: F,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
     ) -> jnp.ndarray:
         sol = functools.partial(sol_fn, sigma=sigma, psi_b=psi_bc)
 

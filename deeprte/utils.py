@@ -14,10 +14,7 @@
 
 
 import collections
-from typing import Mapping
 
-import haiku as hk
-import jax.numpy as jnp
 import numpy as np
 
 
@@ -48,15 +45,3 @@ def flat_dict_to_rte_data(flat_dict):
         rte_data[scope][name] = np.asarray(array)
 
     return rte_data
-
-
-def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
-    """Convert a dictionary of NumPy arrays to Haiku parameters."""
-    hk_params = {}
-    for path, array in params.items():
-        scope, name = path.split("//")
-        if scope not in hk_params:
-            hk_params[scope] = {}
-        hk_params[scope][name] = jnp.array(array)
-
-    return hk_params

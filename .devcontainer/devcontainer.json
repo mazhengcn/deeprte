@@ -1,5 +1,5 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/python-3
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.216.0/containers/python-3
 {
   // Dev container's name.
   "name": "deeprte-dev",
@@ -19,14 +19,12 @@
     "ms-python.python",
     "ms-python.vscode-pylance",
     "esbenp.prettier-vscode",
-    "eamodio.gitlens"
+    "eamodio.gitlens",
+    "vivaxy.vscode-conventional-commits"
   ],
 
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
-
-  // Forward port for tensorboard server.
-  "forwardPorts": [6006],
 
   // Runtime args.
   "runArgs": ["--name=deeprte_dev", "--gpus=all", "--shm-size=1g"],
