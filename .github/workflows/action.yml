@@ -37,9 +37,9 @@ jobs:
       - name: Build readmes
         run: |
           find . -type f -name '*.tex.md' -exec python3 -m readme2tex --readme '{}' --output '${{}#*/}.temp' --nocdn --svgdir ./docs/svgs/ \;
-      # - name: Copy built .md files
-      #   run: |
-      #     find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
+      - name: Copy built .md files
+        run: |
+          find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
       - name: Commit the built files
         run: |
           git config --global user.name '${{github.repository_owner}}'
