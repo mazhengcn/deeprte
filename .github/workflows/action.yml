@@ -40,6 +40,7 @@ jobs:
       - name: Copy built .md files
         run: |
           find . -type f -exec rename -f 's/.tex.md.temp/.md/' '{}' \;
+          find . -type f -name 'README.md' -exec mv '{}' ./ \;
       - name: Commit the built files
         run: |
           git config --global user.name '${{github.repository_owner}}'
