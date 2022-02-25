@@ -8,10 +8,5 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
-COPY requirements-dev.txt jaxline.patch /tmp/pip-tmp/
+COPY requirements-dev.txt /tmp/pip-tmp/
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements-dev.txt
-
-# Apply JAXline and tensorboard patch
-WORKDIR /usr/local/python/lib/python3.10/site-packages
-RUN patch -p 0 < /tmp/pip-tmp/jaxline.patch \
-    && rm -rf /tmp/pip-tmp
