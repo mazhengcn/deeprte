@@ -93,7 +93,11 @@ def vmap(
     if shard_size:
         vmap_ = partial(sharded_map, shard_size=shard_size, use_hk=use_hk)
     else:
-        vmap_ = hk.vmap if use_hk else jax.vmap
+        vmap_ = (
+            partial(hk.vmap, split_rng=(not hk.running_init()))
+            if use_hk
+            else jax.vmap
+        )
 
     @functools.wraps(func)
     def wrapped(*args):
@@ -134,7 +138,11 @@ def sharded_map(
     Returns:
         function with smap applied.
     """
-    vmap_ = hk.vmap if use_hk else jax.vmap
+    vmap_ = (
+        partial(hk.vmap, split_rng=(not hk.running_init()))
+        if use_hk
+        else jax.vmap
+    )
     vmapped_func = vmap_(func, in_axes, out_axes)
     return sharded_apply(vmapped_func, shard_size, in_axes, out_axes, use_hk)
 
@@ -164,6 +172,8 @@ def sharded_apply(
         new_out_axes: whether to stack outputs on new axes. This assumes that
             the output sizes for each shard (including the possible remainder
             shard) are the same.
+        use_hk: whether to use jax.vmap or haiku's wrapped vmap which does not
+            map module parameters/state.
 
     Returns:
         function with smap applied.
