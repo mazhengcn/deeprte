@@ -20,12 +20,51 @@ from collections.abc import Callable, Mapping
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import ml_collections
 
 from deeprte import dataset
-from deeprte.model.base import Model, Solution
+from deeprte.model.base import Model, Solution, SolutionV2
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
 from deeprte.model.modules import FunctionInputs, GreenFunctionNet
+
+
+def mean_squared_loss_fn(x, y, axis=None):
+    return jnp.mean(jnp.square(x - y), axis=axis)
+
+
+def make_rte_operator(config: ml_collections.ConfigDict) -> SolutionV2:
+    def forward_fn(
+        r: jnp.ndarray,
+        v: jnp.ndarray,
+        sigma: FunctionInputs,
+        psi_bc: FunctionInputs,
+    ) -> jnp.ndarray:
+        """Compute solution with Green's function as kernel.
+
+        Args:
+            x: (x_dim,).
+            v: (v_dim,).
+            sigma: (num_coeff_values, xdim) and (num_coeff_values, num_coeffs).
+            bc: (num_quads, xdim - 1) and (num_quads,).
+
+        Returns:
+            Solution outputs.
+        """
+        rv = jnp.concatenate([r, v])
+        green_func_module = GreenFunctionNet(self.config.green_function)
+
+        sol = quad(
+            green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True
+        )(rv, sigma)
+
+        return sol
+
+    transformed_solution = hk.transform_with_state(forward_fn)
+
+    return SolutionV2(
+        init=transformed_solution.init, apply=transformed_solution.apply
+    )
 
 
 class RTEOperator(Solution):
@@ -48,7 +87,6 @@ class RTEOperator(Solution):
             Solution outputs.
         """
         rv = jnp.concatenate([r, v])
-
         green_func_module = GreenFunctionNet(self.config.green_function)
 
         sol = quad(
@@ -103,16 +141,12 @@ class RTEOperator(Solution):
         return rho
 
 
-def mean_squared_loss_fn(x, y, axis=None):
-    return jnp.mean(jnp.square(x - y), axis=axis)
-
-
 class RTESupervised(Model):
     def loss(
         self, fn: Callable[..., jnp.float32], batch: dataset.Batch
     ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
         # We vmap the fn since it supposed to be unvmapped before
-        # to use other logic.
+        # in order to use other logic.
         predict_fn = vmap(
             vmap(fn, argnums={0, 1}),
             excluded={0, 1},
@@ -128,7 +162,7 @@ class RTESupervised(Model):
 
         return loss, {
             "mse": loss,
-            "rmspe": jnp.sqrt(loss / jnp.mean(labels ** 2)),
+            "rmspe": jnp.sqrt(loss / jnp.mean(labels**2)),
         }
 
     def metrics(
@@ -140,13 +174,18 @@ class RTESupervised(Model):
         # Labels
         labels = batch["labels"]
 
+        mse = mean_squared_loss_fn(predictions, labels, axis=-1)
+        label_scale = jnp.mean(labels**2)
         # Compute relative mean squared error, this values will be summed and
         # finally divided by num_examples.
         relative_mse = mean_squared_loss_fn(
             predictions, labels, axis=-1
-        ) / jnp.mean(labels ** 2)
+        ) / jnp.mean(labels**2)
 
-        return {"rmspe": relative_mse}
+        return {
+            "mse": mse,
+            "rmspe": relative_mse,
+        }
 
 
 class RTEUnsupervised(Model):

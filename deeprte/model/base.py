@@ -14,6 +14,7 @@
 
 
 import abc
+import dataclasses
 from collections.abc import Callable, Mapping
 from typing import Any, Optional
 
@@ -58,12 +59,12 @@ class Solution(object, metaclass=abc.ABCMeta):
         self.name = name
         self.config = config
 
-        self.init = hk.transform_with_state(self.forward_fn).init
+        self._init = hk.transform_with_state(self.forward_fn).init
         self._apply = hk.transform_with_state(self.forward_fn).apply
 
     @abc.abstractmethod
     def forward_fn(self) -> jnp.ndarray:
-        pass
+        """The forward pass of solution."""
 
     @abc.abstractmethod
     def apply(
@@ -74,7 +75,11 @@ class Solution(object, metaclass=abc.ABCMeta):
         *,
         is_training: bool
     ) -> jnp.ndarray:
-        pass
+        """Apply function of solution."""
+
+    @property
+    def init(self):
+        return self._init
 
 
 class MultiSolutions(object, metaclass=abc.ABCMeta):
@@ -101,3 +106,16 @@ class MultiSolutions(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def apply(self, params, state, rng, *, is_training):
         pass
+
+
+@dataclasses.dataclass
+class SolutionV2:
+    """Holds a pair of pure functions defining a solution operator.
+
+    Attributes:
+        init: A pure function: ``params = init(rng, *a, **k)``
+        apply: A pure function: ``out = apply(params, rng, *a, **k)``
+    """
+
+    init: Callable[..., hk.Params]
+    apply: Callable[..., jnp.ndarray]
