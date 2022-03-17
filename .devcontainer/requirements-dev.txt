@@ -7,13 +7,13 @@ tensorflow_datasets
 tensorflow-cpu>=2.8.0
 
 # Install jax and jaxlib
-jax==0.3.1
-jaxlib==0.3.0+cuda11.cudnn82
+jax>=0.3.1
+jaxlib==0.3.2+cuda11.cudnn82
 --find-links https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Install Haiku, Optax
-git+git://github.com/deepmind/dm-haiku
-git+git://github.com/deepmind/optax
+git+https://github.com/deepmind/dm-haiku
+git+https://github.com/deepmind/optax
 
 # Install ml_collections from github repo
-git+git://github.com/google/ml_collections
+git+https://github.com/google/ml_collections
