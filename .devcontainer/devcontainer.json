@@ -3,6 +3,7 @@
 {
   // Dev container's name.
   "name": "deeprte-dev",
+
   // Dockerfile and build args.
   "build": {
     "dockerfile": "Dockerfile",
@@ -10,39 +11,43 @@
       "VARIANT": "3.10-11.5"
     }
   },
+
   // Set *default* container specific settings.json values on container create.
   "settings": {
     "terminal.integrated.defaultProfile.linux": "zsh",
     "python.defaultInterpreterPath": "/usr/local/python/bin/python",
-    "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
     "python.formatting.provider": "black",
     "[python]": {
       "editor.codeActionsOnSave": {
         "source.organizeImports": true
       }
-    },
+    }
   },
+
   // Add the IDs of extensions you want installed when the container is created.
   "extensions": [
     "ms-python.python",
     "ms-python.vscode-pylance",
-    "eamodio.gitlens",
-    "vivaxy.vscode-conventional-commits"
+    "eamodio.gitlens"
   ],
+
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": "pip3 install --no-cache-dir -e .",
+
   // Runtime args.
   "runArgs": [
     "--name=deeprte_dev",
     "--gpus=all",
-    "--shm-size=1g",
+    "--shm-size=8g",
     "--security-opt",
     "seccomp=unconfined"
   ],
+
   // Volume mount data folder.
   "mounts": [
     "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
   ],
+
   // Keep container running after disconnect.
   "shutdownAction": "none"
 }
