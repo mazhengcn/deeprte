@@ -19,7 +19,6 @@ import os
 import pathlib
 
 from absl import app, flags, logging
-from jaxline import platform
 
 from deeprte.checkpoint import (
     restore_state_to_in_memory_checkpointer,
@@ -27,6 +26,7 @@ from deeprte.checkpoint import (
     setup_signals,
 )
 from deeprte.experiment import Experiment
+from deeprte.jaxline import platform
 
 FLAGS = flags.FLAGS
 
@@ -35,11 +35,16 @@ def main(experiment_class, argv):
 
     # Maybe restore a model.
     restore_path = FLAGS.config.restore_path
+    print(f"{restore_path}")
+    print(f"{FLAGS.config.experiment_kwargs.config.training.batch_size}")
+
     if restore_path:
         restore_state_to_in_memory_checkpointer(restore_path)
 
     # Maybe save a model.
     save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
+    print(f"{save_dir}")
+
     if FLAGS.config.one_off_evaluate:
         save_model_fn = lambda: None  # No need to save checkpoint in this case.
     else:

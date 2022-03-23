@@ -19,12 +19,12 @@ import itertools as it
 import time
 from unittest import mock
 
-from absl.testing import absltest
-from absl.testing import flagsaver
 import jax
 import jax.numpy as jnp
-from jaxline import utils
 import numpy as np
+from absl.testing import absltest, flagsaver
+
+from deeprte.jaxline import utils
 
 
 class PyPrefetchTest(absltest.TestCase):

@@ -18,11 +18,9 @@ import copy
 from unittest import mock
 
 from absl.testing import absltest
-from jaxline import base_config
-from jaxline import experiment
-from jaxline import train
 from ml_collections import config_dict
 
+from deeprte.jaxline import base_config, experiment, train
 
 _IMPROVEMENT_STEPS = [2, 5, 15, 27, 99]  # Arbitrary.
 _FITNESS_METRIC_KEY = "A_GOOD_METRIC"

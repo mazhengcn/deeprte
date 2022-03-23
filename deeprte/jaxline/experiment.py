@@ -23,13 +23,13 @@ import functools
 import time
 from typing import Dict, List, Mapping, Optional
 
-from absl import logging
-
 import jax
 import jax.numpy as jnp
-from jaxline import utils
-from ml_collections import config_dict
 import numpy as np
+from absl import logging
+from ml_collections import config_dict
+
+from deeprte.jaxline import utils
 
 
 class AbstractExperiment(abc.ABC):
