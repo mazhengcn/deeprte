@@ -27,7 +27,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from absl import flags, logging
-from jaxline import utils
+
+from deeprte.jaxline import utils
 
 FLAGS = flags.FLAGS
 

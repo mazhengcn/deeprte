@@ -17,10 +17,10 @@ import datetime
 import functools
 
 import ml_collections
-from jaxline import base_config
 from ml_collections import config_dict
 
 from deeprte import dataset
+from deeprte.jaxline import base_config
 from deeprte.model import rte
 from deeprte.model.config import model_config
 
@@ -51,7 +51,7 @@ def get_config() -> ml_collections.ConfigDict:
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 200
+    test_batch_size = 400
 
     # Datasetconfig.
     dataset_config = dict(
@@ -120,7 +120,5 @@ def get_config() -> ml_collections.ConfigDict:
     # Should be set in the shell scripts
     config.checkpoint_dir = ""
     config.restore_path = ""
-
-    config.lock()
 
     return config

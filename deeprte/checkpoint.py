@@ -22,10 +22,10 @@ import threading
 import dill
 import numpy as np
 from absl import flags, logging
-from jaxline import experiment
-from jaxline import utils as jl_utils
 
 from deeprte.experiment import Experiment
+from deeprte.jaxline import experiment
+from deeprte.jaxline import utils as jl_utils
 from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS

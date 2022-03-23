@@ -14,25 +14,18 @@
 # ==============================================================================
 """A Deepmind-specific platform for running Experiments with Jaxline."""
 
-from concurrent import futures
 import os
+from concurrent import futures
 from typing import Any, Mapping
-
-from absl import flags
-from absl import logging
 
 import chex
 import jax
-
-from jaxline import base_config
-from jaxline import train
-from jaxline import utils
-from ml_collections import config_dict
-from ml_collections import config_flags
 import numpy as np
-
 import tensorflow as tf
+from absl import flags, logging
+from ml_collections import config_dict, config_flags
 
+from deeprte.jaxline import base_config, train, utils
 
 # TODO(tomhennigan) Add support for ipdb and pudb.
 _CONFIG = config_flags.DEFINE_config_file(
