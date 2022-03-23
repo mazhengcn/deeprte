@@ -1,5 +1,6 @@
 # Project related files
 # .vscode/
+slurm/
 data/
 archive/
 # svgs/
