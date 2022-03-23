@@ -22,7 +22,7 @@ DATA_PATH=${1:-"./data/train/square_full_it.npz"}
 python run_deeprte.py \
     --config=deeprte/config.py \
     --config.experiment_kwargs.config.dataset.data_path=${DATA_PATH} \
-    --config.experiment_kwargs.config.training.batch_size="1"
+    --config.experiment_kwargs.config.training.batch_size="1" \
     --config.checkpoint_dir="./data/experiments/square_full_it_${TIMESTAMP%+*}" \
     --jaxline_mode="train_eval_multithreaded" \
     --alsologtostderr="true"
