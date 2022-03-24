@@ -14,7 +14,6 @@
 
   // Set *default* container specific settings.json values on container create.
   "settings": {
-    "terminal.integrated.defaultProfile.linux": "zsh",
     "python.defaultInterpreterPath": "/usr/local/python/bin/python",
     "python.formatting.provider": "black",
     "[python]": {
