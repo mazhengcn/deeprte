@@ -1,0 +1,8 @@
+{
+  "editor.defaultFormatter": "Trunk.io",
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  }
+}

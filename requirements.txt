@@ -17,8 +17,3 @@ git+https://github.com/deepmind/optax
 
 # Install ml_collections from github repo
 git+https://github.com/google/ml_collections
-
-# For development
-black
-isort
-flake8
