@@ -1,0 +1,6 @@
+printWidth: 100
+proseWrap: True 
+overrides:
+  - files: "settings.json"
+    options:
+      tabWidth: 4
