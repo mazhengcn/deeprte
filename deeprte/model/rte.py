@@ -54,17 +54,15 @@ def make_rte_operator(config: ml_collections.ConfigDict) -> SolutionV2:
         rv = jnp.concatenate([r, v])
         green_func_module = GreenFunctionNet(self.config.green_function)
 
-        sol = quad(
-            green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True
-        )(rv, sigma)
+        sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
+            rv, sigma
+        )
 
         return sol
 
     transformed_solution = hk.transform_with_state(forward_fn)
 
-    return SolutionV2(
-        init=transformed_solution.init, apply=transformed_solution.apply
-    )
+    return SolutionV2(init=transformed_solution.init, apply=transformed_solution.apply)
 
 
 class RTEOperator(Solution):
@@ -89,9 +87,9 @@ class RTEOperator(Solution):
         rv = jnp.concatenate([r, v])
         green_func_module = GreenFunctionNet(self.config.green_function)
 
-        sol = quad(
-            green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True
-        )(rv, sigma)
+        sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
+            rv, sigma
+        )
 
         return sol
 
@@ -126,9 +124,7 @@ class RTEOperator(Solution):
         psi_bc: FunctionInputs,
         quadratures: tuple[jnp.ndarray, jnp.ndarray],
     ) -> jnp.ndarray:
-        _apply = functools.partial(
-            self.apply, params, None, None, is_training=True
-        )
+        _apply = functools.partial(self.apply, params, None, None, is_training=True)
         _rho_fn = quad(_apply, quadratures, argnum=1)
         _rho_fn = vmap(
             vmap(_rho_fn, shard_size=128, argnums={0}),
@@ -178,9 +174,9 @@ class RTESupervised(Model):
         label_scale = jnp.mean(labels**2)
         # Compute relative mean squared error, this values will be summed and
         # finally divided by num_examples.
-        relative_mse = mean_squared_loss_fn(
-            predictions, labels, axis=-1
-        ) / jnp.mean(labels**2)
+        relative_mse = mean_squared_loss_fn(predictions, labels, axis=-1) / jnp.mean(
+            labels**2
+        )
 
         return {
             "mse": mse,
@@ -248,10 +244,8 @@ class RTEUnsupervised(Model):
         batched_boundary = self.boundary(sol_fn, *batch["boundary"])
 
         losses = {
-            "residual": self._regs["residual"]
-            * self._loss_fn(batched_residual, 0),
-            "boundary": self._regs["boundary"]
-            * self._loss_fn(batched_boundary, 0),
+            "residual": self._regs["residual"] * self._loss_fn(batched_residual, 0),
+            "boundary": self._regs["boundary"] * self._loss_fn(batched_boundary, 0),
         }
 
         loss = sum(jax.tree_flatten(losses)[0])

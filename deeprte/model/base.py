@@ -68,12 +68,7 @@ class Solution(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def apply(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jnp.ndarray,
-        *,
-        is_training: bool
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, *, is_training: bool
     ) -> jnp.ndarray:
         """Apply function of solution."""
 

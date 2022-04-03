@@ -22,9 +22,7 @@ import jax.numpy as jnp
 import numpy as np
 
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
-TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
-    0.87962566103423978, dtype=np.float32
-)
+TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(0.87962566103423978, dtype=np.float32)
 
 # TODO: Add residual connection and dropout function for future use.
 def apply_dropout(*, tensor, safe_key, rate, is_training, broadcast_dim=None):
@@ -173,13 +171,9 @@ class Linear(hk.Module):
         out_letters = "hijkl"[: self.num_output_dims]
 
         weight_shape = in_shape + self.output_shape
-        weights = hk.get_parameter(
-            "weights", weight_shape, inputs.dtype, weight_init
-        )
+        weights = hk.get_parameter("weights", weight_shape, inputs.dtype, weight_init)
 
-        equation = (
-            f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
-        )
+        equation = f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
 
         output = jnp.einsum(equation, inputs, weights, precision=self.precision)
 

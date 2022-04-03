@@ -58,8 +58,7 @@ def check_constraints(config):
 
     if config.train_checkpoint_all_hosts:
         if config.checkpoint_interval_type not in ["steps", None] or (
-            config.checkpoint_interval_type is None
-            and config.interval_type != "steps"
+            config.checkpoint_interval_type is None and config.interval_type != "steps"
         ):
             raise ValueError(
                 "Invalid interval type selected for the experiment. "

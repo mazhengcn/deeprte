@@ -32,9 +32,7 @@ flags.DEFINE_string("source_dir", None, "Directory of dataset to be converted.")
 
 flags.DEFINE_list("datafiles", None, "List of data file names to be converted.")
 
-flags.DEFINE_string(
-    "save_path", None, "Directory to save converted numpy dataset."
-)
+flags.DEFINE_string("save_path", None, "Directory to save converted numpy dataset.")
 
 
 class BoundaryPosition(enum.Enum):
@@ -224,9 +222,7 @@ def main(argv):
 
     converted_data = {"data": {}, "grid": grid}
     for k in data_dict.keys():
-        converted_data["data"][k] = np.concatenate(
-            [d[k] for d in data_dicts], axis=0
-        )
+        converted_data["data"][k] = np.concatenate([d[k] for d in data_dicts], axis=0)
 
     save_path = FLAGS.save_path
     # Save converted dataset

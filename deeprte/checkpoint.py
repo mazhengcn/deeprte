@@ -101,9 +101,7 @@ def save_state_from_in_memory_checkpointer(
             )
 
         # Saving directory
-        save_dir = (
-            save_path / checkpoint_name / _get_step_date_label(global_step)
-        )
+        save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)
 
         # Save params and states in a dill file
         python_state_path = save_dir / "checkpoint.dill"

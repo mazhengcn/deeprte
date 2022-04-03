@@ -81,9 +81,7 @@ class TrainTest(absltest.TestCase):
         config.training_steps = 100
         ckpt = DummyCheckpoint()
         writer = mock.Mock()
-        train.evaluate(
-            DummyExperiment, config, ckpt, writer, jaxline_mode="eval"
-        )
+        train.evaluate(DummyExperiment, config, ckpt, writer, jaxline_mode="eval")
 
         # The first step will always checkpoint.
         self.assertLen(ckpt._state_list, len(_IMPROVEMENT_STEPS) + 1)

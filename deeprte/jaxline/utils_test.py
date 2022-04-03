@@ -32,9 +32,7 @@ class PyPrefetchTest(absltest.TestCase):
         self.assertEqual(list(utils.py_prefetch(lambda: ())), [])
 
     def testBaseCase(self):
-        self.assertEqual(
-            list(utils.py_prefetch(lambda: range(100))), list(range(100))
-        )
+        self.assertEqual(list(utils.py_prefetch(lambda: range(100))), list(range(100)))
 
     def testBadFunction(self):
         def _bad_function():
@@ -68,9 +66,7 @@ class TreePsumTest(absltest.TestCase):
     def testEmpty(self):
         data = {"a": jnp.array([]), "b": jnp.array([])}
         with self.assertRaises(ZeroDivisionError):
-            jax.pmap(
-                lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i"
-            )(data)
+            jax.pmap(lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i")(data)
 
     def testSingleLeafTree(self):
         data = jnp.array([1])
@@ -82,16 +78,12 @@ class TreePsumTest(absltest.TestCase):
     def testNotNumpy(self):
         data = [1]
         with self.assertRaises(ValueError):
-            jax.pmap(
-                lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i"
-            )(data)
+            jax.pmap(lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i")(data)
 
     def testNumDevicesMismatch(self):
         data = jnp.array([1, 2])  # assumes 2 devices but we only have 1
         with self.assertRaises(ValueError):
-            jax.pmap(
-                lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i"
-            )(data)
+            jax.pmap(lambda x: utils.tree_psum(x, axis_name="i"), axis_name="i")(data)
 
     def testNoPmapWrapper(self):
         with self.assertRaises(NameError):  # axis_name will be undefined
@@ -100,9 +92,7 @@ class TreePsumTest(absltest.TestCase):
     def testAxisNameMismatch(self):
         data = jnp.array([1])
         with self.assertRaises(NameError):
-            jax.pmap(
-                lambda x: utils.tree_psum(x, axis_name="i"), axis_name="j"
-            )(data)
+            jax.pmap(lambda x: utils.tree_psum(x, axis_name="i"), axis_name="j")(data)
 
 
 class MakeAsyncTest(absltest.TestCase):
@@ -196,9 +186,7 @@ class TestBroadcast(absltest.TestCase):
 
     def test_bcast_local_devices_tree(self):
         num_devices = jax.local_device_count()
-        tree = utils.bcast_local_devices(
-            {"ones": jnp.ones([]), "zeros": jnp.zeros([])}
-        )
+        tree = utils.bcast_local_devices({"ones": jnp.ones([]), "zeros": jnp.zeros([])})
         self.assertEqual(
             tree,
             {
@@ -253,9 +241,7 @@ class TestSpecializeRngHostDevice(absltest.TestCase):
 
         rng = specialize_func(self.rng, host_id_devices)
 
-        self.assertEqual(
-            np.unique(rng, axis=0).shape[0], jax.local_device_count()
-        )
+        self.assertEqual(np.unique(rng, axis=0).shape[0], jax.local_device_count())
 
     def test_same_device(self):
         """Tests rngs are same across devices."""

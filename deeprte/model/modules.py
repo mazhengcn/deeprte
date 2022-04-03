@@ -79,14 +79,10 @@ class GreenFunctionNet(hk.Module):
         # Green's function inputs.
         inputs = jnp.concatenate([r, r_prime, coefficients])
 
-        inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(
-            inputs
-        )
+        inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(inputs)
 
         # MLP
-        outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(
-            inputs
-        )
+        outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(inputs)
 
         # Wrap with exponential function to keep it non-negative.
         outputs = jnp.exp(outputs)
@@ -97,16 +93,12 @@ class GreenFunctionNet(hk.Module):
 class CoefficientNet(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
-    def __init__(
-        self, config: ConfigDict, name: Optional[str] = "coefficient_net"
-    ):
+    def __init__(self, config: ConfigDict, name: Optional[str] = "coefficient_net"):
         super().__init__(name=name)
 
         self.config = config
 
-    def __call__(
-        self, r: jnp.ndarray, coefficient_fn: FunctionInputs
-    ) -> jnp.ndarray:
+    def __call__(self, r: jnp.ndarray, coefficient_fn: FunctionInputs) -> jnp.ndarray:
         """Compute coefficients of the equation as the inputs of Green's function.
 
         Args:
@@ -138,9 +130,9 @@ class CoefficientNet(hk.Module):
             attn_logits_per_example = attn_mod(qk)
             return attn_logits_per_example
 
-        attn_logits = vmap(
-            attn_logits_fn, argnums={1}, use_hk=True, out_axes=-1
-        )(r, frames_local)
+        attn_logits = vmap(attn_logits_fn, argnums={1}, use_hk=True, out_axes=-1)(
+            r, frames_local
+        )
 
         masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)
 
