@@ -4,7 +4,8 @@
 
 ### Download datasets
 
-First we need to copy datasets to our `/path/to/project_root` folder and currently the downloaded datasets are MATLAB `.mat` files. Run the following command:
+First we need to copy datasets to our `/path/to/project_root` folder and currently the downloaded
+datasets are MATLAB `.mat` files. Run the following command:
 
 - Default:
 
@@ -12,7 +13,9 @@ First we need to copy datasets to our `/path/to/project_root` folder and current
   ./download_datasets.sh
   ```
 
-  will download all datasets using `rsync` from directory `/cluster/home/xuzhiqin_02/rte_data/` in host `xuzhiqin_02@202.120.13.117` to `.data/matlab/` (if this dir exists, otherwise you need to create it).
+  will download all datasets using `rsync` from directory `/cluster/home/xuzhiqin_02/rte_data/` in
+  host `xuzhiqin_02@202.120.13.117` to `.data/matlab/` (if this dir exists, otherwise you need to
+  create it).
 
 - With custom arguments:
 
@@ -24,13 +27,15 @@ First we need to copy datasets to our `/path/to/project_root` folder and current
 
 ### MATLAB Datasets
 
-After previous step, you should have your MATLAB datasets in directory `<DOWNLOAD_DIR>`. By defaults, you should see the following datasets:
+After previous step, you should have your MATLAB datasets in directory `<DOWNLOAD_DIR>`. By
+defaults, you should see the following datasets:
 
 ```bash
 e1_L_delta_*.mat, e1_R_delta_*.mat, e1_B_delta_*.mat, e1_T_delta_*.mat
 ```
 
-which stands for 4 boundary positions (left, right, bottom, top) and other datasets. For each MATLAB dataset, it has the following keys and array shapes
+which stands for 4 boundary positions (left, right, bottom, top) and other datasets. For each MATLAB
+dataset, it has the following keys and array shapes
 
 | Key            | Array Shape     | Description                                          |
 | -------------- | --------------- | ---------------------------------------------------- |
@@ -46,7 +51,8 @@ which stands for 4 boundary positions (left, right, bottom, top) and other datas
 
 ### Convert datasets
 
-Then we need to convert/concatenate MATLAB datasets into one single `*.npz` dataset for training and testing:
+Then we need to convert/concatenate MATLAB datasets into one single `*.npz` dataset for training and
+testing:
 
 - Default:
 
@@ -68,13 +74,17 @@ Then we need to convert/concatenate MATLAB datasets into one single `*.npz` data
   ./convert_dataset.sh <SOURCE_DIR> <DATAFILES> <SAVE_PATH>
   ```
 
-  which will converte a list of datasets with names `DATAFILES` under directory `SOURCE_DIR` to `SAVE_PATH`.
+  which will converte a list of datasets with names `DATAFILES` under directory `SOURCE_DIR` to
+  `SAVE_PATH`.
 
-**Note:** all the arguments have default values, please check [`conver_dataset.sh`](./convert_dataset.sh) for details.
+**Note:** all the arguments have default values, please check
+[`conver_dataset.sh`](./convert_dataset.sh) for details.
 
 ### Numpy dataset
 
-The Numpy dataset will be used for training, testing and evaluating the DeepRTE model. Besides obtaining the dataset from MATLAB code, you can also provide it using any method as long as it is saved as the following flat Numpy dict:
+The Numpy dataset will be used for training, testing and evaluating the DeepRTE model. Besides
+obtaining the dataset from MATLAB code, you can also provide it using any method as long as it is
+saved as the following flat Numpy dict:
 
 | Key              | Array shape     | Description                                                   |
 | ---------------- | --------------- | ------------------------------------------------------------- |
@@ -89,7 +99,8 @@ The Numpy dataset will be used for training, testing and evaluating the DeepRTE 
 | `grid/rv_prime`  | `[I*J, M, 2d]`  | phase space coordinates by concat of `r` and `v`              |
 | `grid/w_prime`   | `[I*J, M]`      | weights (quadratures) associated with phase space coordinates |
 
-**Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of `"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
+**Note:** during training the flat numpy dict is loaded and converted to a nest dict consisting of
+`"data"` and `"grid"` as two subdicts and then be processed separately. Here is an example:
 
 ```bash
 {
@@ -108,10 +119,12 @@ The training task can be excuted by a simple command:
 
 which will do the following things:
 
-- Read train configuration from [`deeprte/config.py`](./deeprte/config.py) and model configuration from [`deeprte/model/config.py`](./deeprte/model/config.py).
+- Read train configuration from [`deeprte/config.py`](./deeprte/config.py) and model configuration
+  from [`deeprte/model/config.py`](./deeprte/model/config.py).
 - Load training dataset from `DATA_PATH`.
 - Run training and evaluation in multithread mode.
-- Save configs, checkpoints, model parameters, etc. into [`./data/experiments`](./data/experiments/)`/square_full_*_${TIMESTAMPS}`.
+- Save configs, checkpoints, model parameters, etc. into
+  [`./data/experiments`](./data/experiments/)`/square_full_*_${TIMESTAMPS}`.
 
 ## Run DeepRTE evaluation
 
@@ -123,9 +136,11 @@ The evaluation can be processed by the following command:
 
 which will do:
 
-- Read configs from [`deeprte/config.py`](./deeprte/config.py) and [`deeprte/model/config.py`](./deeprte/model/config.py).
+- Read configs from [`deeprte/config.py`](./deeprte/config.py) and
+  [`deeprte/model/config.py`](./deeprte/model/config.py).
 - Load model parameters from `RESTORE_PATH`.
 - Load evaluation dataset from `TEST_DATA_PATH`.
 - Save evaluation logs to `EVAL_CKPT_DIR`.
 
-**Note:** all the arguments have default values, please check [`run_eval.sh`](run_eval.sh) for reference.
+**Note:** all the arguments have default values, please check [`run_eval.sh`](run_eval.sh) for
+reference.
