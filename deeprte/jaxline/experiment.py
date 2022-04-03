@@ -163,9 +163,7 @@ class AbstractExperiment(abc.ABC):
         global_step_devices = np.broadcast_to(
             state.global_step, [jax.local_device_count()]
         )
-        host_id_devices = utils.host_id_devices_for_rng(
-            config.random_mode_train
-        )
+        host_id_devices = utils.host_id_devices_for_rng(config.random_mode_train)
         step_key = state.train_step_rng
 
         with utils.log_activity("training loop"):
@@ -204,10 +202,7 @@ class AbstractExperiment(abc.ABC):
             snapshot.
         """
         snapshot_state = {}
-        if (
-            not self.CHECKPOINT_ATTRS
-            and not self.NON_BROADCAST_CHECKPOINT_ATTRS
-        ):
+        if not self.CHECKPOINT_ATTRS and not self.NON_BROADCAST_CHECKPOINT_ATTRS:
             logging.warning(
                 "Your experiment's self.CHECKPOINT_ATTRS and "
                 "self.NON_BROADCAST_CHECKPOINT_ATTRS are empty. Your job will not "

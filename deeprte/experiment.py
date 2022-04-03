@@ -191,9 +191,7 @@ class Experiment(experiment.AbstractExperiment):
         # with different collocation points, stpes_per_epoch should be
         # multiplied by repeat.
         steps_per_epoch = (
-            c.training.num_train_examples
-            / c.training.batch_size
-            * c.training.repeat
+            c.training.num_train_examples / c.training.batch_size * c.training.repeat
         )
         total_steps = c.training.num_epochs * steps_per_epoch
 
@@ -202,9 +200,7 @@ class Experiment(experiment.AbstractExperiment):
             total_batch_size, steps_per_epoch, total_steps, c.optimizer
         )
         # Optimizer
-        self.optimizer = optimizers.make_optimizer(
-            c.optimizer, self._lr_schedule
-        )
+        self.optimizer = optimizers.make_optimizer(c.optimizer, self._lr_schedule)
 
         # Initialize net if no params available.
         if self._params is None:
@@ -226,9 +222,7 @@ class Experiment(experiment.AbstractExperiment):
 
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
-            logging.info(
-                f"Net parameters: {num_params // jax.local_device_count():d}"
-            )
+            logging.info(f"Net parameters: {num_params // jax.local_device_count():d}")
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
@@ -286,9 +280,7 @@ class Experiment(experiment.AbstractExperiment):
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
-        logging.info(
-            f"Running evaluation at global_step {global_step_value}..."
-        )
+        logging.info(f"Running evaluation at global_step {global_step_value}...")
 
         t_0 = time.time()
         # Run evaluation for an epoch
@@ -322,9 +314,7 @@ class Experiment(experiment.AbstractExperiment):
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
-                summed_metrics = jax.tree_multimap(
-                    jnp.add, summed_metrics, metrics
-                )
+                summed_metrics = jax.tree_multimap(jnp.add, summed_metrics, metrics)
 
         # Compute mean_metrics
         mean_metrics = jax.tree_map(lambda x: x / num_examples, summed_metrics)
@@ -333,9 +323,7 @@ class Experiment(experiment.AbstractExperiment):
         metrics = {}
         # Take sqrt if it is squared
         for k, v in mean_metrics.items():
-            metrics["eval_" + k] = (
-                jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
-            )
+            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
 
         return metrics
 
@@ -408,9 +396,7 @@ class Experiment(experiment.AbstractExperiment):
         # Create solution instance.
         solution_config = self.config.solution
         if not self.solution:
-            self.solution = solution_config.constructor(
-                **solution_config.kwargs
-            )
+            self.solution = solution_config.constructor(**solution_config.kwargs)
         else:
             raise ValueError("Solution instance is already initialized.")
 

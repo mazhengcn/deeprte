@@ -45,9 +45,7 @@ def _format_logs(prefix, results):
 
 def _log_outputs(step, scalar_values):
     # f_list for less verbosity; e.g., "4." instead of "array(4., dtype=float32)".
-    f_list = (
-        lambda x: x.tolist() if isinstance(x, (np.ndarray, jnp.ndarray)) else x
-    )
+    f_list = lambda x: x.tolist() if isinstance(x, (np.ndarray, jnp.ndarray)) else x
     _format_logs(f"global_step: {step:d}", jax.tree_map(f_list, scalar_values))
 
 
@@ -205,9 +203,7 @@ def evaluate(
     state.experiment_module = experiment
     state.train_step_rng = None
 
-    eval_rng = jnp.broadcast_to(
-        eval_rng, (jax.local_device_count(),) + eval_rng.shape
-    )
+    eval_rng = jnp.broadcast_to(eval_rng, (jax.local_device_count(),) + eval_rng.shape)
     host_id_devices = utils.host_id_devices_for_rng(config.random_mode_eval)
     eval_rng = jax.pmap(
         functools.partial(
@@ -220,9 +216,7 @@ def evaluate(
 
     if config.one_off_evaluate:
         checkpointer.restore("latest")
-        global_step_devices = utils.bcast_local_devices(
-            jnp.asarray(state.global_step)
-        )
+        global_step_devices = utils.bcast_local_devices(jnp.asarray(state.global_step))
         scalar_values = utils.evaluate_should_return_dict(experiment.evaluate)(
             global_step=global_step_devices, rng=eval_rng, writer=writer
         )
@@ -256,9 +250,7 @@ def evaluate(
 
             checkpointer.restore("latest")
 
-        global_step_devices = utils.bcast_local_devices(
-            jnp.asarray(state.global_step)
-        )
+        global_step_devices = utils.bcast_local_devices(jnp.asarray(state.global_step))
         scalar_values = utils.evaluate_should_return_dict(experiment.evaluate)(
             global_step=global_step_devices, rng=eval_rng, writer=writer
         )
@@ -274,9 +266,7 @@ def evaluate(
                     f"was not returned by the evaluate method. Got: "
                     f"{scalar_values.keys()}"
                 )
-            current_eval_metric_value = scalar_values[
-                config.best_model_eval_metric
-            ]
+            current_eval_metric_value = scalar_values[config.best_model_eval_metric]
             old_eval_metric_value = best_state.best_eval_metric_value
             if eval_metric_is_better_op(
                 current_eval_metric_value, old_eval_metric_value

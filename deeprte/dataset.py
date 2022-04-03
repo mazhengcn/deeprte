@@ -164,9 +164,7 @@ def sample_from_dataset(
             return idx
 
     else:
-        raise ValueError(
-            f"Sample from {sampler} distribution is not implemented."
-        )
+        raise ValueError(f"Sample from {sampler} distribution is not implemented.")
 
     # generate random sample indices
     indices_ds = tf.data.Dataset.range(1).repeat()
@@ -178,9 +176,7 @@ def sample_from_dataset(
 
 def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
 
-    ds = tf.data.Dataset.zip(
-        (data, tf.data.Dataset.from_tensors(grid).repeat())
-    )
+    ds = tf.data.Dataset.zip((data, tf.data.Dataset.from_tensors(grid).repeat()))
 
     def _construct_batch(data, grid):
 

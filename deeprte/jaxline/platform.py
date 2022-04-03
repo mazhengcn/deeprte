@@ -38,10 +38,7 @@ _CONFIG = config_flags.DEFINE_config_file(
 _JAXLINE_MODE = flags.DEFINE_string(
     name="jaxline_mode",
     default="train",
-    help=(
-        "Execution mode. "
-        " `train` will run training, `eval` will run evaluation."
-    ),
+    help=("Execution mode. " " `train` will run training, `eval` will run evaluation."),
 )
 _JAXLINE_TPU_DRIVER = flags.DEFINE_string(
     name="jaxline_tpu_driver",
@@ -129,9 +126,7 @@ def main(experiment_class, argv, checkpointer_factory=create_checkpointer):
         # Run evaluation.
         checkpointer = checkpointer_factory(config, jaxline_mode)
         writer = create_writer(config, jaxline_mode)
-        train.evaluate(
-            experiment_class, config, checkpointer, writer, jaxline_mode
-        )
+        train.evaluate(experiment_class, config, checkpointer, writer, jaxline_mode)
     elif jaxline_mode == "train_eval_multithreaded":
         pool = futures.ThreadPoolExecutor(1)
 

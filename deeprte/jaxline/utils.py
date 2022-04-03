@@ -24,16 +24,7 @@ import queue
 import sys
 import threading
 from concurrent import futures
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    Mapping,
-    Optional,
-    TypeVar,
-)
+from typing import Any, Callable, Dict, Generator, Iterable, Mapping, Optional, TypeVar
 
 import chex
 import jax
@@ -289,9 +280,7 @@ def make_async(thread_name_prefix: str = ""):
                 return wrapped(*args, **kwargs)
             except Exception as e:
                 errors.append(sys.exc_info())
-                logging.exception(
-                    "Error in producer thread for %s", thread_name_prefix
-                )
+                logging.exception("Error in producer thread for %s", thread_name_prefix)
                 raise e
 
         if errors:
@@ -462,9 +451,7 @@ class PeriodicAction:
         if self._interval_type == "secs":
             return t - self._prev_time >= self._interval
         else:
-            assert (
-                self._interval_type == "steps"
-            )  # error should've be caught in init
+            assert self._interval_type == "steps"  # error should've be caught in init
             return step % self._interval == 0
 
     def update_time(self, t: float, step: int):
@@ -493,9 +480,7 @@ class PeriodicAction:
         """
         if self._apply_condition(t, step):
             steps_per_sec = (step - self._prev_step) / (t - self._prev_time)
-            self._apply_fn_future = self._apply_fn(
-                step, steps_per_sec, scalar_outputs
-            )
+            self._apply_fn_future = self._apply_fn(step, steps_per_sec, scalar_outputs)
             self.update_time(t, step)
         elif self.log_all_data:
             # Log data for dumping at next interval.
@@ -550,9 +535,7 @@ def evaluate_should_return_dict(f: F) -> F:
     def evaluate_with_warning(*args, **kwargs):
         evaluate_out = f(*args, **kwargs)
         if evaluate_out is None:
-            logging.log_first_n(
-                logging.WARNING, none_return_is_deprecated_msg, 1
-            )
+            logging.log_first_n(logging.WARNING, none_return_is_deprecated_msg, 1)
             return {}
         return evaluate_out
 
@@ -598,9 +581,7 @@ class InMemoryCheckpointer:
             new_series = CheckpointNT(active, [])
             GLOBAL_CHECKPOINT_DICT[ckpt_series] = new_series
         if not hasattr(GLOBAL_CHECKPOINT_DICT[ckpt_series].active, "state"):
-            GLOBAL_CHECKPOINT_DICT[
-                ckpt_series
-            ].active.state = config_dict.ConfigDict()
+            GLOBAL_CHECKPOINT_DICT[ckpt_series].active.state = config_dict.ConfigDict()
         return GLOBAL_CHECKPOINT_DICT[ckpt_series].active.state
 
     def save(self, ckpt_series: str) -> None:
@@ -618,9 +599,9 @@ class InMemoryCheckpointer:
 
     def can_be_restored(self, ckpt_series: str) -> bool:
         """Returns whether or not a given checkpoint series can be restored."""
-        return (
-            ckpt_series in GLOBAL_CHECKPOINT_DICT
-        ) and GLOBAL_CHECKPOINT_DICT[ckpt_series].history
+        return (ckpt_series in GLOBAL_CHECKPOINT_DICT) and GLOBAL_CHECKPOINT_DICT[
+            ckpt_series
+        ].history
 
     def restore(self, ckpt_series: str) -> None:
         """Restores the checkpoint."""
