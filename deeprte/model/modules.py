@@ -22,7 +22,7 @@ import jax.numpy as jnp
 from ml_collections import ConfigDict
 
 from deeprte.model.mapping import vmap
-from deeprte.model.networks import MLP, Linear
+from deeprte.model.networks import MLP
 
 
 class FunctionInputs(NamedTuple):

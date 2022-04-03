@@ -22,4 +22,4 @@ SERVER_URL=${1:-"xuzhiqin_02@202.120.13.117"}
 REMOTE_DATA_DIR=${2:-"/cluster/home/xuzhiqin_02/rte_data/"}
 DOWNLOAD_DIR=${3:-"data/matlab/"}
 
-rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" ${DOWNLOAD_DIR}
+rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" "${DOWNLOAD_DIR}"

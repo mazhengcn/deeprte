@@ -52,7 +52,7 @@ def make_rte_operator(config: ml_collections.ConfigDict) -> SolutionV2:
             Solution outputs.
         """
         rv = jnp.concatenate([r, v])
-        green_func_module = GreenFunctionNet(self.config.green_function)
+        green_func_module = GreenFunctionNet(config.green_function)
 
         sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
             rv, sigma
