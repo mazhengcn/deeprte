@@ -36,7 +36,7 @@ Scalars = Mapping[str, jnp.ndarray]
 def _format_logs(prefix, results):
     # f_list for less verbosity; e.g., "4." instead of
     # "array(4., dtype=float32)".
-    logging_str = f" - ".join(
+    logging_str = " - ".join(
         [
             f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())
@@ -143,7 +143,7 @@ class Experiment(experiment.AbstractExperiment):
 
         # Grab the learning rate to log before performing the step.
         learning_rate = self._lr_schedule(global_step)
-        # scalars["learning_rate"] = learning_rate
+        scalars["learning_rate"] = learning_rate
 
         # Update params
         updates, opt_state = self.optimizer.update(grads, opt_state, params)

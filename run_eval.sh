@@ -16,15 +16,15 @@ set -e
 
 export CUDA_VISIBLE_DEVICES="0"
 
-RESTORE_PATH=${1:-"./data/experiments/square_full_1_2022-02-09T00:04:32/models/latest/step_500000_2022-02-10T08:51:07"}
+RESTORE_PATH=${1:-"./ckpts/square_full_1_2022-02-09T00:04:32/models/latest/step_500000_2022-02-10T08:51:07"}
 TEST_DATA_PATH=${2:-"./data/train/square_full_2.npz"}
-EVAL_CKPT_DIR=${3:-"./data/experiments/eval_ckpts"}
+EVAL_CKPT_DIR=${3:-"./ckpts/eval_ckpts"}
 
 python run_deeprte.py \
-    --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${TEST_DATA_PATH} \
-    --config.experiment_kwargs.config.evaluation.batch_size="10" \
-    --config.checkpoint_dir=${EVAL_CKPT_DIR} \
-    --config.restore_path=${RESTORE_PATH} \
-    --config.one_off_evaluate="true" \
-    --jaxline_mode="eval"
+	--config=deeprte/config.py \
+	--config.experiment_kwargs.config.dataset.data_path="${TEST_DATA_PATH}" \
+	--config.experiment_kwargs.config.evaluation.batch_size="10" \
+	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
+	--config.restore_path="${RESTORE_PATH}" \
+	--config.one_off_evaluate="true" \
+	--jaxline_mode="eval"
