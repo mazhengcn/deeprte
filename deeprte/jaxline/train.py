@@ -34,7 +34,7 @@ FLAGS = flags.FLAGS
 
 
 def _format_logs(prefix, results):
-    logging_str = f" - ".join(
+    logging_str = " - ".join(
         [
             f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())

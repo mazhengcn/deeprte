@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"Training and evaluation config."
 
 import datetime
 import functools
@@ -28,6 +29,7 @@ N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
 
 def get_steps_from_epochs(batch_size, num_epochs, repeat=1):
+    """Get global steps from given epoch."""
     return max(int(repeat * num_epochs * N_TRAIN_EXAMPLES // batch_size), 1)
 
 
