@@ -54,15 +54,13 @@ def _apply_excluded(func, excluded, args):
 def _maybe_slice(array, i, slice_size, axis):
     if axis is PROXY:
         return array
-    else:
-        return jax.lax.dynamic_slice_in_dim(array, i, slice_size=slice_size, axis=axis)
+    return jax.lax.dynamic_slice_in_dim(array, i, slice_size=slice_size, axis=axis)
 
 
 def _maybe_get_size(array, axis):
     if axis == PROXY:
         return -1
-    else:
-        return array.shape[axis]
+    return array.shape[axis]
 
 
 def _expand_axes(axes, values, name="sharded_apply"):

@@ -25,7 +25,7 @@ from ml_collections import ConfigDict
 TemplateFn = Callable[..., Any]
 
 
-class Model(object, metaclass=abc.ABCMeta):
+class Model(abc.ABC):
     """Container class for the model that describes the equations, etc.
     At least the `self.loss` method should be implemented.
     """
@@ -48,7 +48,7 @@ class Model(object, metaclass=abc.ABCMeta):
         pass
 
 
-class Solution(object, metaclass=abc.ABCMeta):
+class Solution(abc.ABC):
     """Solution container used to create Haiku transformed pure function."""
 
     def __init__(
@@ -77,7 +77,7 @@ class Solution(object, metaclass=abc.ABCMeta):
         return self._init
 
 
-class MultiSolutions(object, metaclass=abc.ABCMeta):
+class MultiSolutions(abc.ABC):
     """Multi-Solutions container used to create Haiku transformed
     pure functions.
     """
