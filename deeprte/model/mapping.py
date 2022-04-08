@@ -136,7 +136,7 @@ def sharded_map(
 
 
 def sharded_apply(
-    fun: Callable[..., PYTREE_JAX_ARRAY],  # pylint: disable=g-bare-generic
+    fun: Callable[..., PYTREE_JAX_ARRAY],
     shard_size: int | None = 1,
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
@@ -184,12 +184,12 @@ def sharded_apply(
     if shard_size is None:
         return fun
 
-    @jax.util.wraps(fun, docstr=docstr)
+    @jax.util.wraps(fun, docstr=docstr)  # pylint: disable=no-value-for-parameter
     def mapped_fn(*args):
         # Expand in axes and Determine Loop range
         in_axes_ = _expand_axes(in_axes, args)
 
-        in_sizes = jax.tree_multimap(_maybe_get_size, args, in_axes_)
+        in_sizes = jax.tree_map(_maybe_get_size, args, in_axes_)
         flat_sizes = jax.tree_flatten(in_sizes)[0]
         in_size = max(flat_sizes)
         assert all(i in {in_size, -1} for i in flat_sizes)
@@ -200,7 +200,7 @@ def sharded_apply(
         last_shard_size = shard_size if last_shard_size == 0 else last_shard_size
 
         def apply_fun_to_slice(slice_start, slice_size):
-            input_slice = jax.tree_multimap(
+            input_slice = jax.tree_map(
                 lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis),
                 args,
                 in_axes_,
@@ -227,7 +227,7 @@ def sharded_apply(
                     + shard_shape[axis + 1 :]
                 )
 
-            out_shapes = jax.tree_multimap(
+            out_shapes = jax.tree_map(
                 make_output_shape, out_axes_, shard_shapes, out_shapes
             )
 
@@ -239,7 +239,7 @@ def sharded_apply(
         def compute_shard(outputs, slice_start, slice_size):
             slice_out = apply_fun_to_slice(slice_start, slice_size)
             update_slice = partial(dynamic_update_slice_in_dim, i=slice_start)
-            return jax.tree_multimap(update_slice, outputs, slice_out, out_axes_)
+            return jax.tree_map(update_slice, outputs, slice_out, out_axes_)
 
         def scan_iteration(outputs, i):
             new_outputs = compute_shard(outputs, i, shard_size)
@@ -250,7 +250,7 @@ def sharded_apply(
         def allocate_buffer(dtype, shape):
             return jnp.zeros(shape, dtype=dtype)
 
-        outputs = jax.tree_multimap(allocate_buffer, out_dtypes, out_shapes)
+        outputs = jax.tree_map(allocate_buffer, out_dtypes, out_shapes)
 
         if slice_starts.shape[0] > 0:
             outputs, _ = scan_(scan_iteration, outputs, slice_starts)
@@ -274,8 +274,7 @@ def inference_subbatch(
     output_subbatch_dim: Optional[int] = None,
 ) -> PYTREE_JAX_ARRAY:
     """Run through subbatches (like batch apply but with split and concat)."""
-    assert len(batched_args) > 0  # pylint: disable=g-explicit-length-test
-
+    assert len(batched_args) > 0
     if not low_memory:
         args = list(batched_args) + list(nonbatched_args)
         return module(*args)

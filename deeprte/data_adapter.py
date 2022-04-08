@@ -132,6 +132,7 @@ def mat_to_np_dict(
     Returns:
         A nested dict containing numpy arrays. {"data": {}, "grid": {}}
     """
+    # pylint: disable=invalid-name
     # Load reference solutions and sigmas
     phi = mat_data["list_Phi"]  # [B, I, J]
     psi = np.swapaxes(mat_data["list_Psi"], 1, -1)  # [B, I, J, M]
@@ -146,7 +147,7 @@ def mat_to_np_dict(
     }
 
     psi_bc_list = []
-    for key in BOUNDARY_KEYS.keys():
+    for key in BOUNDARY_KEYS:
         psi_bc_list.append(np.swapaxes(mat_data[key], -1, -2).copy())
 
     data_dict.update({"psi_bc": np.concatenate(psi_bc_list, axis=1)})
@@ -204,7 +205,7 @@ def main(argv):
 
         if data_path.suffix == ".mat":
             data = sio.loadmat(data_path)
-            for k, v in data.items():
+            for k, v in data.items():  # pylint: disable=invalid-name
                 if isinstance(v, np.ndarray) and v.ndim > 1:
                     data[k] = np.moveaxis(v, -1, 0).astype(np.float32)
         elif data_path.suffix == ".npy":
@@ -221,7 +222,7 @@ def main(argv):
         data_dicts.append(data_dict)
 
     converted_data = {"data": {}, "grid": grid}
-    for k in data_dict.keys():
+    for k in data_dict:
         converted_data["data"][k] = np.concatenate([d[k] for d in data_dicts], axis=0)
 
     save_path = FLAGS.save_path

@@ -52,7 +52,7 @@ def dropout_wrapper(
     if output_act is None:
         output_act = input_act
 
-    gc = global_config
+    gc = global_config  # pylint: disable=invalid-name
     residual = module(input_act, mask, is_training=is_training, **kwargs)
     dropout_rate = 0.0 if gc.deterministic else module.config.dropout_rate
 

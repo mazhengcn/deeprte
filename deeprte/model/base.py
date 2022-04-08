@@ -22,6 +22,8 @@ import haiku as hk
 import jax.numpy as jnp
 from ml_collections import ConfigDict
 
+from deeprte import dataset
+
 TemplateFn = Callable[..., Any]
 
 
@@ -30,21 +32,22 @@ class Model(abc.ABC):
     At least the `self.loss` method should be implemented.
     """
 
-    def __init__(self, name: Optional[str]):
+    def __init__(self, name: Optional[str] = "model"):
+        self._name = name
         self._loss_fn = None
         self._regs = None
 
     @abc.abstractmethod
     def loss(
         self,
-        fun,
+        func,
         batch: Mapping[str, jnp.ndarray],
         rng: Optional[jnp.ndarray] = None,
     ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
         pass
 
     @abc.abstractmethod
-    def metrics(self, op_fn: Callable[..., Any], inputs):
+    def metrics(self, func: Callable[..., Any], batch: dataset.Batch):
         pass
 
 
@@ -63,7 +66,7 @@ class Solution(abc.ABC):
         self._apply = hk.transform_with_state(self.forward_fn).apply
 
     @abc.abstractmethod
-    def forward_fn(self) -> jnp.ndarray:
+    def forward_fn(self, *args) -> jnp.ndarray:
         """The forward pass of solution."""
 
     @abc.abstractmethod
