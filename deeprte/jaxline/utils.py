@@ -14,6 +14,8 @@
 # ==============================================================================
 """Utility functions for Jaxline experiments."""
 
+# pylint: disable=invalid-name
+
 import collections
 import contextlib
 import copy

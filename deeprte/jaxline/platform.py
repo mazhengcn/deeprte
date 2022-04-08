@@ -72,7 +72,7 @@ class TensorBoardLogger:
         """Writes scalars to stdout."""
         global_step = int(global_step)
         with self._writer.as_default():
-            for k, v in scalars.items():
+            for k, v in scalars.items():  # pylint: disable=invalid-name
                 tf.summary.scalar(k, v, step=global_step)
         self._writer.flush()
 
@@ -80,6 +80,7 @@ class TensorBoardLogger:
         """Writes images to writers that support it."""
         global_step = int(global_step)
         with self._writer.as_default():
+            # pylint: disable=invalid-name
             for k, v in images.items():
                 # Tensorboard only accepts [B, H, W, C] but we support [H, W] also.
                 if v.ndim == 2:

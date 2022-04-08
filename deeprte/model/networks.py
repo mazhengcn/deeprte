@@ -24,7 +24,7 @@ import numpy as np
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
 TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(0.87962566103423978, dtype=np.float32)
 
-# TODO: Add residual connection and dropout function for future use.
+# TODO(dropout): Add residual connection and dropout function for future use.
 def apply_dropout(*, tensor, safe_key, rate, is_training, broadcast_dim=None):
     """Applies dropout to a tensor."""
     if is_training and rate != 0.0:

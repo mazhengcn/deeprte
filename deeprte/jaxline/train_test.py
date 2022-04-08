@@ -36,9 +36,9 @@ class DummyExperiment(experiment.AbstractExperiment):
 
     def step(self, **kwargs):
         """Only needed for API matching."""
-        pass
+        pass  # pylint: disable=unnecessary-pass
 
-    def evaluate(self, *args, **kwargs):
+    def evaluate(self, *args, **kwargs):  # pylint: disable=unused-argument
         if self.evaluate_counter in _IMPROVEMENT_STEPS:
             self.fitness_metric += 1
         self.evaluate_counter += 1
@@ -84,6 +84,7 @@ class TrainTest(absltest.TestCase):
         train.evaluate(DummyExperiment, config, ckpt, writer, jaxline_mode="eval")
 
         # The first step will always checkpoint.
+        # pylint: disable=protected-access
         self.assertLen(ckpt._state_list, len(_IMPROVEMENT_STEPS) + 1)
         checkpointed_states = [s.global_step for s in ckpt._state_list]
         self.assertEqual(checkpointed_states, [0] + _IMPROVEMENT_STEPS)

@@ -32,6 +32,7 @@ def validate_keys(base_cfg, config, base_filename="base_config.py"):
 
     for key in base_cfg.keys():
         if key not in config:
+            # pylint: disable=consider-using-f-string
             raise ValueError(
                 "Key {!r} missing from config. This config is required "
                 "to have keys: {}. See {} for details.".format(
