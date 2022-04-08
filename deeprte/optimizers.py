@@ -19,7 +19,9 @@ import optax
 BASE_BATCH_SIZE = 10
 
 
-def _get_batch_scaled_lr(total_batch_size, lr, scale_by_batch=True):
+def _get_batch_scaled_lr(
+    total_batch_size, lr, scale_by_batch=True
+):  # pylint: disable=invalid-name
     # This is the linear scaling rule in Section 5.1 of
     # https://arxiv.org/pdf/1706.02677.pdf.
 

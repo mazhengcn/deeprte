@@ -51,9 +51,10 @@ class GreenFunctionNet(hk.Module):
 
         self.config = config
 
+    # pylint: disable=invalid-name
     def __call__(
         self,
-        r: jnp.ndarray,
+        r: jnp.ndarray,  # pylint=disable-invalid-name
         r_prime: jnp.ndarray,
         coefficient_fn: FunctionInputs,
     ) -> jnp.ndarray:
@@ -98,6 +99,7 @@ class CoefficientNet(hk.Module):
 
         self.config = config
 
+    # pylint: disable=invalid-name
     def __call__(self, r: jnp.ndarray, coefficient_fn: FunctionInputs) -> jnp.ndarray:
         """Compute coefficients of the equation as the inputs of Green's function.
 

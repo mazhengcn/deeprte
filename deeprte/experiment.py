@@ -48,6 +48,8 @@ def _format_logs(prefix, results):
 class Experiment(experiment.AbstractExperiment):
     """RTE solver."""
 
+    # pylint: disable=attribute-defined-outside-init
+
     # A map from object properties that will be checkpointed to their name
     # in a checkpoint. Currently we assume that these are all sharded
     # device arrays.
@@ -94,7 +96,7 @@ class Experiment(experiment.AbstractExperiment):
     #  \__|_|  \__,_|_|_| |_|
     #
 
-    def step(
+    def step(  # pylint: disable=arguments-differ
         self,
         global_step: jnp.ndarray,
         rng: jnp.ndarray,
@@ -177,6 +179,7 @@ class Experiment(experiment.AbstractExperiment):
 
     def _initialize_training(self):
         # Less verbose
+        # pylint: disable=invalid-name
         c = self.config
 
         # Performs prefetching of elements from an iterable in a separate thread.
@@ -273,7 +276,9 @@ class Experiment(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(self, global_step, rng: jnp.ndarray, **unused_args) -> Scalars:
+    def evaluate(  # pylint: disable=arguments-differ
+        self, global_step, rng: jnp.ndarray, **unused_args
+    ) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
@@ -314,7 +319,7 @@ class Experiment(experiment.AbstractExperiment):
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
-                summed_metrics = jax.tree_multimap(jnp.add, summed_metrics, metrics)
+                summed_metrics = jax.tree_map(jnp.add, summed_metrics, metrics)
 
         # Compute mean_metrics
         mean_metrics = jax.tree_map(lambda x: x / num_examples, summed_metrics)
@@ -322,7 +327,7 @@ class Experiment(experiment.AbstractExperiment):
         # Eval metrics dict
         metrics = {}
         # Take sqrt if it is squared
-        for k, v in mean_metrics.items():
+        for k, v in mean_metrics.items():  # pylint: disable=invalid-name
             metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
 
         return metrics
@@ -432,7 +437,7 @@ class Experiment(experiment.AbstractExperiment):
     def _load_dummy_data(self) -> tuple[jnp.ndarray]:
         """Load dummy data for initializing network parameters."""
 
-        ds = self._load_data(
+        ds = self._load_data(  # pylint: disable=invalid-name
             split=dataset.Split.TRAIN_AND_VALID,
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
