@@ -137,7 +137,7 @@ def train(
                 ),
             )
 
-    for pa in periodic_actions:
+    for pa in periodic_actions:  # pylint: disable=invalid-name
         pa.update_time(time.time(), state.global_step)
 
     experiment.train_loop(config, state, periodic_actions, writer)
@@ -147,7 +147,7 @@ def train(
             checkpointer.save("latest")
 
     # Join all async periodic actions that are unfinished.
-    for pa in periodic_actions:
+    for pa in periodic_actions:  # pylint: disable=invalid-name
         pa.wait_to_finish()
 
     # We occasionally see errors when the final checkpoint is being written if

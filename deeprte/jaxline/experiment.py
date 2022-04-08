@@ -177,7 +177,7 @@ class AbstractExperiment(abc.ABC):
                         writer=writer,
                     )
 
-                    t = time.time()
+                    t = time.time()  # pylint: disable=invalid-name
                     # Update state's (scalar) global step (for checkpointing).
                     # global_step_devices will be back in sync with this after the call
                     # to next_device_state below.
