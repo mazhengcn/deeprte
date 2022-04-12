@@ -1,5 +1,4 @@
 {
-    "python.linting.flake8Enabled": true,
     "[python]": {
         "editor.codeActionsOnSave": {
             "source.organizeImports": true

@@ -38,5 +38,5 @@
         "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
     ],
     // Keep container running after disconnect.
-    // "shutdownAction": "none"
+    "shutdownAction": "none"
 }
