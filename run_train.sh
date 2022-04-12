@@ -14,7 +14,7 @@
 # limitations under the License.
 set -e
 
-# export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="0"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 DATA_PATH=${1:-"./data/train/square_full_it.npz"}
@@ -22,7 +22,8 @@ DATA_PATH=${1:-"./data/train/square_full_it.npz"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.data_path="${DATA_PATH}" \
-	--config.experiment_kwargs.config.training.batch_size="8" \
+	--config.experiment_kwargs.config.training.batch_size="2" \
+	--config.experiment_kwargs.config.evaluation.batch_size="40" \
 	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
 	--jaxline_mode="train_eval_multithreaded" \
 	--alsologtostderr="true"

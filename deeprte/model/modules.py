@@ -51,10 +51,9 @@ class GreenFunctionNet(hk.Module):
 
         self.config = config
 
-    # pylint: disable=invalid-name
     def __call__(
         self,
-        r: jnp.ndarray,  # pylint=disable-invalid-name
+        r: jnp.ndarray,  # pylint:disable=invalid-name
         r_prime: jnp.ndarray,
         coefficient_fn: FunctionInputs,
     ) -> jnp.ndarray:
@@ -72,7 +71,7 @@ class GreenFunctionNet(hk.Module):
             Green's function at r, r_prime.
         """
 
-        c = self.config
+        c = self.config  # pylint: disable=invalid-name
 
         # Get nn output of coefficient net.
         coefficients = CoefficientNet(c.coefficient_net)(r, coefficient_fn)
@@ -80,7 +79,7 @@ class GreenFunctionNet(hk.Module):
         # Green's function inputs.
         inputs = jnp.concatenate([r, r_prime, coefficients])
 
-        inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(inputs)
+        # inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(inputs)
 
         # MLP
         outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(inputs)
@@ -114,6 +113,7 @@ class CoefficientNet(hk.Module):
             Shape (num_coefficients,) or ().
         """
         c = self.config
+
         coeff_positions, coeff_values = coefficient_fn.x, coefficient_fn.f
 
         x, v = r[:2], r[2:]
