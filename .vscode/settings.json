@@ -6,4 +6,7 @@
         },
         "editor.defaultFormatter": "ms-python.black-formatter",
     },
+    "conventionalCommits.scopes": [
+        "dev"
+    ],
 }
