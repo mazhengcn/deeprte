@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Dataset pipline."""
+
+# pylint: disable=invalid-name
 
 from __future__ import annotations
 

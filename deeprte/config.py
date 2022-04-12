@@ -90,11 +90,17 @@ def get_config() -> ml_collections.ConfigDict:
                 ),
                 optimizer=dict(
                     base_lr=1e-3,
-                    scale_by_batch=False,
+                    scale_by_batch=True,
                     schedule_type="constant",
                     exp_decay_kwargs=dict(
                         transition_steps=steps_from_epochs(500),
                         decay_rate=0.96,
+                    ),
+                    cosine_decay_kwargs=dict(
+                        warmup_epochs=None,
+                        init_value=None,
+                        end_value=None,
+                        warmup_steps=None,
                     ),
                     optimizer="adam",
                     adam_kwargs={},
