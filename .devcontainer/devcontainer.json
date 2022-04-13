@@ -3,6 +3,7 @@
 {
     // Dev container's name.
     "name": "DeepRTE Dev Container",
+
     // Dockerfile and build args.
     "build": {
         "context": "..",
@@ -11,32 +12,35 @@
             "VARIANT": "3.10-11.6"
         }
     },
+    
+    // Set timezone.
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
     },
-    // Use prebuilt docker image.
-    // "image": "zhengma/ai-toolkit-jax:devel",
+
     // Set *default* container specific settings.json values on container create.
     "settings": {
         "python.defaultInterpreterPath": "/usr/local/python/bin/python"
     },
+
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
     ],
+
     // Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "pip3 install --no-cache-dir -e .",
+    "postCreateCommand": "python -m pip install --no-cache-dir -e .",
+
     // Runtime args.
     "runArgs": [
         "--name=deeprte_dev",
         "--gpus=all",
         "--shm-size=1g"
     ],
+
     // Volume mount data folder.
     "mounts": [
         "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
     ],
-    // Keep container running after disconnect.
-    "shutdownAction": "none"
 }
