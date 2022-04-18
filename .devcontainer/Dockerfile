@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG VARIANT="py310-cu116"
 FROM zhengma/jax:${VARIANT}
 
