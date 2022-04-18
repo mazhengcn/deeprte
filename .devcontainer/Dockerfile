@@ -1,6 +1,7 @@
 ARG VARIANT="py310-cu116"
 FROM zhengma/jax:${VARIANT}
 
+# Install some develop tools.
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends git wget screen \
     && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
