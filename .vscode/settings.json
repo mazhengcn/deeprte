@@ -1,9 +1,14 @@
 {
     "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
         },
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "isort.args": [
+            "--profile",
+            "black"
+        ]
     },
     "conventionalCommits.scopes": [
         "dev"
