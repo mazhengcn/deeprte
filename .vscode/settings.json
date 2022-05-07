@@ -6,7 +6,5 @@
             "source.organizeImports": true
         },
     },
-    "conventionalCommits.scopes": [
-        "dev"
-    ],
+    "python.analysis.typeCheckingMode": "basic"
 }

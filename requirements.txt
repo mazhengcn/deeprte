@@ -1,8 +1,9 @@
+-f https://storage.googleapis.com/jax-releases/jax_releases.html
 absl-py
 ml-collections
 numpy
-jax[cuda]>=0.3.7
+jax[cuda]>=0.3.10
 dm-haiku
 optax
 tensorflow_datasets
-tensorflow-cpu>=2.8.0
+tensorflow-cpu>=2.8

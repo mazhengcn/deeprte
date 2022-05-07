@@ -132,9 +132,9 @@ class CoefficientNet(hk.Module):
             attn_logits_per_example = attn_mod(qk)
             return attn_logits_per_example
 
-        attn_logits = vmap(attn_logits_fn, argnums={1}, use_hk=True, out_axes=-1)(
-            r, frames_local
-        )
+        attn_logits = vmap(
+            attn_logits_fn, argnums=frozenset([1]), use_hk=True, out_axes=-1
+        )(r, frames_local)
 
         masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)
 
