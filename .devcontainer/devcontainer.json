@@ -8,35 +8,30 @@
     // Add common dev tools.
     "features": {
         "common": {
-            "username": "automatic",
-            "uid": "automatic",
-            "gid": "automatic",
-            "installZsh": true,
-            "installOhMyZsh": true,
-            "upgradePackages": true,
-            "nonFreePackages": false
+            "username": "deeprte"
         }
     },
 
     // Set timezone.
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
+    "remoteEnv": {"TZ": "Asia/Shanghai"},
 
-    // Set *default* container specific settings.json values on container create.
-    "settings": {
-        "terminal.integrated.defaultProfile.linux": "zsh",
-        "python.defaultInterpreterPath": "/usr/local/bin/python"
+    "customizations": {
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                "python.defaultInterpreterPath": "/usr/local/bin/python"
+            },
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.pylint",
+                "ms-python.black-formatter",
+                "ms-python.isort"
+            ]
+        }
     },
-
-    // Add the IDs of extensions you want installed when the container is created.
-    "extensions": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-python.pylint",
-        "ms-python.black-formatter",
-        "ms-python.isort"
-    ],
 
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": "python -m pip install --no-cache-dir -e .",
@@ -54,5 +49,5 @@
     ],
 
     // Non-root user.
-    "remoteUser": "vscode"
+    "remoteUser": "deeprte"
 }
