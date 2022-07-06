@@ -48,8 +48,6 @@ def _format_logs(prefix, results):
 class Experiment(experiment.AbstractExperiment):
     """RTE solver."""
 
-    # pylint: disable=attribute-defined-outside-init
-
     # A map from object properties that will be checkpointed to their name
     # in a checkpoint. Currently we assume that these are all sharded
     # device arrays.
@@ -96,14 +94,9 @@ class Experiment(experiment.AbstractExperiment):
     #  \__|_|  \__,_|_|_| |_|
     #
 
-    def step(  # pylint: disable=arguments-differ
-        self,
-        global_step: jnp.ndarray,
-        rng: jnp.ndarray,
-        *unused_args,
-        **unused_kwargs,
-    ) -> Scalars:
-        """See base class."""
+    def step(self, global_step: jnp.ndarray, rng: jnp.ndarray) -> Scalars:
+        # *unused_args,
+        # **unused_kwargs        """See base class."""
         if not self._training:
             self._initialize_training()
 
