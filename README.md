@@ -14,7 +14,7 @@ datasets are MATLAB `.mat` files. Run the following command:
   ```
 
   will download all datasets using `rsync` from directory `/cluster/home/xuzhiqin_02/rte_data/` in
-  host `xuzhiqin_02@202.120.13.117` to `.data/matlab/` (if this dir exists, otherwise you need to
+  host `xuzhiqin_02@202.120.13.117` to `./data/matlab/` (if this dir exists, otherwise you need to
   create it).
 
 - With custom arguments:
