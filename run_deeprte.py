@@ -19,6 +19,7 @@ import os
 import pathlib
 
 from absl import app, flags, logging
+from jaxline import platform
 
 from deeprte.checkpoint import (
     restore_state_to_in_memory_checkpointer,
@@ -26,7 +27,6 @@ from deeprte.checkpoint import (
     setup_signals,
 )
 from deeprte.experiment import Experiment
-from deeprte.jaxline import platform
 
 FLAGS = flags.FLAGS
 
