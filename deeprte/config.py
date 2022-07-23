@@ -18,10 +18,10 @@ import datetime
 import functools
 
 import ml_collections
+from jaxline import base_config
 from ml_collections import config_dict
 
 from deeprte import dataset
-from deeprte.jaxline import base_config
 from deeprte.model import rte
 from deeprte.model.config import model_config
 
