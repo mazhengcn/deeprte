@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Checkpointing."""
 
 import datetime
 import os
@@ -44,9 +45,9 @@ def restore_state_to_in_memory_checkpointer(restore_path):
 
     # Load pretrained experiment state.
     python_state_path = restore_path / "checkpoint.dill"
-    with open(python_state_path, "rb") as f:  # pylint: disable=invalid-name
+    with open(python_state_path, "rb") as f:
         pretrained_state = dill.load(f)
-    logging.info(f"Restored checkpoint from {python_state_path}")
+    logging.info("Restored checkpoint from %s", python_state_path)
 
     # Assign state to a dummy experiment instance for the in-memory checkpointer,
     # broadcasting to devices.
@@ -83,13 +84,13 @@ def save_state_from_in_memory_checkpointer(
     # Serialize config as json
     logging.info("Saving config.")
     config_path = save_path.parent / "config.json"
-    with open(config_path, "w") as f:  # pylint: disable=unspecified-encoding
+    with open(config_path, "w") as f:
         f.write(FLAGS.config.to_json_best_effort(indent=2))
 
     logging.info("Saving model.")
     for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
         if not checkpoint.history:
-            logging.info(f'Nothing to save in "{checkpoint_name}"')
+            logging.info('Nothing to save in "%s"', checkpoint_name)
             continue
 
         pickle_nest = checkpoint.history[-1].pickle_nest
@@ -116,7 +117,9 @@ def save_state_from_in_memory_checkpointer(
         np.savez(numpy_params_path, **flat_np_params)
 
         logging.info(
-            f'Saved "{checkpoint_name}" checkpoint and flat numpy params under {save_dir}.'
+            'Saved "%s" checkpoint and flat numpy params under %s',
+            checkpoint_name,
+            save_dir,
         )
 
 

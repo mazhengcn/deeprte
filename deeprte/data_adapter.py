@@ -203,11 +203,11 @@ def main(argv):
     for i, filename in enumerate(FLAGS.datafiles):
 
         data_path = source_dir / filename
-        logging.info(f"Processing dataset {i} from path {data_path}.")
+        logging.info("Processing dataset %d from path %s.", i, data_path)
 
         if data_path.suffix == ".mat":
             data = sio.loadmat(data_path)
-            for k, v in data.items():  # pylint: disable=invalid-name
+            for k, v in data.items():
                 if isinstance(v, np.ndarray) and v.ndim > 1:
                     data[k] = np.moveaxis(v, -1, 0).astype(np.float32)
         elif data_path.suffix == ".npy":
@@ -239,7 +239,7 @@ def main(argv):
         save_path,
         **to_flat_dict(converted_data, sep="/"),
     )
-    logging.info(f"Saved converted dataset {save_path}.")
+    logging.info("Saved converted dataset %s.", save_path)
 
 
 if __name__ == "__main__":
