@@ -7,4 +7,4 @@ numpy>=1.22.3
 optax>=0.1.2
 tensorflow-cpu>=2.9.0
 tensorflow_datasets>=4.5.2
--f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+jaxline>=0.0.6
