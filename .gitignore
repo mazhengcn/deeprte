@@ -1,12 +1,11 @@
 # Project related files
 # .vscode/
-*.ipynb
 slurm/
 ckpts/
 data/
 archive/
 # svgs/
-# notebooks/
+notebooks/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
