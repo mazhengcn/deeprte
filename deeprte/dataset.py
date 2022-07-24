@@ -37,11 +37,11 @@ AUTOTUNE = tf.data.AUTOTUNE
 
 
 def log_shapes(d: dict, name: str):
-    logs = ""
+    logs = f"{name} shapes"
     for k, v in get_nest_dict_shape(d).items():
         logs += f", {k:s}: {v}"
 
-    logging.info(f"{name} shapes" + logs)
+    logging.info(logs)
 
 
 def get_nest_dict_shape(d):

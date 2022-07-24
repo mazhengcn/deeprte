@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""DeepRTE experiment."""
 
 import functools
 import time
@@ -42,7 +43,7 @@ def _format_logs(prefix, results):
             for k in sorted(results.keys())
         ]
     )
-    logging.info(f"{prefix} - {logging_str}")
+    logging.info("%s - %s", prefix, logging_str)
 
 
 class Experiment(experiment.AbstractExperiment):
@@ -83,6 +84,14 @@ class Experiment(experiment.AbstractExperiment):
         self.model = None
         self._init_solution_and_model()
 
+        # Initialize train and eval functions
+        self._train_input = None
+        self._eval_input = None
+        self.eval_fn = None
+        self.optimizer = None
+        self._lr_schedule = None
+        self.update_fn = None
+
         # Track what has started
         self._training = False
         self._evaluating = False
@@ -95,8 +104,7 @@ class Experiment(experiment.AbstractExperiment):
     #
 
     def step(self, global_step: jnp.ndarray, rng: jnp.ndarray) -> Scalars:
-        # *unused_args,
-        # **unused_kwargs        """See base class."""
+        """See base class."""
         if not self._training:
             self._initialize_training()
 
@@ -218,7 +226,7 @@ class Experiment(experiment.AbstractExperiment):
 
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
-            logging.info(f"Net parameters: {num_params // jax.local_device_count():d}")
+            logging.info("Net parameters: %d", num_params // jax.local_device_count())
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
@@ -269,16 +277,14 @@ class Experiment(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(  # pylint: disable=arguments-differ
-        self, global_step, rng: jnp.ndarray, **unused_args
-    ) -> Scalars:
+    def evaluate(self, global_step, rng: jnp.ndarray, **unused_args) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
-        logging.info(f"Running evaluation at global_step {global_step_value}...")
+        logging.info("Running evaluation at global_step %s...", global_step_value)
 
         t_0 = time.time()
         # Run evaluation for an epoch

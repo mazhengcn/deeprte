@@ -18,11 +18,10 @@ import collections.abc
 import numpy as np
 
 
-# pylint: disable=invalid-name
 def to_flat_dict(d, parent_key="", sep="//"):
     """Flattens a dictionary, keeping empty leaves."""
     items = []
-    for k, v in d.items():  # pylint: disable=invalid-name
+    for k, v in d.items():
         path = parent_key + sep + k if parent_key else k
         if isinstance(v, collections.abc.Mapping):
             items.extend(to_flat_dict(v, path, sep=sep).items())
