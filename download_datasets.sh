@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Download RTE datasets from math-02 server
+# Download RTE datasets from sy-sjtu server
 #
 # Usage: bash download_rte_datasets.sh /path/to/download/directory
 set -e
 
-SERVER_URL=${1:-"xuzhiqin_02@202.120.13.117"}
-REMOTE_DATA_DIR=${2:-"/cluster/home/xuzhiqin_02/rte_data/"}
-DOWNLOAD_DIR=${3:-"data/matlab/"}
+SERVER_URL=${1:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
+REMOTE_DATA_DIR=${2:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/"}
+DOWNLOAD_DIR=${3:-"./data/"}
 
+# Password: 2&gpTKPd
 rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" "${DOWNLOAD_DIR}"
