@@ -13,8 +13,8 @@ datasets are MATLAB `.mat` files. Run the following command:
   ./download_datasets.sh
   ```
 
-  will download all datasets using `rsync` from directory `/cluster/home/xuzhiqin_02/rte_data/` in
-  host `xuzhiqin_02@202.120.13.117` to `./data/matlab/` (if this dir exists, otherwise you need to
+  will download all datasets using `rsync` from directory `/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/` in
+  host `matjxt-mz@sydata.hpc.sjtu.edu.cn` to `./data/` (if this dir exists, otherwise you need to
   create it).
 
 - With custom arguments:
