@@ -15,7 +15,7 @@
 #
 # Download RTE datasets from sy-sjtu server
 #
-# Usage: bash download_rte_datasets.sh /path/to/download/directory
+# Usage: bash download_datasets.sh /path/to/download/directory
 set -e
 
 SERVER_URL=${1:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
