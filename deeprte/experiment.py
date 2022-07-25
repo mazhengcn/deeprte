@@ -103,7 +103,9 @@ class Experiment(experiment.AbstractExperiment):
     #  \__|_|  \__,_|_|_| |_|
     #
 
-    def step(self, global_step: jnp.ndarray, rng: jnp.ndarray) -> Scalars:
+    def step(
+        self, global_step: jnp.ndarray, rng: jnp.ndarray, *unused_args, **unused_kwargs
+    ) -> Scalars:
         """See base class."""
         if not self._training:
             self._initialize_training()
@@ -443,9 +445,9 @@ class Experiment(experiment.AbstractExperiment):
             collocation_sizes=1,
             repeat=1,
         )
-        dummy_inputs = jax.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
+        dummy_inputs = jax.tree_util.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
 
         if jax.local_device_count() == 1:
-            dummy_inputs = jax.tree_map(lambda x: x[None, ...], dummy_inputs)
+            dummy_inputs = jax.tree_util.tree_map(lambda x: x[None, ...], dummy_inputs)
 
         return dummy_inputs
