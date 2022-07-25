@@ -25,9 +25,9 @@ import numpy as np
 from absl import flags, logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
-from utils import to_flat_dict
 
 from deeprte.experiment import Experiment
+from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
 
