@@ -218,7 +218,9 @@ def sharded_apply(
             regular_shard_shape_dtype = eval_shape_(
                 partial(apply_fun_to_slice, 0, shard_size)
             )
-            shard_shapes = jax.tree_util.tree_map(lambda x: x.shape, regular_shard_shape_dtype)
+            shard_shapes = jax.tree_util.tree_map(
+                lambda x: x.shape, regular_shard_shape_dtype
+            )
 
             def make_output_shape(axis, shard_shape, remainder_shape):
                 return (
