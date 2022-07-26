@@ -76,7 +76,6 @@ def restore_state_to_in_memory_checkpointer(restore_path):
 def save_state_from_in_memory_checkpointer(
     save_path, experiment_class: experiment.AbstractExperiment
 ):
-    # pylint: disable=invalid-name
     """Saves experiment state to a checkpoint."""
     if not isinstance(save_path, pathlib.Path):
         save_path = pathlib.Path(save_path)
@@ -84,7 +83,7 @@ def save_state_from_in_memory_checkpointer(
     # Serialize config as json
     logging.info("Saving config.")
     config_path = save_path.parent / "config.json"
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         f.write(FLAGS.config.to_json_best_effort(indent=2))
 
     logging.info("Saving model.")
