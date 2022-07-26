@@ -292,7 +292,7 @@ class Experiment(experiment.AbstractExperiment):
         # Run evaluation for an epoch
         metrics = self._eval_epoch(self._params, self._state, rng)
         # Covert jnp.ndarry to list to have less verbose.
-        metrics = jax.tree_map(
+        metrics = jax.tree_util.tree_map(
             lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
         )
         t_diff = time.time() - t_0
@@ -316,14 +316,18 @@ class Experiment(experiment.AbstractExperiment):
             num_examples += np.prod(batch["labels"].shape[:2])
             metrics = self.eval_fn(params, state, rng, batch)
             # Accumulate the sum of scalars for each step.
-            metrics = jax.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
-                summed_metrics = jax.tree_map(jnp.add, summed_metrics, metrics)
+                summed_metrics = jax.tree_util.tree_map(
+                    jnp.add, summed_metrics, metrics
+                )
 
         # Compute mean_metrics
-        mean_metrics = jax.tree_map(lambda x: x / num_examples, summed_metrics)
+        mean_metrics = jax.tree_util.tree_map(
+            lambda x: x / num_examples, summed_metrics
+        )
 
         # Eval metrics dict
         metrics = {}
