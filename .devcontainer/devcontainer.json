@@ -1,53 +1,49 @@
 {
     // Dev container's name.
     "name": "DeepRTE Dev Container",
-
     // Dockerfile and build args.
-    "image": "zhengma/jax:py310-cu116",
-
+    "image": "zhengma/jax:py310-cu117",
     // Add common dev tools.
     "features": {
         "common": {
-            "username": "deeprte"
+            "username": "deeprte",
+            "uid": "automatic",
+            "gid": "automatic",
+            "installZsh": false
         }
     },
-
     // Set timezone.
-    "remoteEnv": {"TZ": "Asia/Shanghai"},
-
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
+    },
     "customizations": {
         "vscode": {
             // Set *default* container specific settings.json values on container create.
             "settings": {
-                "terminal.integrated.defaultProfile.linux": "zsh",
                 "python.defaultInterpreterPath": "/usr/local/bin/python"
             },
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
-                "ms-python.pylint",
+                "ms-python.flake8",
                 "ms-python.black-formatter",
                 "ms-python.isort"
             ]
         }
     },
-
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": "python -m pip install --no-cache-dir -e .",
-
     // Runtime args.
     "runArgs": [
         "--name=deeprte_dev",
         "--gpus=all",
         "--shm-size=1g"
     ],
-
     // Volume mount data folder.
     "mounts": [
         "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
     ],
-
     // Non-root user.
     "remoteUser": "deeprte"
 }
