@@ -79,7 +79,8 @@ class GreenFunctionNet(hk.Module):
         # Green's function inputs.
         inputs = jnp.concatenate([r, r_prime, coefficients])
 
-        # inputs = hk.LayerNorm(axis=[-1], create_scale=True, create_offset=True)(inputs)
+        # inputs = hk.LayerNorm(axis=[-1],
+        # create_scale=True, create_offset=True)(inputs)
 
         # MLP
         outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(inputs)
