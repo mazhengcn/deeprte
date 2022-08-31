@@ -134,7 +134,6 @@ def mat_to_np_dict(
     Returns:
         A nested dict containing numpy arrays. {"data": {}, "grid": {}}
     """
-    # pylint: disable=invalid-name
     # Load reference solutions and sigmas
     phi = mat_data["list_Phi"]  # [B, I, J]
     psi = np.swapaxes(mat_data["list_Psi"], 1, -1)  # [B, I, J, M]

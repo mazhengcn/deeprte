@@ -38,9 +38,12 @@ class RTEOperatorV2:
 
     Attributes:
         init: A pure function: ``params = init(rng, *a)``
-        apply: A pure function of solution: ``out = apply(params, state, rng, r, v, sigma, psi_bc)``
-        sharded_apply: A pure function of vectorized solution: ``out = sharded_apply(params, state, rng, r, v, sigma, psi_bc)``
-        rho: A pure function fo density function: ``out = rho(params, state, rng, r, sigma, psi_bc, quadratures)``
+        apply: A pure function of solution:
+         ``out = apply(params, state, rng, r, v, sigma, psi_bc)``
+        sharded_apply: A pure function of vectorized solution:
+        ``out = sharded_apply(params, state, rng, r, v, sigma, psi_bc)``
+        rho: A pure function fo density function:
+        ``out = rho(params, state, rng, r, sigma, psi_bc, quadratures)``
     """
 
     init: Callable[..., hk.Params]

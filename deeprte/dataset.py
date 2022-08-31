@@ -14,8 +14,6 @@
 
 """Dataset pipline."""
 
-# pylint: disable=invalid-name
-
 from __future__ import annotations
 
 import enum
@@ -69,7 +67,7 @@ class Split(enum.Enum):
     @property
     def num_examples(self):
         return {
-            Split.TRAIN: 120,
+            Split.TRAIN: 1600,
             Split.TRAIN_AND_VALID: 120,
             Split.VALID: 40,
             Split.TEST: 40,
@@ -237,7 +235,9 @@ def _repeat_batch(
         ds = ds.batch(batch_size, drop_remainder=True)
 
     # Repeat batch.
-    fn = lambda x: tf.tile(x, multiples=[repeat] + [1] * (len(x.shape) - 1))
+    fn = lambda x: tf.tile(  # noqa: E731
+        x, multiples=[repeat] + [1] * (len(x.shape) - 1)
+    )
 
     def repeat_inner_batch(example):
         return tf.nest.map_structure(fn, example)
