@@ -1,8 +1,11 @@
 # Project related files
-.vscode/
+# .vscode/
+slurm/
+ckpts/
 data/
 archive/
-# notebooks/
+# svgs/
+notebooks/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

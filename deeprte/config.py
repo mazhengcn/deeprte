@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"Training and evaluation config."
 
 import datetime
 import functools
@@ -28,6 +29,7 @@ N_TRAIN_EXAMPLES = dataset.Split.TRAIN_AND_VALID.num_examples
 
 
 def get_steps_from_epochs(batch_size, num_epochs, repeat=1):
+    """Get global steps from given epoch."""
     return max(int(repeat * num_epochs * N_TRAIN_EXAMPLES // batch_size), 1)
 
 
@@ -51,7 +53,7 @@ def get_config() -> ml_collections.ConfigDict:
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 200
+    test_batch_size = 400
 
     # Datasetconfig.
     dataset_config = dict(
@@ -88,11 +90,17 @@ def get_config() -> ml_collections.ConfigDict:
                 ),
                 optimizer=dict(
                     base_lr=1e-3,
-                    scale_by_batch=False,
+                    scale_by_batch=True,
                     schedule_type="constant",
                     exp_decay_kwargs=dict(
                         transition_steps=steps_from_epochs(500),
                         decay_rate=0.96,
+                    ),
+                    cosine_decay_kwargs=dict(
+                        warmup_epochs=None,
+                        init_value=None,
+                        end_value=None,
+                        warmup_steps=None,
                     ),
                     optimizer="adam",
                     adam_kwargs={},
@@ -120,7 +128,5 @@ def get_config() -> ml_collections.ConfigDict:
     # Should be set in the shell scripts
     config.checkpoint_dir = ""
     config.restore_path = ""
-
-    config.lock()
 
     return config

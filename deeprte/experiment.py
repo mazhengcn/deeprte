@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""DeepRTE experiment."""
 
 import functools
 import time
@@ -36,13 +37,13 @@ Scalars = Mapping[str, jnp.ndarray]
 def _format_logs(prefix, results):
     # f_list for less verbosity; e.g., "4." instead of
     # "array(4., dtype=float32)".
-    logging_str = f" - ".join(
+    logging_str = " - ".join(
         [
             f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
-    logging.info(f"{prefix} - {logging_str}")
+    logging.info("%s - %s", prefix, logging_str)
 
 
 class Experiment(experiment.AbstractExperiment):
@@ -83,6 +84,14 @@ class Experiment(experiment.AbstractExperiment):
         self.model = None
         self._init_solution_and_model()
 
+        # Initialize train and eval functions
+        self._train_input = None
+        self._eval_input = None
+        self.eval_fn = None
+        self.optimizer = None
+        self._lr_schedule = None
+        self.update_fn = None
+
         # Track what has started
         self._training = False
         self._evaluating = False
@@ -95,11 +104,7 @@ class Experiment(experiment.AbstractExperiment):
     #
 
     def step(
-        self,
-        global_step: jnp.ndarray,
-        rng: jnp.ndarray,
-        *unused_args,
-        **unused_kwargs,
+        self, global_step: jnp.ndarray, rng: jnp.ndarray, *unused_args, **unused_kwargs
     ) -> Scalars:
         """See base class."""
         if not self._training:
@@ -143,7 +148,7 @@ class Experiment(experiment.AbstractExperiment):
 
         # Grab the learning rate to log before performing the step.
         learning_rate = self._lr_schedule(global_step)
-        # scalars["learning_rate"] = learning_rate
+        scalars["learning_rate"] = learning_rate
 
         # Update params
         updates, opt_state = self.optimizer.update(grads, opt_state, params)
@@ -177,6 +182,7 @@ class Experiment(experiment.AbstractExperiment):
 
     def _initialize_training(self):
         # Less verbose
+        # pylint: disable=invalid-name
         c = self.config
 
         # Performs prefetching of elements from an iterable in a separate thread.
@@ -191,9 +197,7 @@ class Experiment(experiment.AbstractExperiment):
         # with different collocation points, stpes_per_epoch should be
         # multiplied by repeat.
         steps_per_epoch = (
-            c.training.num_train_examples
-            / c.training.batch_size
-            * c.training.repeat
+            c.training.num_train_examples / c.training.batch_size * c.training.repeat
         )
         total_steps = c.training.num_epochs * steps_per_epoch
 
@@ -202,9 +206,7 @@ class Experiment(experiment.AbstractExperiment):
             total_batch_size, steps_per_epoch, total_steps, c.optimizer
         )
         # Optimizer
-        self.optimizer = optimizers.make_optimizer(
-            c.optimizer, self._lr_schedule
-        )
+        self.optimizer = optimizers.make_optimizer(c.optimizer, self._lr_schedule)
 
         # Initialize net if no params available.
         if self._params is None:
@@ -226,9 +228,7 @@ class Experiment(experiment.AbstractExperiment):
 
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
-            logging.info(
-                f"Net parameters: {num_params // jax.local_device_count():d}"
-            )
+            logging.info("Net parameters: %d", num_params // jax.local_device_count())
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
@@ -286,15 +286,13 @@ class Experiment(experiment.AbstractExperiment):
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
-        logging.info(
-            f"Running evaluation at global_step {global_step_value}..."
-        )
+        logging.info("Running evaluation at global_step %s...", global_step_value)
 
         t_0 = time.time()
         # Run evaluation for an epoch
         metrics = self._eval_epoch(self._params, self._state, rng)
         # Covert jnp.ndarry to list to have less verbose.
-        metrics = jax.tree_map(
+        metrics = jax.tree_util.tree_map(
             lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
         )
         t_diff = time.time() - t_0
@@ -318,24 +316,24 @@ class Experiment(experiment.AbstractExperiment):
             num_examples += np.prod(batch["labels"].shape[:2])
             metrics = self.eval_fn(params, state, rng, batch)
             # Accumulate the sum of scalars for each step.
-            metrics = jax.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
-                summed_metrics = jax.tree_multimap(
+                summed_metrics = jax.tree_util.tree_map(
                     jnp.add, summed_metrics, metrics
                 )
 
         # Compute mean_metrics
-        mean_metrics = jax.tree_map(lambda x: x / num_examples, summed_metrics)
+        mean_metrics = jax.tree_util.tree_map(
+            lambda x: x / num_examples, summed_metrics
+        )
 
         # Eval metrics dict
         metrics = {}
         # Take sqrt if it is squared
-        for k, v in mean_metrics.items():
-            metrics["eval_" + k] = (
-                jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
-            )
+        for k, v in mean_metrics.items():  # pylint: disable=invalid-name
+            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
 
         return metrics
 
@@ -408,9 +406,7 @@ class Experiment(experiment.AbstractExperiment):
         # Create solution instance.
         solution_config = self.config.solution
         if not self.solution:
-            self.solution = solution_config.constructor(
-                **solution_config.kwargs
-            )
+            self.solution = solution_config.constructor(**solution_config.kwargs)
         else:
             raise ValueError("Solution instance is already initialized.")
 
@@ -446,16 +442,16 @@ class Experiment(experiment.AbstractExperiment):
     def _load_dummy_data(self) -> tuple[jnp.ndarray]:
         """Load dummy data for initializing network parameters."""
 
-        ds = self._load_data(
+        ds = self._load_data(  # pylint: disable=invalid-name
             split=dataset.Split.TRAIN_AND_VALID,
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
             collocation_sizes=1,
             repeat=1,
         )
-        dummy_inputs = jax.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
+        dummy_inputs = jax.tree_util.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
 
         if jax.local_device_count() == 1:
-            dummy_inputs = jax.tree_map(lambda x: x[None, ...], dummy_inputs)
+            dummy_inputs = jax.tree_util.tree_map(lambda x: x[None, ...], dummy_inputs)
 
         return dummy_inputs
