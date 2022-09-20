@@ -14,7 +14,6 @@
 
 
 import abc
-import dataclasses
 from collections.abc import Callable, Mapping
 from typing import Any, Optional
 
@@ -54,30 +53,24 @@ class Model(abc.ABC):
 class Solution(abc.ABC):
     """Solution container used to create Haiku transformed pure function."""
 
-    def __init__(
-        self,
-        config: ConfigDict,
-        name: Optional[str] = "solution",
-    ) -> None:
+    def __init__(self, config: ConfigDict, name: Optional[str] = "solution", **kwargs):
         self.name = name
         self.config = config
 
-        self._init = hk.transform_with_state(self.forward_fn).init
-        self._apply = hk.transform_with_state(self.forward_fn).apply
+        self._init = hk.transform_with_state(self.forward).init
+        self._apply = hk.transform_with_state(self.forward).apply
 
     @abc.abstractmethod
-    def forward_fn(self, *args) -> jnp.ndarray:
+    def forward(self, *args, **kwargs) -> jnp.ndarray:
         """The forward pass of solution."""
-
-    @abc.abstractmethod
-    def apply(
-        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, *, is_training: bool
-    ) -> jnp.ndarray:
-        """Apply function of solution."""
 
     @property
     def init(self):
         return self._init
+
+    @property
+    def apply(self):
+        return self._apply
 
 
 class MultiSolutions(abc.ABC):
@@ -89,31 +82,24 @@ class MultiSolutions(abc.ABC):
         self,
         config: tuple[ConfigDict],
         name: Optional[str] = "multi_solutions",
-    ) -> None:
-
-        self.name = name
+        **kwargs
+    ):
         self.config = config
+        self.name = name
 
-        self.init = hk.multi_transform(self.forward_fn).init
+        self._init = hk.multi_transform(self.forward_fn).init
         self._apply = hk.multi_transform(self.forward_fn).apply
 
     @abc.abstractmethod
-    def forward_fn(self) -> tuple[TemplateFn, Any]:
-        pass
+    def forward(self, *args, **kwargs) -> tuple[TemplateFn, Any]:
+        """The forward pass of solution."""
 
     @abc.abstractmethod
-    def apply(self, params, state, rng, *, is_training):
-        pass
+    def apply(
+        self, params: hk.Params, rng: jnp.ndarray, *, is_training: bool
+    ) -> tuple[TemplateFn, Any]:
+        """Apply function of the solution."""
 
-
-@dataclasses.dataclass
-class SolutionV2:
-    """Holds a pair of pure functions defining a solution operator.
-
-    Attributes:
-        init: A pure function: ``params = init(rng, *a, **k)``
-        apply: A pure function: ``out = apply(params, rng, *a, **k)``
-    """
-
-    init: Callable[..., hk.Params]
-    apply: Callable[..., jnp.ndarray]
+    @property
+    def init(self):
+        return self._init
