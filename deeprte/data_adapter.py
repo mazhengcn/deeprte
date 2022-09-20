@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Convert Matlab dataset to numpy dataset."""
+
 import enum
 import pathlib
 from collections.abc import Mapping
@@ -32,9 +34,7 @@ flags.DEFINE_string("source_dir", None, "Directory of dataset to be converted.")
 
 flags.DEFINE_list("datafiles", None, "List of data file names to be converted.")
 
-flags.DEFINE_string(
-    "save_path", None, "Directory to save converted numpy dataset."
-)
+flags.DEFINE_string("save_path", None, "Directory to save converted numpy dataset.")
 
 
 class BoundaryPosition(enum.Enum):
@@ -58,7 +58,7 @@ class BoundaryPosition(enum.Enum):
     def inner_normal(self):
         return {
             BoundaryPosition.LEFT: np.asarray([1, 0]),
-            BoundaryPosition.RIGHT: np.asanyarray([-1, 0]),
+            BoundaryPosition.RIGHT: np.asarray([-1, 0]),
             BoundaryPosition.BOTTOM: np.asarray([0, 1]),
             BoundaryPosition.TOP: np.asarray([0, -1]),
         }[self]
@@ -148,7 +148,7 @@ def mat_to_np_dict(
     }
 
     psi_bc_list = []
-    for key in BOUNDARY_KEYS.keys():
+    for key in BOUNDARY_KEYS:
         psi_bc_list.append(np.swapaxes(mat_data[key], -1, -2).copy())
 
     data_dict.update({"psi_bc": np.concatenate(psi_bc_list, axis=1)})
@@ -202,7 +202,7 @@ def main(argv):
     for i, filename in enumerate(FLAGS.datafiles):
 
         data_path = source_dir / filename
-        logging.info(f"Processing dataset {i} from path {data_path}.")
+        logging.info("Processing dataset %d from path %s.", i, data_path)
 
         if data_path.suffix == ".mat":
             data = sio.loadmat(data_path)
@@ -223,10 +223,8 @@ def main(argv):
         data_dicts.append(data_dict)
 
     converted_data = {"data": {}, "grid": grid}
-    for k in data_dict.keys():
-        converted_data["data"][k] = np.concatenate(
-            [d[k] for d in data_dicts], axis=0
-        )
+    for k in data_dict:
+        converted_data["data"][k] = np.concatenate([d[k] for d in data_dicts], axis=0)
 
     save_path = FLAGS.save_path
     # Save converted dataset
@@ -240,7 +238,7 @@ def main(argv):
         save_path,
         **to_flat_dict(converted_data, sep="/"),
     )
-    logging.info(f"Saved converted dataset {save_path}.")
+    logging.info("Saved converted dataset %s.", save_path)
 
 
 if __name__ == "__main__":

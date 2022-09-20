@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Dataset pipline."""
 
 from __future__ import annotations
 
@@ -34,11 +35,11 @@ AUTOTUNE = tf.data.AUTOTUNE
 
 
 def log_shapes(d: dict, name: str):
-    logs = ""
+    logs = f"{name} shapes"
     for k, v in get_nest_dict_shape(d).items():
         logs += f", {k:s}: {v}"
 
-    logging.info(f"{name} shapes" + logs)
+    logging.info(logs)
 
 
 def get_nest_dict_shape(d):
@@ -67,9 +68,9 @@ class Split(enum.Enum):
     def num_examples(self):
         return {
             Split.TRAIN: 1600,
-            Split.TRAIN_AND_VALID: 1600,
-            Split.VALID: 200,
-            Split.TEST: 400,
+            Split.TRAIN_AND_VALID: 120,
+            Split.VALID: 40,
+            Split.TEST: 40,
         }[self]
 
 
@@ -164,9 +165,7 @@ def sample_from_dataset(
             return idx
 
     else:
-        raise ValueError(
-            f"Sample from {sampler} distribution is not implemented."
-        )
+        raise ValueError(f"Sample from {sampler} distribution is not implemented.")
 
     # generate random sample indices
     indices_ds = tf.data.Dataset.range(1).repeat()
@@ -178,9 +177,7 @@ def sample_from_dataset(
 
 def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
 
-    ds = tf.data.Dataset.zip(
-        (data, tf.data.Dataset.from_tensors(grid).repeat())
-    )
+    ds = tf.data.Dataset.zip((data, tf.data.Dataset.from_tensors(grid).repeat()))
 
     def _construct_batch(data, grid):
 
@@ -238,7 +235,9 @@ def _repeat_batch(
         ds = ds.batch(batch_size, drop_remainder=True)
 
     # Repeat batch.
-    fn = lambda x: tf.tile(x, multiples=[repeat] + [1] * (len(x.shape) - 1))
+    fn = lambda x: tf.tile(  # noqa: E731
+        x, multiples=[repeat] + [1] * (len(x.shape) - 1)
+    )
 
     def repeat_inner_batch(example):
         return tf.nest.map_structure(fn, example)

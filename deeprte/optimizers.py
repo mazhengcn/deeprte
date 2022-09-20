@@ -86,9 +86,7 @@ def get_learning_rate_schedule(
         )
     elif schedule_type == "constant_cosine":
         # Convert end_value to alpha, used by cosine_decay_schedule.
-        alpha = (
-            optimizer_config.constant_cosine_decay_kwargs.end_value / base_lr
-        )
+        alpha = optimizer_config.constant_cosine_decay_kwargs.end_value / base_lr
 
         # Number of steps spent in constant phase.
         constant_steps = int(
@@ -119,9 +117,7 @@ def make_optimizer(optimizer_config, lr_schedule):
 
     if optimizer_config.optimizer == "adam":
         # See: https://arxiv.org/abs/1412.6980
-        optax_chain.extend(
-            [optax.scale_by_adam(**optimizer_config.adam_kwargs)]
-        )
+        optax_chain.extend([optax.scale_by_adam(**optimizer_config.adam_kwargs)])
     elif optimizer_config.optimizer == "lamb":
         # See: https://arxiv.org/abs/1904.00962
         optax_chain.extend(

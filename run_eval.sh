@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # Copyright 2022 Zheng Ma
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +14,17 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0"
 
-RESTORE_PATH=${1:-"data/experiments/rect_delta_bc_r_2022-01-23T22:46:41/models/latest/step_400000_2022-01-24T03:31:39"}
-TEST_DATA_PATH=${2:-"data/experiments/test/rte_example2_converted.npz"}
-EVAL_CKPT_DIR=${3:-"data/experiments/eval"}
+RESTORE_PATH=${1:-"./ckpts/square_full_1_2022-02-09T00:04:32/models/latest/step_500000_2022-02-10T08:51:07"}
+TEST_DATA_PATH=${2:-"./data/train/square_full_2.npz"}
+EVAL_CKPT_DIR=${3:-"./ckpts/eval_ckpts"}
 
-python deeprte/train.py \
-    --config=deeprte/config.py \
-    --config.experiment_kwargs.config.dataset.data_path=${TEST_DATA_PATH} \
-    --config.checkpoint_dir=${EVAL_CKPT_DIR} \
-    --config.restore_path=${RESTORE_PATH} \
-    --config.one_off_evaluate="true" \
-    --jaxline_mode="eval"
+python run_deeprte.py \
+	--config=deeprte/config.py \
+	--config.experiment_kwargs.config.dataset.data_path="${TEST_DATA_PATH}" \
+	--config.experiment_kwargs.config.evaluation.batch_size="10" \
+	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
+	--config.restore_path="${RESTORE_PATH}" \
+	--config.one_off_evaluate="true" \
+	--jaxline_mode="eval"

@@ -36,9 +36,7 @@ def quad(
     def integral(*args):
         args = list(args)
         args.insert(argnum, nodes)
-        values = mapping.vmap(
-            func, argnums={argnum}, out_axes=-1, use_hk=use_hk
-        )(*args)
+        values = mapping.vmap(func, argnums={argnum}, out_axes=-1, use_hk=use_hk)(*args)
         return jnp.matmul(values, weights)
 
     return integral

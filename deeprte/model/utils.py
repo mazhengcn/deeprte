@@ -29,10 +29,10 @@ def cartesian_product(*arrays):
     Returns:
         Cartesian product of arrays with shape (N_1, N_2, ..., N_n, n * d).
     """
-
+    # pylint: disable=invalid-name
     la, d = len(arrays), arrays[0].shape[-1]
     ls = [*map(len, arrays)]
-    inds = [*map(lambda x: np.arange(x), ls)]
+    inds = [*map(np.arange, ls)]
 
     dtype = np.result_type(*arrays)
     arr = np.empty(ls + [la * d], dtype=dtype)
@@ -54,10 +54,10 @@ def jax_cartesian_product(*arrays):
     Returns:
         Cartesian product of arrays with shape (N_1, N_2, ..., N_n, n * d).
     """
-
+    # pylint: disable=invalid-name
     la, d = len(arrays), arrays[0].shape[-1]
     ls = [*map(len, arrays)]
-    inds = [*map(lambda x: jnp.arange(x), ls)]
+    inds = [*map(jnp.arange, ls)]
 
     dtype = jnp.result_type(*arrays)
     arr = jnp.empty(ls + [la * d], dtype=dtype)
