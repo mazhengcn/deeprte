@@ -59,10 +59,7 @@ class Experiment(experiment.AbstractExperiment):
     }
 
     def __init__(
-        self,
-        mode: str,
-        init_rng: jnp.ndarray,
-        config: ml_collections.ConfigDict,
+        self, mode: str, init_rng: jnp.ndarray, config: ml_collections.ConfigDict
     ):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
@@ -162,19 +159,13 @@ class Experiment(experiment.AbstractExperiment):
         return params, state, opt_state, scalars
 
     def _loss(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jnp.ndarray,
-        batch: dataset.Batch,
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, batch: dataset.Batch
     ) -> tuple[jnp.ndarray, tuple[Scalars, hk.State]]:
 
         # Get solution_op function
-        solution_fn = functools.partial(
-            self.solution.apply, params, state, rng, is_training=True
-        )
+        solution_func = functools.partial(self.solution.apply, params, state, rng)
         # Return loss and loss_scalars dict for logging.
-        loss, loss_scalars = self.model.loss(solution_fn, batch)
+        loss, loss_scalars = self.model.loss(solution_func, batch)
         # Divided by device count since we have summed across all devices
         scaled_loss = loss / jax.local_device_count()
 
@@ -338,20 +329,14 @@ class Experiment(experiment.AbstractExperiment):
         return metrics
 
     def _eval_fn(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jnp.ndarray,
-        batch: dataset.Batch,
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, batch: dataset.Batch
     ) -> Scalars:
         """Evaluates a batch."""
         metrics = {}
 
-        predict_fn = functools.partial(
-            self.solution.apply, params, state, rng, is_training=False
-        )
+        solution_func = functools.partial(self.solution.apply, params, state, rng)
 
-        metrics.update(self.model.metrics(predict_fn, batch))
+        metrics.update(self.model.metrics(solution_func, batch))
 
         # NOTE: Returned values will be summed and finally divided
         # by num_samples.

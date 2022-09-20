@@ -26,6 +26,7 @@ def quad(
     func: Callable[..., jnp.float32],
     quad_points: tuple[jnp.ndarray, jnp.ndarray],
     argnum=0,
+    has_aux: bool = False,
     use_hk: Optional[bool] = False,
 ) -> Callable[..., float]:
     """Compute the integral operator for a scalar function using
@@ -36,7 +37,15 @@ def quad(
     def integral(*args):
         args = list(args)
         args.insert(argnum, nodes)
-        values = mapping.vmap(func, argnums={argnum}, out_axes=-1, use_hk=use_hk)(*args)
-        return jnp.matmul(values, weights)
+        if not has_aux:
+            values = mapping.vmap(func, argnums={argnum}, out_axes=-1, use_hk=use_hk)(
+                *args
+            )
+            return jnp.matmul(values, weights)
+        else:
+            values, aux = mapping.vmap(
+                func, argnums={argnum}, out_axes=-1, use_hk=use_hk
+            )(*args)
+            return jnp.matmul(values, weights), aux
 
     return integral
