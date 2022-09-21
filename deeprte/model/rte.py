@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RTE model of solutio operator and loss."""
+"""RTE model of solution operator and loss."""
 
 from collections.abc import Callable, Mapping
 
