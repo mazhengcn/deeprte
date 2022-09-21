@@ -65,7 +65,7 @@ def get_config() -> ml_collections.ConfigDict:
 
     model_cfg = model_config()
     # Solution config
-    solution_ctor = rte.RTEOperator
+    solution_ctor = rte.RTEOp
     solution_config = model_cfg.rte_operator
 
     # Model config

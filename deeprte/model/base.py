@@ -26,6 +26,48 @@ from deeprte import dataset
 TemplateFn = Callable[..., Any]
 
 
+class Solution(abc.ABC):
+    """Solution container used to create Haiku transformed pure function."""
+
+    def __init__(
+        self,
+        config: ConfigDict,
+        with_rng: bool = False,
+        with_state: bool = False,
+        multi_outputs: bool = False,
+        name: Optional[str] = "solution",
+        **kwargs,
+    ):
+        self.name = name
+        self.config = config
+
+        if multi_outputs:
+            if with_state:
+                self._transformed_forward = hk.multi_transform_with_state(self.forward)
+            else:
+                self._transformed_forward = hk.multi_transform(self.forward)
+        else:
+            if with_state:
+                self._transformed_forward = hk.transform_with_state(self.forward)
+            else:
+                self._transformed_forward = hk.transform(self.forward)
+
+        if not with_rng:
+            self._transformed_forward = hk.without_apply_rng(self._transformed_forward)
+
+    @abc.abstractmethod
+    def forward(self, *args, **kwargs) -> jnp.ndarray | tuple[TemplateFn, Any]:
+        raise NotImplementedError
+
+    @property
+    def init(self):
+        return self._transformed_forward.init
+
+    @property
+    def apply(self):
+        return self._transformed_forward.apply
+
+
 class Model(abc.ABC):
     """Container class for the model that describes the equations, etc.
     At least the `self.loss` method should be implemented.
@@ -43,63 +85,8 @@ class Model(abc.ABC):
         batch: Mapping[str, jnp.ndarray],
         rng: Optional[jnp.ndarray] = None,
     ) -> tuple[jnp.float32, Mapping[str, jnp.ndarray]]:
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def metrics(self, func: Callable[..., Any], batch: dataset.Batch):
-        pass
-
-
-class Solution(abc.ABC):
-    """Solution container used to create Haiku transformed pure function."""
-
-    def __init__(self, config: ConfigDict, name: Optional[str] = "solution", **kwargs):
-        self.name = name
-        self.config = config
-
-        self._init = hk.transform_with_state(self.forward).init
-        self._apply = hk.transform_with_state(self.forward).apply
-
-    @abc.abstractmethod
-    def forward(self, *args, **kwargs) -> jnp.ndarray:
-        """The forward pass of solution."""
-
-    @property
-    def init(self):
-        return self._init
-
-    @property
-    def apply(self):
-        return self._apply
-
-
-class MultiSolutions(abc.ABC):
-    """Multi-Solutions container used to create Haiku transformed
-    pure functions.
-    """
-
-    def __init__(
-        self,
-        config: tuple[ConfigDict],
-        name: Optional[str] = "multi_solutions",
-        **kwargs
-    ):
-        self.config = config
-        self.name = name
-
-        self._init = hk.multi_transform(self.forward_fn).init
-        self._apply = hk.multi_transform(self.forward_fn).apply
-
-    @abc.abstractmethod
-    def forward(self, *args, **kwargs) -> tuple[TemplateFn, Any]:
-        """The forward pass of solution."""
-
-    @abc.abstractmethod
-    def apply(
-        self, params: hk.Params, rng: jnp.ndarray, *, is_training: bool
-    ) -> tuple[TemplateFn, Any]:
-        """Apply function of the solution."""
-
-    @property
-    def init(self):
-        return self._init
+        raise NotImplementedError
