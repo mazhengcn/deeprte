@@ -79,7 +79,7 @@ class Experiment(experiment.AbstractExperiment):
         # Initialize solution and model functions
         self.solution = None
         self.model = None
-        self._init_solution_and_model()
+        self._construct_solution_and_model()
 
         # Initialize train and eval functions
         self._train_input = None
@@ -387,11 +387,13 @@ class Experiment(experiment.AbstractExperiment):
             repeat=None,
         )
 
-    def _init_solution_and_model(self):
+    def _construct_solution_and_model(self):
         # Create solution instance.
         solution_config = self.config.solution
         if not self.solution:
-            self.solution = solution_config.constructor(**solution_config.kwargs)
+            self.solution = solution_config.constructor(
+                **solution_config.kwargs, with_rng=True, with_state=True
+            )
         else:
             raise ValueError("Solution instance is already initialized.")
 
