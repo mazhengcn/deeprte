@@ -17,7 +17,7 @@ set -e
 export CUDA_VISIBLE_DEVICES="0"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-DATA_PATH=${1:-"./data/train/square_full_it.npz"}
+DATA_PATH=${1:-"./data/train/square_full_1.npz"}
 
 python run_deeprte.py \
 	--config=deeprte/config.py \
