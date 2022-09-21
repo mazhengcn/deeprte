@@ -46,7 +46,6 @@ def quad(
             values, aux = mapping.vmap(
                 func, argnums={argnum}, out_axes=-1, use_hk=use_hk
             )(*args)
-
             return jnp.matmul(values, weights), aux
 
     return integral
