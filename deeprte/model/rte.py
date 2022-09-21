@@ -22,6 +22,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import ml_collections
+import numpy as np
 
 from deeprte import dataset
 from deeprte.model.base import Model, Solution
@@ -164,7 +165,6 @@ class RTEOperator(Solution):
         psi_bc: FunctionInputs,
         is_training: bool,
     ) -> jnp.ndarray:
-
         _apply_fn = self._apply
 
         if not is_training:
@@ -176,25 +176,28 @@ class RTEOperator(Solution):
 
         return _apply_fn(params, state, rng, r, v, sigma, psi_bc)
 
+    @jax.jit
     def rho(
         self,
         params: hk.Params,
-        r: jnp.ndarray,
+        rng: jnp.ndarray,
+        r: jnp.ndarray | np.ndarray,
         sigma: FunctionInputs,
         psi_bc: FunctionInputs,
         quadratures: tuple[jnp.ndarray, jnp.ndarray],
     ) -> jnp.ndarray:
-        _apply = functools.partial(self.apply, params, None, None, is_training=True)
-        _rho_fn = quad(_apply, quadratures, argnum=1)
-        _rho_fn = vmap(
+
+        _apply = functools.partial(self.apply, params, None, rng, is_training=True)
+        _rho_fn = quad(_apply, quadratures, argnum=1, has_aux=True)
+        v_rho_fn = vmap(
             vmap(_rho_fn, shard_size=128, argnums={0}),
             argnums={1, 2},
             in_axes=(FunctionInputs(), FunctionInputs()),
         )
 
-        rho = jax.jit(_rho_fn)(r, sigma, psi_bc)
+        _rho = v_rho_fn(r, sigma, psi_bc)
 
-        return rho
+        return _rho
 
 
 class RTESupervised(Model):
@@ -224,7 +227,6 @@ class RTESupervised(Model):
     def metrics(
         self, func: Callable[..., jnp.ndarray], batch: dataset.Batch
     ) -> Mapping[str, jnp.ndarray]:
-
         # Predictions
         predictions, _ = func(*batch["inputs"])
         # Labels
