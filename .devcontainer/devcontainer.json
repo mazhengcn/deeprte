@@ -1,10 +1,8 @@
 {
-    "image": "ghcr.io/mazhengcn/jax:0.3.17-py310-cu117",
+    "image": "ghcr.io/mazhengcn/jax:0.3.20-py310-cu117",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:1": {
-            "username": "none",
-            "installZsh": true,
-            "upgradePackages": true
+            "username": "none"
         }
     },
     "remoteEnv": {
@@ -12,6 +10,9 @@
     },
     "customizations": {
         "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "zsh"
+            },
             "extensions": [
                 "ms-python.flake8",
                 "ms-python.black-formatter",
@@ -21,7 +22,7 @@
     },
     "postCreateCommand": "python -m pip install --no-cache-dir -e .",
     "runArgs": [
-        "--name=deeprte_dev",
+        "--name=deeprte",
         "--gpus=all",
         "--shm-size=1g"
     ],
