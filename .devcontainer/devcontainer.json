@@ -1,5 +1,5 @@
 {
-    "image": "ghcr.io/mazhengcn/jax:0.3.20-py310-cu117",
+    "image": "ghcr.io/mazhengcn/jax:0.3.21-py310-cu118",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:1": {
             "username": "none"
