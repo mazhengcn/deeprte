@@ -350,8 +350,8 @@ class Experiment(experiment.AbstractExperiment):
             eval_input = jl_utils.py_prefetch(self._build_eval_input)
             # This keeps two batches per-device in memory at all times, allowing
             # h2d transfers to overlap with execution (see b/173483287 for details).
-            # return jl_utils.double_buffer_on_gpu(eval_input)
-            return eval_input
+            return jl_utils.double_buffer_on_gpu(eval_input)
+            # return eval_input
 
         # Evaluation input as a Generator
         self._eval_input = prefetch_and_double_buffer_input

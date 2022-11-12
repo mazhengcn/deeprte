@@ -43,9 +43,9 @@ def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
     # Batch size, training steps and data.
-    # num_epochs = 10_000
-    num_epochs = 10_000
-    train_batch_size = 32
+    num_epochs = 5_000
+    # num_epochs = 10
+    train_batch_size = 8
     repeat = 1
 
     steps_from_epochs = functools.partial(
@@ -91,9 +91,9 @@ def get_config() -> ml_collections.ConfigDict:
                 optimizer=dict(
                     base_lr=1e-3,
                     scale_by_batch=True,
-                    schedule_type="constant",
-                    exp_decay_kwargs=dict(
-                        transition_steps=steps_from_epochs(500),
+                    schedule_type="exponential",
+                    exponential_decay_kwargs=dict(
+                        transition_steps=steps_from_epochs(200),
                         decay_rate=0.96,
                     ),
                     cosine_decay_kwargs=dict(
@@ -113,7 +113,7 @@ def get_config() -> ml_collections.ConfigDict:
     # Global config
     config.training_steps = num_steps
     config.interval_type = "steps"
-    config.save_checkpoint_interval = steps_from_epochs(40)
+    config.save_checkpoint_interval = steps_from_epochs(10)
     config.log_tensors_interval = steps_from_epochs(1)
     config.log_train_data_interval = steps_from_epochs(2)
 
@@ -122,7 +122,7 @@ def get_config() -> ml_collections.ConfigDict:
     config.one_off_evaluate = False
 
     # Seed for the RNGs (default is 42).
-    config.random_seed = 42
+    config.random_seed = 25
 
     # Directory config
     # Should be set in the shell scripts
