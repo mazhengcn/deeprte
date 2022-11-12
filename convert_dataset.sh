@@ -14,11 +14,11 @@
 # limitations under the License.
 set -e
 
-SOURCE_DIR=${1:-"./data/matlab/"}
-DATAFILES=${2:-"e1_L_delta_1.mat,e1_R_delta_1.mat,e1_B_delta_1.mat,e1_T_delta_1.mat"}
-SAVE_PATH=${3:-"./data/train/square_full_1.npz"}
+SOURCE_DIR=${1:-"./data/rte_data/matlab/1030/"}
+DATAFILES=${2:-"test_sin.mat"}
+SAVE_PATH=${3:-"./data/train/1030/test_sin.npz"}
 
-python deeprte/data_adapter.py \
+python deeprte/data_convert.py \
 	--source_dir="${SOURCE_DIR}" \
 	--datafiles="${DATAFILES}" \
 	--save_path="${SAVE_PATH}"

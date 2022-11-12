@@ -68,9 +68,9 @@ class Split(enum.Enum):
     def num_examples(self):
         return {
             Split.TRAIN: 1600,
-            Split.TRAIN_AND_VALID: 120,
-            Split.VALID: 40,
-            Split.TEST: 40,
+            Split.TRAIN_AND_VALID: 1600,
+            Split.VALID: 400,
+            Split.TEST: 400,
         }[self]
 
 
