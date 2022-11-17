@@ -24,7 +24,11 @@ from deeprte import dataset
 from deeprte.model.base import Model, Solution
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
-from deeprte.model.modules import FunctionInputs, GreenFunctionNet
+from deeprte.model.modules import (
+    FunctionInputs,
+    GreenFunctionNet,
+    GreenFunctionResBlock,
+)
 
 
 def mean_squared_loss_fn(x, y, axis=None):
@@ -60,6 +64,7 @@ class RTEOperator(Solution):
         v: jnp.ndarray,
         sigma: FunctionInputs,
         psi_bc: FunctionInputs,
+        # scattering_kernel: FunctionInputs,
     ) -> jnp.ndarray:
         """Compute solution with Green's function as kernel.
 
@@ -73,7 +78,12 @@ class RTEOperator(Solution):
             Solution outputs.
         """
         rv = jnp.concatenate([r, v])
+        # green_func_module = GreenFunctionResBlock(self.config.green_function_block)
         green_func_module = GreenFunctionNet(self.config.green_function)
+        # def
+        # sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
+        #     rv, sigma, scattering_kernel
+        # )
         sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
             rv, sigma
         )
@@ -130,72 +140,3 @@ class RTESupervised(Model):
             "mse": mse,
             "rmspe": relative_mse,
         }
-
-
-# class RTEUnsupervised(Model):
-#     "Unsupervised RTE operator trained by equation."
-
-#     def __init__(self, cs, omega, name="radiative_transfer") -> None:
-#         super().__init__(name=name)
-
-#         self.quad_points = (cs, omega)
-
-#     @functools.partial(
-#         vmap, argnums={4, 5}, in_axes=(FunctionInputs(), FunctionInputs())
-#     )
-#     @functools.partial(vmap, argnums={2, 3})
-#     def residual(
-#         self,
-#         sol_fn: Callable[..., jnp.ndarray],
-#         r: jnp.ndarray,
-#         v: jnp.ndarray,
-#         sigma: FunctionInputs,
-#         psi_bc: FunctionInputs,
-#     ) -> jnp.ndarray:
-#         """Compute residual of equation for a single point."""
-
-#         sol = functools.partial(sol_fn, sigma=sigma, psi_b=psi_bc)
-
-#         # Gradients
-#         df_dr = jax.grad(sol)(r, v)  # [dim]
-#         # Transport term
-#         transport = jnp.matmul(v, df_dr)
-#         # Collision term
-#         collision = sigma.fx[..., 0] * quad(sol, self.quad_points, argnum=1)(
-#             r
-#         ) - sigma.fx[..., 1] * sol(r, v)
-
-#         residual = transport - collision
-
-#         return residual
-
-#     @functools.partial(
-#         vmap, argnums={3, 4}, in_axes=(FunctionInputs(), FunctionInputs())
-#     )
-#     # @partial(vmap, argnums={2, 3})
-#     def boundary(
-#         self,
-#         sol_fn: Callable[..., jnp.ndarray],
-#         bc_pts,
-#         sigma: FunctionInputs,
-#         psi_bc: FunctionInputs,
-#     ) -> jnp.ndarray:
-#         sol = functools.partial(sol_fn, sigma=sigma, psi_b=psi_bc)
-
-#         res_bc = vmap(sol)(bc_pts[..., :2], bc_pts[..., 2:]) - 1.0
-
-#         return res_bc
-
-#     def loss(self, sol_fn: Callable[..., jnp.ndarray], batch: dataset.Batch):
-
-#         batched_residual = self.residual(sol_fn, *batch["residual"])
-#         batched_boundary = self.boundary(sol_fn, *batch["boundary"])
-
-#         losses = {
-#             "residual": self._regs["residual"] * self._loss_fn(batched_residual, 0),
-#             "boundary": self._regs["boundary"] * self._loss_fn(batched_boundary, 0),
-#         }
-
-#         loss = sum(jax.tree_flatten(losses)[0])
-
-#         return loss, losses
