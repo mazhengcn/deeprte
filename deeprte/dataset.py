@@ -189,12 +189,28 @@ def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
         rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
         rv_r, rv_v = tf.split(rv, num_or_size_splits=2, axis=-1)
 
+        # w_star = grid["w_star"]
+        w_star = grid["w_angle"]
+        # scattering_kernel = grid["scattering_kernel"]
+        scattering_kernel = np.random.randn(
+            (
+                rv_v.shape[0],
+                w_star.shape[0],
+            )
+        )
+
+        vv_star = grid["vv_star"]
+
         return {
             "inputs": (
                 rv_r,
                 rv_v,
                 FunctionInputs(x=r, f=sigma),
                 FunctionInputs(x=rv_prime, f=psi_bc * w_prime),
+                FunctionInputs(
+                    x=vv_star,
+                    f=(scattering_kernel - 1) * w_star,
+                ),
             ),
             "labels": psi_label,
         }
@@ -213,7 +229,10 @@ def slice_inputs(indices_dataset: tf.data.Dataset, inputs: tf.data.Dataset):
         rv_r, rv_v = tf.nest.map_structure(
             lambda x: tf.gather(x, i, axis=-2), data["inputs"][:2]
         )
-        batch["inputs"] = (rv_r, rv_v) + data["inputs"][2:]
+        scattering_kernel = tf.nest.map_structure(
+            lambda x: tf.gather(x, i, axis=-2), data["inputs"][3:4]
+        )
+        batch["inputs"] = (rv_r, rv_v) + data["inputs"][2:4] + scattering_kernel
         batch["labels"] = tf.gather(data["labels"], i, axis=-1)
         return batch
 
@@ -319,6 +338,19 @@ def preprocess_grid(
     rv_prime, w_prime = grid["rv_prime"], grid["w_prime"]
     grid["rv_prime"] = rv_prime.reshape(-1, rv_prime.shape[-1])
     grid["w_prime"] = w_prime.flatten()
+
+    # v_star = grid["v_star"]
+    v_star = grid["v"]
+    _, rv_v = tf.split(rv, num_or_size_splits=2, axis=-1)
+
+    vv_star = PhaseSpace(
+        position_coords=rv_v,
+        velocity_coords=v_star,
+        position_weights=0.0,
+        velocity_weights=0.0,
+    ).single_state(cartesian_product=True)
+
+    grid["vv_star"] = vv_star
 
     if is_training:
         del grid["w_angle"], grid["v"]

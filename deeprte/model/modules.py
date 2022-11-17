@@ -15,14 +15,16 @@
 """Core modules including Green's function net and sigma net."""
 
 from typing import NamedTuple, Optional
-
+from collections.abc import Callable
 import haiku as hk
 import jax
 import jax.numpy as jnp
 from ml_collections import ConfigDict
 
+from deeprte.model.geometry.phase_space import PhaseSpace
+from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
-from deeprte.model.networks import MLP
+from deeprte.model.networks import MLP, Linear
 
 
 class FunctionInputs(NamedTuple):
@@ -145,3 +147,54 @@ class CoefficientNet(hk.Module):
         attn = jnp.exp(-attn)
 
         return attn
+
+
+class GreenFunctionResBlock(hk.Module):
+    """Green function resnet block with scattering kernel."""
+
+    def __init__(
+        self,
+        config: ConfigDict,
+        name: Optional[str] = "green_function_res_block",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        r: jnp.ndarray,
+        r_prime: jnp.ndarray,
+        # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
+        coefficient_fn: FunctionInputs,
+        scattering_kernel: FunctionInputs,  # ((u,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
+    ) -> jnp.ndarray:
+
+        c = self.config
+
+        green_func_module = GreenFunctionNet(c.green_function)
+
+        green_fn_block_output = green_func_module(r, r_prime, coefficient_fn)
+
+        if c.green_res_block.depth > 0:
+
+            v_star, weights = scattering_kernel.x[..., 2:], scattering_kernel.f
+            # weights = (1 - scattering_kernel_coeff) * weights
+
+            r_star = PhaseSpace(
+                position_coords=r[:2],
+                velocity_coords=v_star,
+                position_weights=0.0,
+                velocity_weights=0.0,
+            ).single_state(cartesian_product=True)
+            r_star = r_star.reshape(-1, r_star.shape[-1])
+
+            for _ in range(c.green_res_block.depth):
+                green_fn_kernel_quad = quad(
+                    green_func_module, (r_star, weights), argnum=0, use_hk=True
+                )(
+                    r_prime, coefficient_fn
+                )  # shape: [N']
+                green_fn_block_output += Linear(name="linear")(green_fn_kernel_quad)
+
+        return green_fn_block_output  # shape: [N']
