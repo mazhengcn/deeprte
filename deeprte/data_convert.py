@@ -50,6 +50,7 @@ def mat_to_np_dict(
         vx = mat_data["ct"]  # [M, 1]
         vy = mat_data["st"]  # [M, 1]
         v_coords = np.concatenate([vx, vy], axis=-1)
+        v_star = np.concatenate([mat_data["ct_star"], mat_data["st_star"]], axis=-1)
         grid_dict = {
             "r": mat_data["r"],
             "v": v_coords,
@@ -62,6 +63,8 @@ def mat_to_np_dict(
             {
                 "rv_prime": rv_primes,
                 "w_prime": w_primes,
+                "v_star": v_star,
+                "scattering_kernel": mat_data["scattering_kernel"],
             }
         )
 

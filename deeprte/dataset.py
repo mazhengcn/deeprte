@@ -191,15 +191,15 @@ def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
 
         # w_star = grid["w_star"]
         w_star = grid["w_angle"]
-        # scattering_kernel = grid["scattering_kernel"]
-        scattering_kernel = np.random.randn(
-            (
-                rv_v.shape[0],
-                w_star.shape[0],
-            )
-        )
+        scattering_kernel = grid["scattering_kernel"]
+        # scattering_kernel = np.random.randn(
+        #     (
+        #         rv_v.shape[0],
+        #         w_star.shape[0],
+        #     )
+        # )
 
-        vv_star = grid["vv_star"]
+        vrv_star = grid["vrv_star"]
 
         return {
             "inputs": (
@@ -208,7 +208,7 @@ def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
                 FunctionInputs(x=r, f=sigma),
                 FunctionInputs(x=rv_prime, f=psi_bc * w_prime),
                 FunctionInputs(
-                    x=vv_star,
+                    x=vrv_star,
                     f=(scattering_kernel - 1) * w_star,
                 ),
             ),
@@ -339,9 +339,9 @@ def preprocess_grid(
     grid["rv_prime"] = rv_prime.reshape(-1, rv_prime.shape[-1])
     grid["w_prime"] = w_prime.flatten()
 
-    # v_star = grid["v_star"]
-    v_star = grid["v"]
-    _, rv_v = tf.split(rv, num_or_size_splits=2, axis=-1)
+    v_star = grid["v_star"]
+    # v_star = grid["v"]
+    rv_x, rv_v = tf.split(rv, num_or_size_splits=2, axis=-1)
 
     vv_star = PhaseSpace(
         position_coords=rv_v,
@@ -350,10 +350,23 @@ def preprocess_grid(
         velocity_weights=0.0,
     ).single_state(cartesian_product=True)
 
-    grid["vv_star"] = vv_star
+    rv_star = PhaseSpace(
+        position_coords=rv_x,
+        velocity_coords=v_star,
+        position_weights=0.0,
+        velocity_weights=0.0,
+    ).single_state(cartesian_product=True)
+
+    vrv_star = tf.concat([vv_star[..., :2], rv_star], axis=-1)
+
+    grid["vrv_star"] = vrv_star
+
+    grid["scattering_kernel"] = tf.tile(
+        grid["scattering_kernel"], multiples=[r.shape[0], 1]
+    )
 
     if is_training:
-        del grid["w_angle"], grid["v"]
+        del grid["w_angle"], grid["v"], grid["v_star"]
 
     return grid, total_grid_size
 

@@ -14,9 +14,9 @@
 # limitations under the License.
 set -e
 
-SOURCE_DIR=${1:-"./data/rte_data/matlab/1030/"}
-DATAFILES=${2:-"test_sin.mat"}
-SAVE_PATH=${3:-"./data/train/1030/test_sin.npz"}
+SOURCE_DIR=${1:-"./data/rte_data/matlab/eval-data/scattering-kernel/fixed-kernel/"}
+DATAFILES=${2:-"test_bc1.mat, test_sin_xv.mat"}
+SAVE_PATH=${3:-"./data/train/scattering-kernel/test_fixed_kernel.mat"}
 
 python deeprte/data_convert.py \
 	--source_dir="${SOURCE_DIR}" \

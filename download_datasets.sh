@@ -20,7 +20,7 @@ set -e
 
 SERVER_URL=${1:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
 REMOTE_DATA_DIR=${2:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/"}
-DOWNLOAD_DIR=${3:-"./data/"}
+DOWNLOAD_DIR=${3:-"./data/rte_data/"}
 
 # Password: 2&gpTKPd
 rsync -rlptzv --progress --delete --exclude=.git "${SERVER_URL}:${REMOTE_DATA_DIR}" "${DOWNLOAD_DIR}"
