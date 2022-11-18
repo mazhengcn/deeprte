@@ -167,7 +167,7 @@ class GreenFunctionResBlock(hk.Module):
         r_prime: jnp.ndarray,
         # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
         coefficient_fn: FunctionInputs,
-        scattering_kernel: FunctionInputs,  # ((u,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
+        scattering_kernel: FunctionInputs,  # ((u,r,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
     ) -> jnp.ndarray:
 
         c = self.config
@@ -178,16 +178,8 @@ class GreenFunctionResBlock(hk.Module):
 
         if c.green_res_block.depth > 0:
 
-            v_star, weights = scattering_kernel.x[..., 2:], scattering_kernel.f
+            r_star, weights = scattering_kernel.x[2:], scattering_kernel.f
             # weights = (1 - scattering_kernel_coeff) * weights
-
-            r_star = PhaseSpace(
-                position_coords=r[:2],
-                velocity_coords=v_star,
-                position_weights=0.0,
-                velocity_weights=0.0,
-            ).single_state(cartesian_product=True)
-            r_star = r_star.reshape(-1, r_star.shape[-1])
 
             for _ in range(c.green_res_block.depth):
                 green_fn_kernel_quad = quad(

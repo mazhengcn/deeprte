@@ -23,7 +23,7 @@ EVAL_CKPT_DIR=${3:-"./ckpts/eval_ckpts"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.data_path="${TEST_DATA_PATH}" \
-	--config.experiment_kwargs.config.evaluation.batch_size="10" \
+	--config.experiment_kwargs.config.evaluation.batch_size="200" \
 	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
 	--config.restore_path="${RESTORE_PATH}" \
 	--config.one_off_evaluate="true" \

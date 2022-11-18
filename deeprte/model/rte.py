@@ -64,9 +64,10 @@ class RTEOperator(Solution):
         v: jnp.ndarray,
         sigma: FunctionInputs,
         psi_bc: FunctionInputs,
-        # scattering_kernel: FunctionInputs,
+        scattering_kernel: FunctionInputs,
     ) -> jnp.ndarray:
         """Compute solution with Green's function as kernel.
+
 
         Args:
             x: (x_dim,).
@@ -78,15 +79,15 @@ class RTEOperator(Solution):
             Solution outputs.
         """
         rv = jnp.concatenate([r, v])
-        # green_func_module = GreenFunctionResBlock(self.config.green_function_block)
-        green_func_module = GreenFunctionNet(self.config.green_function)
+        green_func_module = GreenFunctionResBlock(self.config.green_function_block)
+        # green_func_module = GreenFunctionNet(self.config.green_function)
         # def
-        # sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
-        #     rv, sigma, scattering_kernel
-        # )
         sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
-            rv, sigma
+            rv, sigma, scattering_kernel
         )
+        # sol = quad(green_func_module, (psi_bc.x, psi_bc.f), argnum=1, use_hk=True)(
+        #     rv, sigma
+        # )
         return sol
 
 
