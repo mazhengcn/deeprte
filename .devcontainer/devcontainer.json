@@ -1,19 +1,20 @@
 {
-    "image": "ghcr.io/mazhengcn/jax:0.3.21-py310-cu118",
+    "build": {
+        "context": "..",
+        "dockerfile": "../docker/Dockerfile"
+    },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:1": {
+            "installZsh": false,
+            "installOhMyZsh": false,
             "username": "none"
         }
     },
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
     "customizations": {
         "vscode": {
-            "settings": {
-                "terminal.integrated.defaultProfile.linux": "zsh"
-            },
             "extensions": [
+                "ms-python.vscode-python",
+                "ms-python.vscode-pylance",
                 "ms-python.flake8",
                 "ms-python.black-formatter",
                 "ms-python.isort"
