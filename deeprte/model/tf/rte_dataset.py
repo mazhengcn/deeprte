@@ -16,18 +16,26 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Mapping, Dict, Generator
+from typing import Optional, Sequence, Mapping, Dict
 from ml_collections import config_dict
 
 import numpy as np
 import tensorflow as tf
-import jax
 
 from deeprte.model.tf import rte_features
 from deeprte.data.pipeline import FeatureDict
 
 TensorDict = Dict[str, tf.Tensor]
 AUTOTUNE = tf.data.AUTOTUNE
+
+
+def make_collocation_axis():
+    axis_dict = {
+        k: rte_features.FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS)
+        - len(rte_features.FEATURES[k][1])
+        for k in rte_features._COLLOCATION_FEATURE_NAMES
+    }
+    return axis_dict
 
 
 def _make_features_metadata(
@@ -40,9 +48,8 @@ def _make_features_metadata(
 
 
 def np_to_tensor_dict(
-    np_example: Mapping[str, np.ndarray],
-    placeholder_shape_config: config_dict,
-    features: Optional[Sequence[str]] = None,
+    np_example: FeatureDict,
+    features_names: Optional[Sequence[str]] = None,
 ) -> TensorDict:
     """Creates dict of tensors from a dict of NumPy arrays.
 
@@ -54,34 +61,33 @@ def np_to_tensor_dict(
         A dictionary of features mapping feature names to features. Only the given
         features are returned, all other ones are filtered out.
     """
-    features = features or rte_features._FEATURE_NAMES
-    features_metadata = _make_features_metadata(features)
+    placeholder_shape = make_features_shape(np_example)
+    features_names = features_names or rte_features._FEATURE_NAMES
+    features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
         k: tf.constant(v) for k, v in np_example.items() if k in features_metadata
     }
 
     # Ensures shapes are as expected. Needed for setting size of empty features
     # e.g. when no template hits were found.
-    tensor_dict = parse_reshape_logic(
-        tensor_dict, placeholder_shape_config, features_metadata
-    )
+    tensor_dict = parse_reshape_logic(tensor_dict, placeholder_shape, features_metadata)
     return tensor_dict
 
 
 def parse_reshape_logic(
     parsed_features: TensorDict,
-    placeholder_shape_config: config_dict,
+    placeholder_shape: Mapping[str, int],
     features: rte_features.FeaturesMetadata,
 ) -> TensorDict:
 
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
-            num_batch=placeholder_shape_config.num_batch,
-            num_position_points=placeholder_shape_config.num_position_points,
-            num_velocity=placeholder_shape_config.num_velocity,
-            num_pahse_points=placeholder_shape_config.num_phase_points,
-            num_boundary_points=placeholder_shape_config.num_boundary_points,
+            num_samples=placeholder_shape["num_samples"],
+            num_position_coords=placeholder_shape["num_position_coords"],
+            num_velocity_coords=placeholder_shape["num_velocity_coords"],
+            num_phase_coords=placeholder_shape["num_phase_coords"],
+            num_boundary_coords=placeholder_shape["num_boundary_coords"],
             features=features,
         )
         new_shape_size = tf.constant(1, dtype=tf.int32)
@@ -127,44 +133,13 @@ def _shard(
     return start, end
 
 
-def process_features(
-    features: FeatureDict,
-    split: config_dict,
-    is_training: bool,
-    # batch_sizes should be:
-    # [device_count, per_device_outer_batch_size]
-    # total_batch_size = device_count * per_device_outer_batch_size
-    batch_sizes: Sequence[int],
-    # collocation_sizes should be:
-    # total_collocation_size or
-    # [residual_size, boundary_size, quadrature_size]
-    collocation_sizes: int | Sequence[int] | None,
-    # repeat number of inner batch, for training the same batch with
-    # {repeat} steps of different collocation points
-    repeat: int | None = 1,
-    # shuffle buffer size
-    buffer_size: int = 5_000,
-    # Dataset options
-    threadpool_size: int = 48,
-    max_intra_op_parallelism: int = 1,
-) -> Generator[FeatureDict, None, None]:
+def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]:
+    shape_dict = {}
+    shape_dict["num_samples"] = features["num_samples"]
+    num_x, num_y, num_v = features["num_x"], features["num_y"], features["num_v"]
+    shape_dict["num_position_coords"] = num_x * num_y
+    shape_dict["num_velocity_coords"] = num_v
+    shape_dict["num_phase_coords"] = num_x * num_y * num_v
+    shape_dict["num_boundary_coords"] = (num_x + num_y) * num_v
 
-    if is_training:
-        if not collocation_sizes and not repeat:
-            raise ValueError(
-                "`collocation_sizes` and `repeat` should not be None"
-                "when `is_training=True`"
-            )
-
-    start, end = _shard(
-        split, jax.process_index(), jax.process_count(), is_training=is_training
-    )
-
-    tensor_features = np_to_tensor_dict(features)
-
-    ds = tf.data.Dataset.from_tensor_slices(
-        tf.nest.map_structure(
-            lambda arr: arr[start, end],
-        )
-    )
-    return
+    return shape_dict

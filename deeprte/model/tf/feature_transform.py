@@ -3,8 +3,7 @@
 import numpy as np
 import tensorflow as tf
 
-from typing import Optional, Sequence
-from deeprte.model.tf.rte_features import _COLLOCATION_FEATURE_NAMES, _FEATURE_NAMES
+from typing import Optional, Sequence, Mapping
 from deeprte.model.tf.rte_dataset import TensorDict
 
 
@@ -19,9 +18,10 @@ def curry1(f):
 
 @curry1
 def sample_phase_points(
-    features,
-    collocation_sizes,
-    seed,
+    features: TensorDict,
+    collocation_features: Mapping[str, int],
+    collocation_sizes: int,
+    seed: int,
 ):
     """Sample phase points randomly and take collocation points.
 
@@ -46,15 +46,15 @@ def sample_phase_points(
     else:
         raise ValueError("total_grid_sizes < collocation_sizes")
 
-    # for k in _COLLOCATION_FEATURE_NAMES:
-    #     if k in features:
-    #         features[k] = tf.gather(features[k], idx, axis=-2)
+    for k, axis in collocation_features.items():
+        if k in features:
+            features[k] = tf.gather(features[k], idx, axis=axis)
 
-    features = sample_features(
-        idx=idx,
-        axis=-2,
-        sampled_features_names=_COLLOCATION_FEATURE_NAMES,
-    )(features)
+    # features = sample_features(
+    #     idx=idx,
+    #     axis=-2,
+    #     sampled_features_names=_COLLOCATION_FEATURE_NAMES,
+    # )(features)
 
     return features
 
