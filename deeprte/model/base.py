@@ -21,7 +21,7 @@ import haiku as hk
 import jax.numpy as jnp
 from ml_collections import ConfigDict
 
-from deeprte import dataset
+from deeprte.model.tf import dataset
 
 TemplateFn = Callable[..., Any]
 

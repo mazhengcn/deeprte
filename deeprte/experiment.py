@@ -28,7 +28,8 @@ from absl import logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte import dataset, optimizers
+from deeprte import optimizers
+from deeprte.model.tf import dataset
 
 OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jnp.ndarray]

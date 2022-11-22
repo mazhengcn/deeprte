@@ -192,12 +192,6 @@ def process_inputs(data: tf.data.Dataset, grid: Mapping[str, np.ndarray]):
         # w_star = grid["w_star"]
         w_star = grid["w_angle"]
         scattering_kernel = grid["scattering_kernel"]
-        # scattering_kernel = np.random.randn(
-        #     (
-        #         rv_v.shape[0],
-        #         w_star.shape[0],
-        #     )
-        # )
 
         vrv_star = grid["vrv_star"]
 

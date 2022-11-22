@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from deeprte import dataset
+from deeprte.model.tf import dataset
 from deeprte.model.base import Model, Solution
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
