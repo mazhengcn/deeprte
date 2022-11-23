@@ -15,7 +15,7 @@ NUM_BOUNDARY_COORDS = "num boundary placeholder"
 NUM_DIM = 2
 
 FEATURES = {
-    #### Static features of rte ####
+    # Static features of rte #
     "sigma": (tf.float32, [NUM_SAMPLES, NUM_POSITION_COORDS, 2]),
     "boundary": (tf.float32, [NUM_SAMPLES, NUM_BOUNDARY_COORDS]),
     "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
