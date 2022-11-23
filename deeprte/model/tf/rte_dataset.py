@@ -143,3 +143,14 @@ def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]
     shape_dict["num_boundary_coords"] = (num_x + num_y) * num_v
 
     return shape_dict
+
+
+def divide_batch_feat(features):
+    batched_feat, unbatched_feat = {}, {}
+    for k, v in features.items():
+        if k in rte_features._BATCH_FEATURE_NAMES:
+            batched_feat.update({k: v})
+        else:
+            unbatched_feat.update({k: v})
+
+    return batched_feat, unbatched_feat
