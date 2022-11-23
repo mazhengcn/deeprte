@@ -28,6 +28,6 @@
         "--shm-size=1g"
     ],
     "mounts": [
-        "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
+        "source=rte_data,target=${containerWorkspaceFolder}/rte_data,type=volume"
     ]
 }
