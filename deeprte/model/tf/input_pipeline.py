@@ -5,7 +5,17 @@ import jax
 import tensorflow as tf
 from typing import Generator, Sequence
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model.tf.rte_dataset import _shard, np_to_tensor_dict
+from deeprte.model.tf.rte_dataset import (
+    _shard,
+    np_to_tensor_dict,
+    TensorDict,
+    divide_batch_feat,
+    make_collocation_axis,
+)
+import tensorflow_datasets as tfds
+from deeprte.model.tf import feature_transform
+
+AUTOTUNE = tf.data.AUTOTUNE
 
 
 def make_data_config(
@@ -18,8 +28,7 @@ def make_data_config(
 
 
 def process_features(
-    features: FeatureDict,
-    split: ml_collections.config_dict,
+    features: TensorDict,
     is_training: bool,
     # batch_sizes should be:
     # [device_count, per_device_outer_batch_size]
@@ -31,6 +40,7 @@ def process_features(
     collocation_sizes: int | Sequence[int] | None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
+    seed: int = 0,
     repeat: int | None = 1,
     # shuffle buffer size
     buffer_size: int = 5_000,
@@ -45,16 +55,52 @@ def process_features(
                 "`collocation_sizes` and `repeat` should not be None"
                 "when `is_training=True`"
             )
+    batched_feat, unbatched_feat = divide_batch_feat(features)
 
-    start, end = _shard(
-        split, jax.process_index(), jax.process_count(), is_training=is_training
+    total_grid_sizes = tf.cast(
+        tf.shape(unbatched_feat["phase_coords"])[-2], dtype=tf.int64
     )
 
-    tensor_features = np_to_tensor_dict(features)
+    ds = tf.data.Dataset.from_tensor_slices(batched_feat)
 
-    ds = tf.data.Dataset.from_tensor_slices(
-        tf.nest.map_structure(
-            lambda arr: arr[start, end],
+    options = tf.data.Options()
+    options.threading.max_intra_op_parallelism = max_intra_op_parallelism
+    options.threading.private_threadpool_size = threadpool_size
+    options.experimental_optimization.map_parallelization = True
+    options.experimental_optimization.parallel_batch = True
+    if is_training:
+        options.deterministic = False
+
+    if is_training:
+        if jax.process_count() > 1:
+            # Only cache if we are reading a subset of the dataset.
+            ds = ds.cache()
+        ds = ds.repeat()
+        ds = ds.shuffle(buffer_size=buffer_size)
+        ds = feature_transform.repeat_batch(batch_sizes, ds, repeat)
+
+    # batch per_device outer first,
+    # since they share the same random grid points
+    ds = ds.batch(batch_sizes[-1], drop_remainder=True)
+    # construct the inputs structure
+    ds = ds.map(feature_transform.construct_batch(unbatched_feat))
+    # batch device dim
+    ds = ds.batch(batch_sizes[0], drop_remainder=True)
+
+    if is_training:
+        assert collocation_sizes <= total_grid_sizes
+        g = tf.random.Generator.from_seed(seed=seed)
+        ds = ds.map(
+            feature_transform.sample_phase_points(
+                collocation_sizes=collocation_sizes,
+                collocation_features=make_collocation_axis(),
+                total_grid_sizes=total_grid_sizes,
+                generator=g,
+            )
         )
-    )
-    return
+
+    ds = ds.prefetch(AUTOTUNE)
+    ds = ds.with_options(options)
+
+    # convert to a numpy generator
+    yield from tfds.as_numpy(ds)

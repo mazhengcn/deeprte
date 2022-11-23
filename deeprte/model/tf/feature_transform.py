@@ -1,10 +1,8 @@
 """Data transform for DeepRTE."""
 
-import numpy as np
 import tensorflow as tf
 
-from typing import Optional, Sequence, Mapping
-from deeprte.model.tf.rte_dataset import TensorDict
+from typing import Sequence, Mapping, Generator
 
 
 def curry1(f):
@@ -18,10 +16,11 @@ def curry1(f):
 
 @curry1
 def sample_phase_points(
-    features: TensorDict,
+    features,
     collocation_features: Mapping[str, int],
     collocation_sizes: int,
-    seed: int,
+    total_grid_sizes: int,
+    generator: Generator,
 ):
     """Sample phase points randomly and take collocation points.
 
@@ -33,28 +32,16 @@ def sample_phase_points(
     Returns:
         sampled data.
     """
-    total_grid_sizes = tf.cast(tf.shape(features["phase_coords"])[-2], dtype=tf.int64)
 
-    if total_grid_sizes >= collocation_sizes:
-        g = tf.random.Generator.from_seed(seed)
-        idx = g.uniform(
-            (collocation_sizes,),
-            minval=0,
-            maxval=total_grid_sizes,
-            dtype=tf.int64,
-        )
-    else:
-        raise ValueError("total_grid_sizes < collocation_sizes")
-
+    idx = generator.uniform(
+        (collocation_sizes,),
+        minval=0,
+        maxval=total_grid_sizes,
+        dtype=tf.int64,
+    )
     for k, axis in collocation_features.items():
         if k in features:
             features[k] = tf.gather(features[k], idx, axis=axis)
-
-    # features = sample_features(
-    #     idx=idx,
-    #     axis=-2,
-    #     sampled_features_names=_COLLOCATION_FEATURE_NAMES,
-    # )(features)
 
     return features
 
@@ -64,16 +51,34 @@ def select_feat(feature, feature_name_list):
     return {k: v for k, v in feature.items() if k in feature_name_list}
 
 
-@curry1
-def sample_features(
-    features: TensorDict,
-    idx: int,
-    axis: int,
-    sampled_features_names: Optional[Sequence[str]] = None,
-):
-    sampled_features_names = sampled_features_names or _FEATURE_NAMES
-    for k in sampled_features_names:
-        if k in features:
-            features[k] = tf.gather(features[k], idx, axis=axis)
+def repeat_batch(
+    batch_sizes: int | Sequence[int],
+    ds: tf.data.Dataset,
+    repeat: int = 1,
+) -> tf.data.Dataset:
+    """Tiles the inner most batch dimension."""
+    if repeat <= 1:
+        return ds
+    # Perform regular batching with reduced number of elements.
+    for batch_size in reversed(batch_sizes):
+        ds = ds.batch(batch_size, drop_remainder=True)
 
-    return features
+    # Repeat batch.
+    fn = lambda x: tf.tile(  # noqa: E731
+        x, multiples=[repeat] + [1] * (len(x.shape) - 1)
+    )
+
+    def repeat_inner_batch(example):
+        return tf.nest.map_structure(fn, example)
+
+    ds = ds.map(repeat_inner_batch, num_parallel_calls=tf.data.AUTOTUNE)
+    # Unbatch.
+    for _ in batch_sizes:
+        ds = ds.unbatch()
+    return ds
+
+
+@curry1
+def construct_batch(batched_feat, unbatched_feat):
+    batched_feat.update(unbatched_feat)
+    return batched_feat
