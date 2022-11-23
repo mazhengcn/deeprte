@@ -60,7 +60,10 @@ class Experiment(experiment.AbstractExperiment):
     }
 
     def __init__(
-        self, mode: str, init_rng: jnp.ndarray, config: ml_collections.ConfigDict
+        self,
+        mode: str,
+        init_rng: jax.Array,
+        config: ml_collections.ConfigDict,
     ):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)

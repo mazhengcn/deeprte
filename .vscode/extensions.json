@@ -1,9 +1,0 @@
-{
-    "recommendations": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-python.flake8",
-        "ms-python.black-formatter",
-        "ms-python.isort"
-    ]
-}
