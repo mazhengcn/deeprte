@@ -19,7 +19,7 @@ from collections.abc import Callable
 import haiku as hk
 import jax
 import jax.numpy as jnp
-from ml_collections import ConfigDict
+import ml_collections
 
 from deeprte.model.geometry.phase_space import PhaseSpace
 from deeprte.model.integrate import quad
@@ -45,9 +45,7 @@ class GreenFunctionNet(hk.Module):
     """Green's function of solution operator."""
 
     def __init__(
-        self,
-        config: ConfigDict,
-        name: Optional[str] = "green_function",
+        self, config: ml_collections.ConfigDict, name: Optional[str] = "green_function"
     ):
         super().__init__(name=name)
 
@@ -96,12 +94,13 @@ class GreenFunctionNet(hk.Module):
 class CoefficientNet(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
-    def __init__(self, config: ConfigDict, name: Optional[str] = "coefficient_net"):
+    def __init__(
+        self, config: ml_collections.ConfigDict, name: Optional[str] = "coefficient_net"
+    ):
         super().__init__(name=name)
 
         self.config = config
 
-    # pylint: disable=invalid-name
     def __call__(self, r: jnp.ndarray, coefficient_fn: FunctionInputs) -> jnp.ndarray:
         """Compute coefficients of the equation as the inputs of Green's function.
 
