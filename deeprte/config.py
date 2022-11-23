@@ -42,18 +42,16 @@ def get_config() -> ml_collections.ConfigDict:
     """Return config object for solver."""
     config = base_config.get_base_config()
 
-    # Batch size, training steps and data.
-    num_epochs = 5_000
-    # num_epochs = 10
     train_batch_size = 8
-    repeat = 1
+    eval_batch_size = 40
 
+    num_epochs = 10_000
+    repeat = 1
     steps_from_epochs = functools.partial(
         get_steps_from_epochs, train_batch_size, repeat=repeat
     )
     # Steps and test batch size.
     num_steps = steps_from_epochs(num_epochs)
-    test_batch_size = 400
 
     # Datasetconfig.
     dataset_config = dict(
@@ -105,7 +103,7 @@ def get_config() -> ml_collections.ConfigDict:
                     optimizer="adam",
                     adam_kwargs={},
                 ),
-                evaluation=dict(batch_size=test_batch_size),
+                evaluation=dict(batch_size=eval_batch_size),
             )
         )
     )

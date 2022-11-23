@@ -23,7 +23,7 @@ from deeprte.model import mapping
 
 
 def quad(
-    func: Callable[..., jnp.float32],
+    func: Callable[..., float],
     quad_points: tuple[jnp.ndarray, jnp.ndarray],
     argnum=0,
     has_aux: Optional[bool] = False,

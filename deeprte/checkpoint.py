@@ -21,6 +21,7 @@ import signal
 import threading
 
 import dill
+import jax.numpy as jnp
 import numpy as np
 from absl import flags, logging
 from jaxline import experiment
@@ -52,7 +53,9 @@ def restore_state_to_in_memory_checkpointer(restore_path):
     # Assign state to a dummy experiment instance for the in-memory checkpointer,
     # broadcasting to devices.
     dummy_experiment = Experiment(
-        mode="train", init_rng=0, config=FLAGS.config.experiment_kwargs.config
+        mode="train",
+        init_rng=jnp.array([0]),
+        config=FLAGS.config.experiment_kwargs.config,
     )
     for attribute, key in Experiment.CHECKPOINT_ATTRS.items():
         setattr(
