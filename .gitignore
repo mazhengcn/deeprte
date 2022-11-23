@@ -2,7 +2,7 @@
 # .vscode/
 slurm/
 ckpts/
-data/
+rte_data/
 archive/
 # svgs/
 # notebooks/
