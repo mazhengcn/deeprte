@@ -14,7 +14,6 @@ def curry1(f):
     return fc
 
 
-@curry1
 def sample_phase_points(
     features,
     collocation_features: Mapping[str, int],
@@ -79,6 +78,22 @@ def repeat_batch(
 
 
 @curry1
-def construct_batch(batched_feat, unbatched_feat):
+def construct_batch(
+    batched_feat,
+    unbatched_feat,
+    collocation_features: Mapping[str, int],
+    collocation_sizes: int,
+    total_grid_sizes: int,
+    generator: Generator,
+    is_training: bool,
+):
     batched_feat.update(unbatched_feat)
+    if is_training:
+        batched_feat = sample_phase_points(
+            batched_feat,
+            collocation_features=collocation_features,
+            collocation_sizes=collocation_sizes,
+            total_grid_sizes=total_grid_sizes,
+            generator=generator,
+        )
     return batched_feat
