@@ -130,3 +130,27 @@ def get_config() -> ml_collections.ConfigDict:
     config.restore_path = ""
 
     return config
+
+
+def make_config() -> ml_collections.ConfigDict:
+    config = base_config.get_base_config()
+
+    config.data = ml_collections.ConfigDict(
+        dict(
+            training=dict(
+                batch_size=8,
+                collocation_sizes=500,
+                num_epochs=100,
+                num_train_examples=6,
+                repeat=1,
+            ),
+            evaluation=dict(batch_size=4),
+            is_split_datasets=False,
+            seed=42,
+            buffer_size=5_000,
+            threadpool_size=48,
+            max_intra_op_parallelism=1,
+        )
+    )
+
+    return config
