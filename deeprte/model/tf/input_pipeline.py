@@ -2,6 +2,7 @@ import ml_collections
 import copy
 import jax
 import tensorflow as tf
+import numpy as np
 from typing import Generator, Sequence, Optional
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model.tf.rte_dataset import (
@@ -101,29 +102,41 @@ def process_features(
 
 
 def shard(
-    config: ml_collections.config_dict,
     shard_index: int,
     num_shards: int,
-    is_training: bool,
+    num_val: int,
+    num_train: Optional[int] = None,
 ) -> tuple[int, int]:
     """Returns [start, end) for the given shard index."""
     assert shard_index < num_shards
 
     def _get_endpoint(num):
-        arange = tf.range(num)
-        shard_range = tf.split(arange, num_shards)[shard_index]
+        arange = np.arange(num)
+        shard_range = np.split(arange, num_shards)[shard_index]
         start, end = shard_range[0], (shard_range[-1] + 1)
         return start, end
 
-    if is_training:
-        start, end = _get_endpoint(config.training.num_train_examples)
-        offset = config.evaluation.batch_size
+    if num_train:
+        start, end = _get_endpoint(num_train)
+        offset = num_val
         start += offset
         end += offset
     else:
-        start, end = _get_endpoint(config.evaluation.batch_size)
+        start, end = _get_endpoint(num_val)
 
     return start, end
+
+
+def _get_split_num(
+    config: ml_collections.config_dict,
+):
+    split_config = config.data_split
+    num_test = split_config.num_test_samples
+    num_train_and_val = split_config.num_samples - num_test
+    num_train = int(num_train_and_val * split_config.train_validation_split_rate)
+    num_val = num_train_and_val - num_train
+
+    return num_test, num_train, num_val
 
 
 def load_and_split_data(
@@ -141,23 +154,33 @@ def load_and_split_data(
             lambda x: tf.gather(x, shuffled_indices.numpy(), axis=0), batched_feat
         )
 
-    if config and config.is_split_datasets:
+    if config and config.data_split.is_split_datasets:
 
-        def _make_ds(is_training: bool) -> tf.data.Dataset:
+        num_test, num_train, num_val = _get_split_num(config)
+
+        def _make_ds(
+            num_train: Optional[int] = None,
+        ) -> tf.data.Dataset:
             _start, _end = shard(
-                config,
                 jax.process_index(),
                 jax.process_count(),
-                is_training=is_training,
+                num_val=num_val,
+                num_train=num_train,
             )
             return tf.data.Dataset.from_tensor_slices(
-                tf.nest.map_structure(lambda arr: arr[_start:_end], batched_feat)
+                tf.nest.map_structure(
+                    lambda arr: arr[(num_test + _start) : (num_test + _end)],
+                    batched_feat,
+                )
             )
 
-        train_ds = _make_ds(is_training=True)
-        eval_ds = _make_ds(is_training=False)
+        test_ds = tf.data.Dataset.from_tensor_slices(
+            tf.nest.map_structure(lambda arr: arr[:num_test], batched_feat)
+        )
+        train_ds = _make_ds(num_train=num_train)
+        val_ds = _make_ds()
 
-        return (train_ds, eval_ds), unbatched_feat
+        return (test_ds, train_ds, val_ds), unbatched_feat
 
     else:
         ds = tf.data.Dataset.from_tensor_slices(batched_feat)
@@ -180,21 +203,21 @@ def np_example_to_features(
     )
 
     if data_config and data_config.is_split_datasets:
-        train_ds, eval_ds = ds
+        test_ds, train_ds, val_ds = ds
         train_input = process_features(
             ds=train_ds,
             unbatched_feat=unbatched_feat,
             is_training=True,
             batch_sizes=batch_sizes,
-            collocation_sizes=data_config.training.collocation_sizes,
+            collocation_sizes=data_config.train.collocation_sizes,
             seed=data_config.seed,
-            repeat=data_config.training.repeat,
+            repeat=data_config.train.repeat,
             buffer_size=data_config.buffer_size,
             threadpool_size=data_config.threadpool_size,
             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
         )
-        eval_input = process_features(
-            ds=eval_ds,
+        val_input = process_features(
+            ds=val_ds,
             unbatched_feat=unbatched_feat,
             is_training=False,
             batch_sizes=batch_sizes,
@@ -203,7 +226,7 @@ def np_example_to_features(
             threadpool_size=data_config.threadpool_size,
             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
         )
-        return train_input, eval_input
+        return train_input, val_input
     else:
         input = process_features(
             ds=ds,
