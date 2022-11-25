@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 from typing import Optional, Sequence, Mapping, Dict
-from ml_collections import config_dict
 
 import numpy as np
 import tensorflow as tf
@@ -105,32 +104,6 @@ def parse_reshape_logic(
             parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
 
     return parsed_features
-
-
-def _shard(
-    split: config_dict,
-    shard_index: int,
-    num_shards: int,
-    is_training: bool,
-) -> tuple[int, int]:
-    """Returns [start, end) for the given shard index."""
-    assert shard_index < num_shards
-
-    def _get_endpoint(num):
-        arange = np.arange(num)
-        shard_range = np.array_split(arange, num_shards)[shard_index]
-        start, end = shard_range[0], (shard_range[-1] + 1)
-        return start, end
-
-    if is_training:
-        start, end = _get_endpoint(split.num_train_examples)
-        offset = split.num_eval_examples
-        start += offset
-        end += offset
-    else:
-        start, end = _get_endpoint(split.num_eval_examples)
-
-    return start, end
 
 
 def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]:
