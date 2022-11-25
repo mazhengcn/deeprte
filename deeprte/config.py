@@ -1,22 +1,3 @@
-# Copyright 2022 Zheng Ma
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"Training and evaluation config."
-
-import datetime
-import functools
-
 import ml_collections
 from jaxline import base_config
 from ml_collections import config_dict
@@ -133,22 +114,28 @@ def get_config() -> ml_collections.ConfigDict:
 def make_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
 
-    config.data = ml_collections.ConfigDict(
-        dict(
-            training=dict(
-                batch_size=8,
-                collocation_sizes=500,
-                num_epochs=100,
-                num_train_examples=6,
-                repeat=1,
-            ),
-            evaluation=dict(batch_size=4),
-            is_split_datasets=False,
-            seed=42,
-            buffer_size=5_000,
-            threadpool_size=48,
-            max_intra_op_parallelism=1,
-        )
+    config.dataset = ml_collections.ConfigDict(
+        {
+            "train": {
+                "batch_size": 6,
+                "collocation_sizes": 500,
+                "repeat": 1,
+            },
+            "validation": {
+                "batch_size": 2,
+            },
+            "data_split": {
+                "num_samples": 10,
+                "num_test_samples": 2,
+                "train_validation_split_rate": 0.8,
+                "is_split_datasets": False,
+            },
+            "seed": 42,
+            "buffer_size": 5_000,
+            "threadpool_size": 48,
+            "max_intra_op_parallelism": 1,
+            "pre_shuffle": True,
+        },
     )
 
     return config
