@@ -26,6 +26,20 @@ def make_data_config(
     return cfg
 
 
+def make_device_batch(
+    global_batch_size: int,
+    num_devices: int,
+):
+    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+    # Raise error if not divisible
+    if ragged:
+        raise ValueError(
+            f"Global batch size {global_batch_size} must be divisible by "
+            f"number of devices {num_devices}"
+        )
+    return [num_devices, per_device_batch_size]
+
+
 def process_features(
     ds: tf.data.Dataset,
     unbatched_feat: TensorDict,
@@ -187,55 +201,55 @@ def load_and_split_data(
         return ds, unbatched_feat
 
 
-def np_example_to_features(
-    np_features: FeatureDict,
-    batch_sizes: Sequence[int],
-    data_config: ml_collections.ConfigDict,
-    features_names: Optional[Sequence[str]] = None,
-):
-    tf_data = np_to_tensor_dict(np_features, features_names)
+# def np_example_to_features(
+#     np_features: FeatureDict,
+#     batch_sizes: Sequence[int],
+#     data_config: ml_collections.ConfigDict,
+#     features_names: Optional[Sequence[str]] = None,
+# ):
+#     tf_data = np_to_tensor_dict(np_features, features_names)
 
-    ds, unbatched_feat = load_and_split_data(
-        features=tf_data,
-        config=data_config,
-        pre_shuffle=True,
-        seed=data_config.seed,
-    )
+#     ds, unbatched_feat = load_and_split_data(
+#         features=tf_data,
+#         config=data_config,
+#         pre_shuffle=True,
+#         seed=data_config.seed,
+#     )
 
-    if data_config and data_config.is_split_datasets:
-        test_ds, train_ds, val_ds = ds
-        train_input = process_features(
-            ds=train_ds,
-            unbatched_feat=unbatched_feat,
-            is_training=True,
-            batch_sizes=batch_sizes,
-            collocation_sizes=data_config.train.collocation_sizes,
-            seed=data_config.seed,
-            repeat=data_config.train.repeat,
-            buffer_size=data_config.buffer_size,
-            threadpool_size=data_config.threadpool_size,
-            max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-        )
-        val_input = process_features(
-            ds=val_ds,
-            unbatched_feat=unbatched_feat,
-            is_training=False,
-            batch_sizes=batch_sizes,
-            seed=data_config.seed,
-            buffer_size=data_config.buffer_size,
-            threadpool_size=data_config.threadpool_size,
-            max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-        )
-        return train_input, val_input
-    else:
-        input = process_features(
-            ds=ds,
-            unbatched_feat=unbatched_feat,
-            is_training=False,
-            batch_sizes=batch_sizes,
-            seed=data_config.seed,
-            buffer_size=data_config.buffer_size,
-            threadpool_size=data_config.threadpool_size,
-            max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-        )
-        return input
+#     if data_config and data_config.is_split_datasets:
+#         test_ds, train_ds, val_ds = ds
+#         train_input = process_features(
+#             ds=train_ds,
+#             unbatched_feat=unbatched_feat,
+#             is_training=True,
+#             batch_sizes=batch_sizes,
+#             collocation_sizes=data_config.train.collocation_sizes,
+#             seed=data_config.seed,
+#             repeat=data_config.train.repeat,
+#             buffer_size=data_config.buffer_size,
+#             threadpool_size=data_config.threadpool_size,
+#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
+#         )
+#         val_input = process_features(
+#             ds=val_ds,
+#             unbatched_feat=unbatched_feat,
+#             is_training=False,
+#             batch_sizes=batch_sizes,
+#             seed=data_config.seed,
+#             buffer_size=data_config.buffer_size,
+#             threadpool_size=data_config.threadpool_size,
+#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
+#         )
+#         return train_input, val_input
+#     else:
+#         input = process_features(
+#             ds=ds,
+#             unbatched_feat=unbatched_feat,
+#             is_training=False,
+#             batch_sizes=batch_sizes,
+#             seed=data_config.seed,
+#             buffer_size=data_config.buffer_size,
+#             threadpool_size=data_config.threadpool_size,
+#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
+#         )
+#         return input
