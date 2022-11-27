@@ -1,5 +1,5 @@
 {
-    "image": "docker.io/python:3.10-slim",
+    "image": "python:3.10-slim",
     "features": {
         "ghcr.io/devcontainers/features/nvidia-cuda:1": {
             "installCudnn": true
@@ -12,6 +12,11 @@
             "username": "none"
         }
     },
+    "runArgs": [
+        "--name=deeprte",
+        "--gpus=all",
+        "--shm-size=1g"
+    ],
     "customizations": {
         "vscode": {
             "settings": {
@@ -26,13 +31,12 @@
             ]
         }
     },
-    "runArgs": [
-        "--name=deeprte",
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
     "mounts": [
-        "source=rte_data,target=${containerWorkspaceFolder}/rte_data,type=volume"
+        {
+            "type": "volume",
+            "source": "rte_data",
+            "target": "${containerWorkspaceFolder}/rte_data"
+        }
     ],
     "postCreateCommand": "python -m pip install --no-cache-dir -e ."
 }
