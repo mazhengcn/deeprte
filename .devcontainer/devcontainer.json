@@ -36,6 +36,11 @@
             "type": "volume",
             "source": "rte_data",
             "target": "${containerWorkspaceFolder}/rte_data"
+        },
+        {
+            "type": "volume",
+            "source": "vscode-python-extensions",
+            "target": "/root/.vscode-server/extensions"
         }
     ],
     "postCreateCommand": "python -m pip install --no-cache-dir -e ."
