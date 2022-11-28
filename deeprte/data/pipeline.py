@@ -1,6 +1,8 @@
 """Convert Matlab dataset to numpy dataset."""
 
-from collections.abc import Mapping, MutableMapping
+import pathlib
+import tree
+from typing import Mapping, MutableMapping, Optional
 
 import numpy as np
 import scipy.io as sio
@@ -10,27 +12,31 @@ from deeprte.data.utils import cartesian_product_nd
 
 Float = float | np.float32
 
-DIMENSIONS = 2
 FeatureDict = MutableMapping[str, np.ndarray]
 
 
 def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     """Convert numpy data dict to unified numpy data dict for rectangle domain."""
     # Load reference solutions and sigmas
-    phi = np_data["phi"]  # [B, I, J]
     psi = np_data["psi_label"]  # [B, I, J, M]
     sigma_t = np_data["sigma_t"]  # [B, I, J]
     sigma_a = np_data["sigma_a"]  # [B, I, J]
     psi_bc = np_data["psi_bc"]  # [B, 2*(I+J), 4]
+
+    scattering_kernel_value = np.tile(
+        np_data["scattering_kernel"], (1, sigma_t.shape[1] * sigma_t.shape[2], 1)
+    )
+    scattering_kernel = scattering_kernel_value.reshape(*(psi.shape + psi.shape[-1:]))
 
     sigma = np.stack([sigma_t, sigma_a], axis=-1)
 
     features = {
         "sigma": sigma,
         "psi_label": psi,
-        "phi": phi,
+        "scattering_kernel": scattering_kernel,
         "boundary": psi_bc,
     }
+
     return features
 
 
@@ -54,19 +60,16 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     )
     features["phase_coords"] = rv
 
-    # v_star = np.concatenate([np_data["ct"], np_data["st"]], axis=-1)
+    # vv_star = cartesian_product_nd(
+    #     np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords, v_coords
+    # )
 
-    vv_star = cartesian_product_nd(
-        np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords, v_coords
-    )
-    # features["scattering_velocity_coords"] = vv_star[..., 2:]
-
-    scattering_kernel_value = np.tile(
-        np_data["scattering_kernel"], (1, rv.shape[0] * rv.shape[1], 1)
-    )
-    features["scattering_kernel"] = scattering_kernel_value.reshape(
-        *(scattering_kernel_value.shape[0:1] + vv_star.shape[:-1])
-    )
+    # scattering_kernel_value = np.tile(
+    #     np_data["scattering_kernel"], (1, rv.shape[0] * rv.shape[1], 1)
+    # )
+    # features["scattering_kernel"] = scattering_kernel_value.reshape(
+    #     *(scattering_kernel_value.shape[0:1] + vv_star.shape[:-1])
+    # )
 
     rv_prime, w_prime = np_data["rv_prime"], np_data["omega_prime"]
     features["boundary_coords"] = rv_prime
@@ -90,8 +93,16 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
 class DataPipeline:
     def __init__(
         self,
+        pre_shuffle: bool = False,
+        pre_shuffle_seed: int = 0,
+        is_split_test_samples: bool = False,
+        num_test_samples: Optional[int] = None,
     ):
-        pass
+        self.is_split_test_samples = is_split_test_samples
+        self.num_test_samples = num_test_samples
+
+        self.pre_shuffle = pre_shuffle
+        self.pre_shuffle_seed = pre_shuffle_seed
 
     def load_data(
         self,
@@ -104,14 +115,15 @@ class DataPipeline:
             data = sio.loadmat(data_path)
 
         elif data_path.suffix == ".npy":
-            data = np.load(data_path, allow_pickle=True)
-            data = data.item()
+            with np.load(data_path, allow_pickle=True) as f:
+                data = f.items()
         else:
-            data = np.load(data_path, allow_pickle=True)
+            with np.load(data_path, allow_pickle=True) as f:
+                data = f.copy()
 
         return data
 
-    def process(self, data_path: str) -> FeatureDict:
+    def process(self, data_path: str, save_path: Optional[str] = None) -> FeatureDict:
 
         data = self.load_data(data_path)
 
@@ -119,4 +131,38 @@ class DataPipeline:
         grid_feature = make_grid_features(data)
         shape_dict = make_shape_dict(data)
 
-        return {**data_feature, **grid_feature, **shape_dict}
+        if self.pre_shuffle:
+            rng = np.random.default_rng(seed=self.pre_shuffle_seed)
+            indices = np.arange(shape_dict["num_samples"])
+
+            _ = rng.shuffle(indices)
+
+            data_feature = tree.map_structure(
+                lambda x: np.take(x, indices, axis=0), data_feature
+            )
+
+        if self.is_split_test_samples:
+
+            test_ds = tree.map_structure(
+                lambda x: x[: self.num_test_samples], data_feature
+            )
+            train_ds = tree.map_structure(
+                lambda x: x[self.num_test_samples :], data_feature
+            )
+
+            if save_path:
+                if not isinstance(save_path, pathlib.Path):
+                    save_path = pathlib.Path(save_path)
+            else:
+                path = pathlib.Path(data_path)
+                save_path = path.parent / (str(path.stem) + "_test_ds.npz")
+            np.savez(save_path, **test_ds, **grid_feature, **shape_dict)
+
+            shape_dict["num_train_and_val"] = (
+                shape_dict["num_samples"] - self.num_test_samples
+            )
+
+            return {**train_ds, **grid_feature, **shape_dict}
+
+        else:
+            return {**data_feature, **grid_feature, **shape_dict}

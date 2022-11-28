@@ -6,9 +6,8 @@ import numpy as np
 from typing import Generator, Sequence, Optional
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model.tf.rte_dataset import (
-    np_to_tensor_dict,
-    TensorDict,
     divide_batch_feat,
+    TensorDict,
     make_collocation_axis,
 )
 import tensorflow_datasets as tfds
@@ -41,8 +40,7 @@ def make_device_batch(
 
 
 def process_features(
-    ds: tf.data.Dataset,
-    unbatched_feat: TensorDict,
+    features: TensorDict,
     is_training: bool,
     # batch_sizes should be:
     # [device_count, per_device_outer_batch_size]
@@ -54,7 +52,7 @@ def process_features(
     collocation_sizes: Optional[int] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    seed: int = 0,
+    seed: int = jax.process_index(),
     repeat: int | None = 1,
     # shuffle buffer size
     buffer_size: int = 5_000,
@@ -62,6 +60,9 @@ def process_features(
     threadpool_size: int = 48,
     max_intra_op_parallelism: int = 1,
 ) -> Generator[FeatureDict, None, None]:
+
+    batched_feat, unbatched_feat = divide_batch_feat(features)
+    ds = tf.data.Dataset.from_tensor_slices(batched_feat)
 
     if is_training:
         if not collocation_sizes and not repeat:
@@ -141,115 +142,56 @@ def shard(
     return start, end
 
 
-def _get_split_num(
-    config: ml_collections.config_dict,
+# def get_split_num(
+#     config: ml_collections.config_dict,
+# ):
+#     split_config = config.data_split
+#     num_test = split_config.num_test_samples
+#     num_train_and_val = split_config.num_samples - num_test
+#     num_train = int(num_train_and_val * split_config.train_validation_split_rate)
+#     num_val = num_train_and_val - num_train
+
+#     return num_test, num_train, num_val
+
+
+def _split(
+    features: TensorDict | FeatureDict,
+    split_rate: float,
 ):
-    split_config = config.data_split
-    num_test = split_config.num_test_samples
-    num_train_and_val = split_config.num_samples - num_test
-    num_train = int(num_train_and_val * split_config.train_validation_split_rate)
+    num_train_and_val = list(features.values())[0].shape[0]
+    num_train = int(num_train_and_val * split_rate)
     num_val = num_train_and_val - num_train
 
-    return num_test, num_train, num_val
+    def _make_ds(
+        num_train: Optional[int] = None,
+    ) -> tf.data.Dataset:
+        _start, _end = shard(
+            jax.process_index(),
+            jax.process_count(),
+            num_val=num_val,
+            num_train=num_train,
+        )
+        return tf.nest.map_structure(
+            lambda arr: arr[_start:_end],
+            features,
+        )
+
+    train_ds = _make_ds(num_train=num_train)
+    val_ds = _make_ds()
+
+    return (train_ds, val_ds)
 
 
-def load_and_split_data(
-    features: TensorDict,
-    config: Optional[ml_collections.ConfigDict] = None,
-    pre_shuffle: bool = False,
-    seed: int = 0,
+def split_feat(
+    features: TensorDict | FeatureDict,
+    split_rate: float,
 ):
-    batched_feat, unbatched_feat = divide_batch_feat(features)
+    batched_data, unbatched_data = divide_batch_feat(features)
+    assert batched_data
 
-    if pre_shuffle:
-        arange = tf.range(batched_feat["psi_label"].shape[0])
-        shuffled_indices = tf.random.shuffle(arange, seed=seed)
-        batched_feat = tf.nest.map_structure(
-            lambda x: tf.gather(x, shuffled_indices.numpy(), axis=0), batched_feat
-        )
+    train_ds, val_ds = _split(
+        features=batched_data,
+        split_rate=split_rate,
+    )
 
-    if config and config.data_split.is_split_datasets:
-
-        num_test, num_train, num_val = _get_split_num(config)
-
-        def _make_ds(
-            num_train: Optional[int] = None,
-        ) -> tf.data.Dataset:
-            _start, _end = shard(
-                jax.process_index(),
-                jax.process_count(),
-                num_val=num_val,
-                num_train=num_train,
-            )
-            return tf.data.Dataset.from_tensor_slices(
-                tf.nest.map_structure(
-                    lambda arr: arr[(num_test + _start) : (num_test + _end)],
-                    batched_feat,
-                )
-            )
-
-        test_ds = tf.data.Dataset.from_tensor_slices(
-            tf.nest.map_structure(lambda arr: arr[:num_test], batched_feat)
-        )
-        train_ds = _make_ds(num_train=num_train)
-        val_ds = _make_ds()
-
-        return (test_ds, train_ds, val_ds), unbatched_feat
-
-    else:
-        ds = tf.data.Dataset.from_tensor_slices(batched_feat)
-        return ds, unbatched_feat
-
-
-# def np_example_to_features(
-#     np_features: FeatureDict,
-#     batch_sizes: Sequence[int],
-#     data_config: ml_collections.ConfigDict,
-#     features_names: Optional[Sequence[str]] = None,
-# ):
-#     tf_data = np_to_tensor_dict(np_features, features_names)
-
-#     ds, unbatched_feat = load_and_split_data(
-#         features=tf_data,
-#         config=data_config,
-#         pre_shuffle=True,
-#         seed=data_config.seed,
-#     )
-
-#     if data_config and data_config.is_split_datasets:
-#         test_ds, train_ds, val_ds = ds
-#         train_input = process_features(
-#             ds=train_ds,
-#             unbatched_feat=unbatched_feat,
-#             is_training=True,
-#             batch_sizes=batch_sizes,
-#             collocation_sizes=data_config.train.collocation_sizes,
-#             seed=data_config.seed,
-#             repeat=data_config.train.repeat,
-#             buffer_size=data_config.buffer_size,
-#             threadpool_size=data_config.threadpool_size,
-#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-#         )
-#         val_input = process_features(
-#             ds=val_ds,
-#             unbatched_feat=unbatched_feat,
-#             is_training=False,
-#             batch_sizes=batch_sizes,
-#             seed=data_config.seed,
-#             buffer_size=data_config.buffer_size,
-#             threadpool_size=data_config.threadpool_size,
-#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-#         )
-#         return train_input, val_input
-#     else:
-#         input = process_features(
-#             ds=ds,
-#             unbatched_feat=unbatched_feat,
-#             is_training=False,
-#             batch_sizes=batch_sizes,
-#             seed=data_config.seed,
-#             buffer_size=data_config.buffer_size,
-#             threadpool_size=data_config.threadpool_size,
-#             max_intra_op_parallelism=data_config.max_intra_op_parallelism,
-#         )
-#         return input
+    return {**train_ds, **unbatched_data}, {**val_ds, **unbatched_data}
