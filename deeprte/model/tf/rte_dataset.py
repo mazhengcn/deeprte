@@ -108,7 +108,7 @@ def parse_reshape_logic(
 
 def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]:
     shape_dict = {}
-    shape_dict["num_samples"] = features["num_samples"]
+    shape_dict["num_samples"] = features["num_train_and_val"]
     num_x, num_y, num_v = features["num_x"], features["num_y"], features["num_v"]
     shape_dict["num_position_coords"] = num_x * num_y
     shape_dict["num_velocity_coords"] = num_v
