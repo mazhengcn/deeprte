@@ -1,16 +1,13 @@
 """Convert Matlab dataset to numpy dataset."""
 
 import pathlib
-import tree
 from typing import Mapping, MutableMapping, Optional
 
 import numpy as np
 import scipy.io as sio
-import pathlib
+import tree
 
-from deeprte.data.utils import cartesian_product_nd
-
-Float = float | np.float32
+from deeprte.data import utils
 
 FeatureDict = MutableMapping[str, np.ndarray]
 
@@ -49,13 +46,13 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     v_coords = np.concatenate([vx, vy], axis=-1)
     x, y = np.squeeze(np_data["x"]), np.squeeze(np_data["y"])
 
-    features["position_coords"] = cartesian_product_nd(
+    features["position_coords"] = utils.cartesian_product(
         np.expand_dims(x, axis=-1),
         np.expand_dims(y, axis=-1),
     )
     features["velocity_coords"] = v_coords
 
-    rv = cartesian_product_nd(
+    rv = utils.cartesian_product(
         np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords
     )
     features["phase_coords"] = rv
