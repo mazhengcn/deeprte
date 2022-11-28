@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utils for geometry."""
+"""Utils for data."""
 
 import jax
 import jax.numpy as jnp
@@ -52,7 +52,7 @@ def jax_cartesian_product(*arrays):
         inds: indices for each array, should be rank 1.
 
     Returns:
-        Cartesian product of arrays with shape (N_1, N_2, ..., N_n, n * d).
+        Cartesian product of arrays with shape (N_1, N_2, ..., N_n, sum(d_i)).
     """
     d = [*map(lambda x: x.shape[-1], arrays)]
     ls = [*map(len, arrays)]
