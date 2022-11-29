@@ -16,12 +16,13 @@
 from collections.abc import Callable
 from typing import NamedTuple, Type
 
+import jax
 import numpy as np
 from jax import numpy as jnp
 
-from deeprte.model.utils import cartesian_product, jax_cartesian_product
+from deeprte.data.utils import cartesian_product, jax_cartesian_product
 
-Array = np.ndarray | jnp.ndarray
+Array = np.ndarray | jax.Array
 Float = float | np.float32
 
 
