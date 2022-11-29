@@ -4,11 +4,12 @@ import jax
 import tensorflow as tf
 import numpy as np
 from typing import Generator, Sequence, Optional
-from deeprte.data.pipeline import FeatureDict
+from deeprte.data.pipeline import FeatureDict, DataPipeline
 from deeprte.model.tf.rte_dataset import (
     divide_batch_feat,
     TensorDict,
     make_collocation_axis,
+    np_to_tensor_dict,
 )
 import tensorflow_datasets as tfds
 from deeprte.model.tf import feature_transform
@@ -16,27 +17,76 @@ from deeprte.model.tf import feature_transform
 AUTOTUNE = tf.data.AUTOTUNE
 
 
-def make_data_config(
-    config: ml_collections.ConfigDict,
-) -> ml_collections.ConfigDict:
-    """Makes a data config for the input pipeline."""
-    cfg = copy.deepcopy(config.data)
+def load_tf_data(
+    data_path: str,
+    pre_shuffle: bool = False,
+    pre_shuffle_seed: int = 0,
+    is_split_test_samples: bool = False,
+    num_test_samples: Optional[int] = None,
+    save_path: Optional[str] = None,
+    features_names: Optional[Sequence[str]] = None,
+) -> TensorDict:
+    data_pipeline = DataPipeline(data_path)
+    data = data_pipeline.process(
+        pre_shuffle=pre_shuffle,
+        pre_shuffle_seed=pre_shuffle_seed,
+        is_split_test_samples=is_split_test_samples,
+        num_test_samples=num_test_samples,
+        save_path=save_path,
+    )
+    tf_data = np_to_tensor_dict(np_example=data, features_names=features_names)
+    return tf_data
 
-    return cfg
 
+def tf_data_to_generator(
+    tf_data: TensorDict,
+    is_training: bool,
+    batch_sizes: Sequence[int],
+    split_rate: Optional[int] = None,
+    collocation_sizes: Optional[int] = None,
+    repeat: int | None = 1,
+    buffer_size: int = 5_000,
+    threadpool_size: int = 48,
+    max_intra_op_parallelism: int = 1,
+) -> Generator[FeatureDict, None, None]:
 
-def make_device_batch(
-    global_batch_size: int,
-    num_devices: int,
-):
-    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
-    # Raise error if not divisible
-    if ragged:
-        raise ValueError(
-            f"Global batch size {global_batch_size} must be divisible by "
-            f"number of devices {num_devices}"
+    if split_rate:
+        split_ds = split_feat(
+            features=tf_data,
+            split_rate=split_rate,
+            is_training=is_training,
         )
-    return [num_devices, per_device_batch_size]
+    else:
+        split_ds = tf_data
+
+    ds = process_features(
+        split_ds,
+        is_training=is_training,
+        batch_sizes=batch_sizes,
+        collocation_sizes=collocation_sizes,
+        repeat=repeat,
+        buffer_size=buffer_size,
+        threadpool_size=threadpool_size,
+        max_intra_op_parallelism=max_intra_op_parallelism,
+    )
+    return ds
+
+
+def split_feat(
+    features: TensorDict | FeatureDict,
+    split_rate: float,
+    is_training: bool,
+):
+    batched_data, unbatched_data = divide_batch_feat(features)
+    assert batched_data
+
+    ds = _split(
+        features=batched_data,
+        split_rate=split_rate,
+        is_training=is_training,
+    )
+
+    return {**ds, **unbatched_data}
 
 
 def process_features(
@@ -65,7 +115,7 @@ def process_features(
     ds = tf.data.Dataset.from_tensor_slices(batched_feat)
 
     if is_training:
-        if not collocation_sizes and not repeat:
+        if not collocation_sizes or not repeat:
             raise ValueError(
                 "`collocation_sizes` and `repeat` should not be None"
                 "when `is_training=True`"
@@ -142,21 +192,10 @@ def shard(
     return start, end
 
 
-# def get_split_num(
-#     config: ml_collections.config_dict,
-# ):
-#     split_config = config.data_split
-#     num_test = split_config.num_test_samples
-#     num_train_and_val = split_config.num_samples - num_test
-#     num_train = int(num_train_and_val * split_config.train_validation_split_rate)
-#     num_val = num_train_and_val - num_train
-
-#     return num_test, num_train, num_val
-
-
 def _split(
     features: TensorDict | FeatureDict,
     split_rate: float,
+    is_training: bool = True,
 ):
     num_train_and_val = list(features.values())[0].shape[0]
     num_train = int(num_train_and_val * split_rate)
@@ -164,7 +203,7 @@ def _split(
 
     def _make_ds(
         num_train: Optional[int] = None,
-    ) -> tf.data.Dataset:
+    ) -> TensorDict:
         _start, _end = shard(
             jax.process_index(),
             jax.process_count(),
@@ -176,22 +215,30 @@ def _split(
             features,
         )
 
-    train_ds = _make_ds(num_train=num_train)
-    val_ds = _make_ds()
+    if is_training:
+        return _make_ds(num_train=num_train)
+    else:
+        return _make_ds()
 
-    return (train_ds, val_ds)
+
+def make_data_config(
+    config: ml_collections.ConfigDict,
+) -> ml_collections.ConfigDict:
+    """Makes a data config for the input pipeline."""
+    cfg = copy.deepcopy(config.data)
+
+    return cfg
 
 
-def split_feat(
-    features: TensorDict | FeatureDict,
-    split_rate: float,
+def make_device_batch(
+    global_batch_size: int,
+    num_devices: int,
 ):
-    batched_data, unbatched_data = divide_batch_feat(features)
-    assert batched_data
-
-    train_ds, val_ds = _split(
-        features=batched_data,
-        split_rate=split_rate,
-    )
-
-    return {**train_ds, **unbatched_data}, {**val_ds, **unbatched_data}
+    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+    # Raise error if not divisible
+    if ragged:
+        raise ValueError(
+            f"Global batch size {global_batch_size} must be divisible by "
+            f"number of devices {num_devices}"
+        )
+    return [num_devices, per_device_batch_size]

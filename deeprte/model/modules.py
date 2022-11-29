@@ -153,7 +153,7 @@ class GreenFunctionResBlock(hk.Module):
 
     def __init__(
         self,
-        config: ConfigDict,
+        config: ml_collections.ConfigDict,
         name: Optional[str] = "green_function_res_block",
     ):
         super().__init__(name=name)
