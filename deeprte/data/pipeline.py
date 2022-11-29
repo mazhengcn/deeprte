@@ -64,13 +64,6 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     #     np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords, v_coords
     # )
 
-    # scattering_kernel_value = np.tile(
-    #     np_data["scattering_kernel"], (1, rv.shape[0] * rv.shape[1], 1)
-    # )
-    # features["scattering_kernel"] = scattering_kernel_value.reshape(
-    #     *(scattering_kernel_value.shape[0:1] + vv_star.shape[:-1])
-    # )
-
     rv_prime, w_prime = np_data["rv_prime"], np_data["omega_prime"]
     features["boundary_coords"] = rv_prime
     features["boundary_weights"] = w_prime
@@ -93,46 +86,37 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
 class DataPipeline:
     def __init__(
         self,
-        pre_shuffle: bool = False,
-        pre_shuffle_seed: int = 0,
-        is_split_test_samples: bool = False,
-        num_test_samples: Optional[int] = None,
+        data_path: str,
     ):
-        self.is_split_test_samples = is_split_test_samples
-        self.num_test_samples = num_test_samples
-
-        self.pre_shuffle = pre_shuffle
-        self.pre_shuffle_seed = pre_shuffle_seed
+        self.data_path = data_path
+        self.data = self.load_data()
 
     def load_data(
         self,
-        data_path: str,
     ):
-        if not isinstance(data_path, pathlib.Path):
-            data_path = pathlib.Path(data_path)
+        if not isinstance(self.data_path, pathlib.Path):
+            data_path = pathlib.Path(self.data_path)
 
         if data_path.suffix == ".mat":
             data = sio.loadmat(data_path)
 
-        elif data_path.suffix == ".npy":
-            with np.load(data_path, allow_pickle=True) as f:
-                data = f.items()
-        else:
-            with np.load(data_path, allow_pickle=True) as f:
-                data = f.copy()
-
         return data
 
-    def process(self, data_path: str, save_path: Optional[str] = None) -> FeatureDict:
+    def process(
+        self,
+        pre_shuffle: bool = False,
+        pre_shuffle_seed: int = 0,
+        is_split_test_samples: bool = False,
+        num_test_samples: Optional[int] = None,
+        save_path: Optional[str] = None,
+    ) -> FeatureDict:
 
-        data = self.load_data(data_path)
+        data_feature = make_data_features(self.data)
+        grid_feature = make_grid_features(self.data)
+        shape_dict = make_shape_dict(self.data)
 
-        data_feature = make_data_features(data)
-        grid_feature = make_grid_features(data)
-        shape_dict = make_shape_dict(data)
-
-        if self.pre_shuffle:
-            rng = np.random.default_rng(seed=self.pre_shuffle_seed)
+        if pre_shuffle:
+            rng = np.random.default_rng(seed=pre_shuffle_seed)
             indices = np.arange(shape_dict["num_samples"])
 
             _ = rng.shuffle(indices)
@@ -141,25 +125,27 @@ class DataPipeline:
                 lambda x: np.take(x, indices, axis=0), data_feature
             )
 
-        if self.is_split_test_samples:
+        if is_split_test_samples:
 
             test_ds = tree.map_structure(
-                lambda x: x[: self.num_test_samples], data_feature
+                lambda x: x[:num_test_samples],
+                data_feature,
             )
             train_ds = tree.map_structure(
-                lambda x: x[self.num_test_samples :], data_feature
+                lambda x: x[num_test_samples:],
+                data_feature,
             )
 
             if save_path:
                 if not isinstance(save_path, pathlib.Path):
                     save_path = pathlib.Path(save_path)
             else:
-                path = pathlib.Path(data_path)
+                path = pathlib.Path(self.data_path)
                 save_path = path.parent / (str(path.stem) + "_test_ds.npz")
             np.savez(save_path, **test_ds, **grid_feature, **shape_dict)
 
             shape_dict["num_train_and_val"] = (
-                shape_dict["num_samples"] - self.num_test_samples
+                shape_dict["num_samples"] - num_test_samples
             )
 
             return {**train_ds, **grid_feature, **shape_dict}

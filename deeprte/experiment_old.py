@@ -1,22 +1,8 @@
-# Copyright 2022 Zheng Ma
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """DeepRTE experiment."""
 
 import functools
 import time
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Mapping, Sequence
 
 import haiku as hk
 import jax
@@ -29,14 +15,7 @@ from jaxline import experiment
 from jaxline import utils as jl_utils
 
 from deeprte import optimizers
-from deeprte.data.pipeline import FeatureDict, DataPipeline
 from deeprte.model.tf import dataset
-from deeprte.model.tf.input_pipeline import (
-    make_device_batch,
-    tf_data_to_generator,
-    load_tf_data,
-)
-from deeprte.model.tf.rte_dataset import np_to_tensor_dict
 
 OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jnp.ndarray]
@@ -54,7 +33,7 @@ def _format_logs(prefix, results):
     logging.info("%s - %s", prefix, logging_str)
 
 
-class Trainer(experiment.AbstractExperiment):
+class Experiment(experiment.AbstractExperiment):
     """RTE solver."""
 
     # A map from object properties that will be checkpointed to their name
@@ -67,10 +46,7 @@ class Trainer(experiment.AbstractExperiment):
     }
 
     def __init__(
-        self,
-        mode: str,
-        init_rng: jax.Array,
-        config: ml_collections.ConfigDict,
+        self, mode: str, init_rng: jnp.ndarray, config: ml_collections.ConfigDict
     ):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
@@ -90,7 +66,7 @@ class Trainer(experiment.AbstractExperiment):
         # Initialize solution and model functions
         self.solution = None
         self.model = None
-        # self._init_solution_and_model()
+        self._init_solution_and_model()
 
         # Initialize train and eval functions
         self._train_input = None
@@ -103,8 +79,6 @@ class Trainer(experiment.AbstractExperiment):
         # Track what has started
         self._training = False
         self._evaluating = False
-
-        self._process_data()
 
     #  _             _
     # | |_ _ __ __ _(_)_ __
@@ -171,33 +145,23 @@ class Trainer(experiment.AbstractExperiment):
 
         return params, state, opt_state, scalars
 
-    def _build_train_input(self) -> Generator[FeatureDict, None, None]:
-        """Build train input as generator/iterator."""
-        c = self.config.dataset
-        batch_sizes = make_device_batch(
-            c.train.batch_size,
-            jax.device_count(),
-        )
-        train_ds = tf_data_to_generator(
-            tf_data=self.tf_data,
-            is_training=True,
-            batch_sizes=batch_sizes,
-            split_rate=c.data_split.train_validation_split_rate,
-            collocation_sizes=c.train.collocation_sizes,
-            repeat=c.train.repeat,
-            buffer_size=c.buffer_size,
-            threadpool_size=c.threadpool_size,
-            max_intra_op_parallelism=c.max_intra_op_parallelism,
-        )
-        return train_ds
+    def _loss(
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, batch: dataset.Batch
+    ) -> tuple[jnp.ndarray, tuple[Scalars, hk.State]]:
+
+        # Get solution_op function
+        solution_func = functools.partial(self.solution.apply, params, state, rng)
+        # Return loss and loss_scalars dict for logging.
+        loss, loss_scalars = self.model.loss(solution_func, batch)
+        # Divided by device count since we have summed across all devices
+        scaled_loss = loss / jax.local_device_count()
+
+        return scaled_loss, (loss_scalars, state)
 
     def _initialize_training(self):
         # Less verbose
         # pylint: disable=invalid-name
         c = self.config
-
-        if not self.train_input:
-            self._build_train_and_val_input()
 
         # Performs prefetching of elements from an iterable in a separate thread.
         train_input = jl_utils.py_prefetch(self._build_train_input)
@@ -206,15 +170,12 @@ class Trainer(experiment.AbstractExperiment):
         self._train_input = jl_utils.double_buffer_on_gpu(train_input)
 
         # Total batch size
-        total_batch_size = c.dataset.train.batch_size
+        total_batch_size = c.training.batch_size
         # NOTE: Since we may have repeat number for the same batch
         # with different collocation points, stpes_per_epoch should be
         # multiplied by repeat.
-
         steps_per_epoch = (
-            c.dataset.data_split.num_train_examples
-            / c.dataset.train.batch_size
-            * c.dataset.train.repeat
+            c.training.num_train_examples / c.training.batch_size * c.training.repeat
         )
         total_steps = c.training.num_epochs * steps_per_epoch
 
@@ -239,7 +200,7 @@ class Trainer(experiment.AbstractExperiment):
             init_rng = jl_utils.bcast_local_devices(self.init_rng)
 
             # Load initial inputs
-            dummy_inputs = self._build_dummy_input()
+            dummy_inputs = self._load_dummy_data()
             self._params, self._state = init_net(init_rng, *dummy_inputs)
             self._opt_state = init_opt(self._params)
 
@@ -255,6 +216,39 @@ class Trainer(experiment.AbstractExperiment):
 
         # Set training state to True after initialization
         self._training = True
+
+    def _build_train_input(self) -> Generator[dataset.Batch, None, None]:
+        """Build train input as generator/iterator."""
+
+        # Get number of devices (GPUs/TPUs).
+        num_devices = jax.local_device_count()
+
+        # Global batch size (without multiplied by repeat)
+        global_batch_size = self.config.training.batch_size
+        # Batch size on each device
+        per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+        # Raise error if not divisible
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"number of devices {num_devices}"
+            )
+        # Get collocation sizes (number of sampled grid points)
+        collocation_sizes = self.config.training.collocation_sizes
+        # Get repeat
+        # number of steps to repeat with different collocation points for a batch
+        repeat = self.config.training.repeat
+
+        # Split for training
+        split = dataset.Split.TRAIN_AND_VALID
+
+        return self._load_data(
+            split=split,
+            is_training=True,
+            batch_sizes=[num_devices, per_device_batch_size],
+            collocation_sizes=collocation_sizes,
+            repeat=repeat,
+        )
 
     #                  _
     #   _____   ____ _| |
@@ -288,54 +282,148 @@ class Trainer(experiment.AbstractExperiment):
 
         return metrics
 
-    def _build_val_input(self) -> Generator[FeatureDict, None, None]:
-        c = self.config.dataset
-        batch_sizes = make_device_batch(
-            c.validation.batch_size,
-            jax.device_count(),
+    def _eval_epoch(
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray
+    ) -> Scalars:
+        """Evaluates an epoch."""
+        num_examples = 0.0
+        summed_metrics = None
+
+        for batch in self._eval_input():
+            # Account for pmaps
+            num_examples += np.prod(batch["labels"].shape[:2])
+            metrics = self.eval_fn(params, state, rng, batch)
+            # Accumulate the sum of scalars for each step.
+            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            if summed_metrics is None:
+                summed_metrics = metrics
+            else:
+                summed_metrics = jax.tree_util.tree_map(
+                    jnp.add, summed_metrics, metrics
+                )
+
+        # Compute mean_metrics
+        mean_metrics = jax.tree_util.tree_map(
+            lambda x: x / num_examples, summed_metrics
         )
-        val_ds = tf_data_to_generator(
-            tf_data=self.tf_data,
+
+        # Eval metrics dict
+        metrics = {}
+        # Take sqrt if it is squared
+        for k, v in mean_metrics.items():  # pylint: disable=invalid-name
+            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+
+        return metrics
+
+    def _eval_fn(
+        self, params: hk.Params, state: hk.State, rng: jnp.ndarray, batch: dataset.Batch
+    ) -> Scalars:
+        """Evaluates a batch."""
+        metrics = {}
+
+        solution_func = functools.partial(self.solution.apply, params, state, rng)
+
+        metrics.update(self.model.metrics(solution_func, batch))
+
+        # NOTE: Returned values will be summed and finally divided
+        # by num_samples.
+        return jax.lax.psum(metrics, axis_name="i")
+
+    def _initialize_evaluation(self):
+
+        # Initialize prefetch and double buffer function
+        def prefetch_and_double_buffer_input():
+            # Performs prefetching of elements from an iterable in a separate thread.
+            eval_input = jl_utils.py_prefetch(self._build_eval_input)
+            # This keeps two batches per-device in memory at all times, allowing
+            # h2d transfers to overlap with execution (see b/173483287 for details).
+            return jl_utils.double_buffer_on_gpu(eval_input)
+            # return eval_input
+
+        # Evaluation input as a Generator
+        self._eval_input = prefetch_and_double_buffer_input
+
+        # We pmap the evaluation function
+        self.eval_fn = jax.pmap(self._eval_fn, axis_name="i")
+
+        # Set evaluating state to True after initialization.
+        self._evaluating = True
+
+    def _build_eval_input(self) -> Generator[dataset.Batch, None, None]:
+        # Split for evaluation
+        split = dataset.Split.TEST
+
+        # Global batch size
+        global_batch_size = self.config.evaluation.batch_size
+        # Number of local devices
+        num_devices = jax.local_device_count()
+        # Batch size on each device
+        per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+        # Raise error if not divisible
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"number of devices {num_devices}"
+            )
+
+        return self._load_data(
+            split=split,
             is_training=False,
-            batch_sizes=batch_sizes,
-            split_rate=c.data_split.train_validation_split_rate,
-            buffer_size=c.buffer_size,
-            threadpool_size=c.threadpool_size,
-            max_intra_op_parallelism=c.max_intra_op_parallelism,
+            batch_sizes=[num_devices, per_device_batch_size],
+            collocation_sizes=None,
+            repeat=None,
         )
-        return val_ds
 
-    def _process_data(
+    def _init_solution_and_model(self):
+        # Create solution instance.
+        solution_config = self.config.solution
+        if not self.solution:
+            self.solution = solution_config.constructor(**solution_config.kwargs)
+        else:
+            raise ValueError("Solution instance is already initialized.")
+
+        # Create model instance
+        model_config = self.config.model
+        if not self.model:
+            self.model = model_config.constructor(**model_config.kwargs)
+        else:
+            raise ValueError("Model instance is already initialized.")
+
+    def _load_data(
         self,
-    ):
-        """dataset loading."""
-        c = self.config.dataset
-        self.tf_data = load_tf_data(
-            data_path=c.data_path,
-            pre_shuffle=c.pre_shuffle,
-            pre_shuffle_seed=c.pre_shuffle_seed,
-            is_split_test_samples=c.data_split.is_split_datasets,
-            num_test_samples=c.data_split.num_test_samples,
-            save_path=c.data_split.save_path,
+        split: dataset.Split,
+        is_training: bool,
+        batch_sizes: Sequence[int],
+        collocation_sizes: int | Sequence[int],
+        repeat: int,
+    ) -> Generator[dataset.Batch, None, None]:
+        """Wrapper for dataset loading."""
+
+        return dataset.load(
+            data_path=self.config.dataset.data_path,
+            split=split,
+            is_training=is_training,
+            batch_sizes=batch_sizes,
+            collocation_sizes=collocation_sizes,
+            repeat=repeat,
+            buffer_size=self.config.dataset.buffer_size,
+            threadpool_size=self.config.dataset.threadpool_size,
+            max_intra_op_parallelism=self.config.dataset.max_intra_op_parallelism,
         )
 
-    def _build_dummy_input(self) -> tuple[jnp.ndarray]:
+    def _load_dummy_data(self) -> tuple[jnp.ndarray]:
         """Load dummy data for initializing network parameters."""
 
-        ds = tf_data_to_generator(
-            tf_data=self.tf_data,
+        ds = self._load_data(  # pylint: disable=invalid-name
+            split=dataset.Split.TRAIN_AND_VALID,
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
             collocation_sizes=1,
             repeat=1,
         )
-
-        dummy_inputs = jax.tree_util.tree_map(lambda x: x.squeeze(), next(ds))
+        dummy_inputs = jax.tree_util.tree_map(lambda x: x.squeeze(), next(ds)["inputs"])
 
         if jax.local_device_count() == 1:
-            dummy_inputs = jax.tree_util.tree_map(
-                lambda x: x[None, ...],
-                dummy_inputs,
-            )
+            dummy_inputs = jax.tree_util.tree_map(lambda x: x[None, ...], dummy_inputs)
 
         return dummy_inputs
