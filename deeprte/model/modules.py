@@ -15,13 +15,12 @@
 """Core modules including Green's function net and sigma net."""
 
 from typing import NamedTuple, Optional
-from collections.abc import Callable
+
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import ml_collections
 
-from deeprte.model.geometry.phase_space import PhaseSpace
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
 from deeprte.model.networks import MLP, Linear
@@ -166,7 +165,8 @@ class GreenFunctionResBlock(hk.Module):
         r_prime: jnp.ndarray,
         # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
         coefficient_fn: FunctionInputs,
-        scattering_kernel: FunctionInputs,  # ((u,r,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
+        scattering_kernel: FunctionInputs,
+        # ((u,r,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
     ) -> jnp.ndarray:
 
         c = self.config
