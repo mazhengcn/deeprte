@@ -1,7 +1,6 @@
 import ml_collections
 from jaxline import base_config
 
-
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
         "data_path": "/workspaces/deeprte/rte_data/rte_data/matlab/eval-data/test_shape.mat",
@@ -42,6 +41,20 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
     }
 )
 
+CONFIG_MODEL = ml_collections.ConfigDict(
+    {
+        "green_function": {
+            "green_function_mlp": {"widths": [128, 128, 128, 128]},
+            "green_res_block": {"depth": 2},
+            "coefficient_net": {
+                "attention_net": {"widths": [64, 1]},
+                "pointwise_mlp": {"widths": [64, 2]},
+            },
+        },
+        "activation": "gelu",
+    }
+)
+
 
 def get_steps_from_epochs(batch_size, num_epochs, n_train_examples, repeat=1):
     """Get global steps from given epoch."""
@@ -52,6 +65,7 @@ def make_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
     config.dataset = CONFIG_DATASET
     config.training = CONFIG_TRAINING
+    config.model = CONFIG_MODEL
 
     make_split_num(config)
 

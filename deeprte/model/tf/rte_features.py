@@ -1,5 +1,6 @@
-import tensorflow as tf
 from typing import Dict, Optional, Sequence, Tuple, Union
+
+import tensorflow as tf
 
 # Type aliases.
 FeaturesMetadata = Dict[str, Tuple[tf.dtypes.DType, Sequence[Union[str, int]]]]

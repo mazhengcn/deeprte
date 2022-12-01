@@ -223,7 +223,10 @@ class Trainer(experiment.AbstractExperiment):
             total_batch_size, steps_per_epoch, total_steps, c.optimizer
         )
         # Optimizer
-        self.optimizer = optimizers.make_optimizer(c.optimizer, self._lr_schedule)
+        self.optimizer = optimizers.make_optimizer(
+            c.optimizer,
+            self._lr_schedule,
+        )
 
         # Initialize net if no params available.
         if self._params is None:
@@ -245,7 +248,10 @@ class Trainer(experiment.AbstractExperiment):
 
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
-            logging.info("Net parameters: %d", num_params // jax.local_device_count())
+            logging.info(
+                "Net parameters: %d",
+                num_params // jax.local_device_count(),
+            )
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated

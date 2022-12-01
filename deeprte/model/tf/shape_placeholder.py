@@ -6,3 +6,5 @@ NUM_VELOCITY_COORDS = "num velocity placeholder"
 # NUM_BOUNDARY_VELOCITY = "num boundary velocity placeholder"
 NUM_PHASE_COORDS = "num phase placeholder"
 NUM_BOUNDARY_COORDS = "num boundary placeholder"
+
+NUM_DIM = 2

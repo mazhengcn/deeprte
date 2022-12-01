@@ -14,7 +14,7 @@
 
 """Core modules including Green's function net and sigma net."""
 
-from typing import NamedTuple, Optional
+from typing import Optional
 
 import haiku as hk
 import jax
@@ -24,27 +24,17 @@ import ml_collections
 from deeprte.model.integrate import quad
 from deeprte.model.mapping import vmap
 from deeprte.model.networks import MLP, Linear
+from deeprte.model.tf.rte_dataset import TensorDict
+from deeprte.model.tf.rte_features import NUM_DIM
 
 
-class FunctionInputs(NamedTuple):
-    """Graph of the function (x, y=f(x)) as a namedtuple.
-    When initializing with no arguments, returns an object with
-    (x=None, f=0) for handling axes in vmap.
-
-    Attributes:
-        x: a point or a set of points to evaluate the function.
-        f: function values at a point or a set of points.
-    """
-
-    x: None | jnp.float32 | jnp.ndarray = None
-    f: int | jnp.ndarray = 0
-
-
-class GreenFunctionNet(hk.Module):
-    """Green's function of solution operator."""
+class GreenFunctionResBlock(hk.Module):
+    """Green function resnet block with scattering kernel."""
 
     def __init__(
-        self, config: ml_collections.ConfigDict, name: Optional[str] = "green_function"
+        self,
+        config: ml_collections.ConfigDict,
+        name: Optional[str] = "green_function_res_block",
     ):
         super().__init__(name=name)
 
@@ -52,10 +42,146 @@ class GreenFunctionNet(hk.Module):
 
     def __call__(
         self,
-        r: jnp.ndarray,  # pylint:disable=invalid-name
-        r_prime: jnp.ndarray,
-        coefficient_fn: FunctionInputs,
+        coords: jnp.ndarray,
+        scattering_kernel: jnp.ndarray,
+        batch: TensorDict,
     ) -> jnp.ndarray:
+
+        c = self.config
+
+        green_func_module = GreenFunctionNet(c.green_function)
+
+        green_fn_block_output = green_func_module(
+            coords, batch["boundary_coords"], coeff_coords, coeff_values
+        )
+
+        if c.green_res_block.depth > 0:
+
+            r_star, weights = scattering_kernel_coords[2:], scattering_kernel
+            # weights = (1 - scattering_kernel_coeff) * weights
+
+            for _ in range(c.green_res_block.depth):
+                green_fn_kernel_quad = quad(
+                    green_func_module, (r_star, weights), argnum=0, use_hk=True
+                )(
+                    r_prime, coeff_coords, coeff_values
+                )  # shape: [N']
+                green_fn_block_output += Linear()(
+                    green_fn_kernel_quad,
+                )
+
+        return green_fn_block_output  # shape: [N']
+
+
+class GreenFunctionNet(hk.Module):
+    """Green function net."""
+
+    def __init__(
+        self,
+        config: ml_collections.ConfigDict,
+        name: Optional[str] = "green_function_res_block",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        phase_coords: jax.Array,
+        boundary_coords: jax.Array,
+        # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
+        coeff_position: jax.Array,
+        coeff_values: jax.Array,
+        scattering_kernel_coords: jax.Array,  # ((u,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
+        scattering_kernel: jax.Array,
+        batch: TensorDict,
+    ) -> jax.Array:
+
+        c = self.config
+
+        green_func_module = GreenFunctionBlock(c)
+
+        inputs = (
+            phase_coords[:NUM_DIM],
+            phase_coords[NUM_DIM:],
+            boundary_coords[:NUM_DIM],
+            boundary_coords[NUM_DIM:],
+            coeff_position,
+            coeff_values,
+        )
+
+        green_fn_block_output = green_func_module(*inputs)
+
+        if c.green_res_block.depth > 0:
+
+            coords_star, weights = (
+                scattering_kernel_coords,
+                (1 - scattering_kernel) * batch["velocity_weights"],
+            )
+            res_block_inputs = (*inputs[:3], coeff_position, coeff_values)
+
+            def _green_res_fn(green_fn):
+                def func(*inputs):
+                    green_fn_kernel_quad = quad(
+                        green_fn,
+                        (coords_star, weights),
+                        argnum=3,
+                        use_hk=True,
+                    )(
+                        *inputs[:3], coeff_position, coeff_values
+                    )  # shape: [N_latent]
+                    green_fn_res = MLP(
+                        c.green_function_mlp.widths[-1:],
+                        activate_final=True,
+                    )(green_fn_kernel_quad)
+                    return green_fn_res
+
+                return func
+
+            def _green_res_block(block_output, green_func_module):
+                func = _green_res_fn(green_func_module)
+                block_output += func(
+                    *res_block_inputs,
+                )
+                green_func_module = func
+
+                return block_output
+
+            for _ in range(c.green_res_block.depth):
+
+                func = _green_res_fn(green_func_module)
+                green_fn_block_output += func(
+                    *res_block_inputs,
+                )
+                green_func_module = func
+
+        green_fn_block_output = MLP([1])(
+            green_fn_block_output,
+        )
+        return green_fn_block_output  # shape: [1]
+
+
+class GreenFunctionBlock(hk.Module):
+    """Green's function block of solution operator."""
+
+    def __init__(
+        self,
+        config: ml_collections.ConfigDict,
+        name: Optional[str] = "green_function",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        position: jax.Array,
+        velocity: jax.Array,  # pylint:disable=invalid-name
+        position_prime: jax.Array,
+        velocity_prime: jax.Array,
+        coeff_position: jax.Array,
+        coeff_values: jax.Array,
+    ) -> jax.Array:
         """Compute Green's function with coefficient net as inputs.
 
         Args:
@@ -73,16 +199,33 @@ class GreenFunctionNet(hk.Module):
         c = self.config  # pylint: disable=invalid-name
 
         # Get nn output of coefficient net.
-        coefficients = CoefficientNet(c.coefficient_net)(r, coefficient_fn)
+        coefficients = CoefficientNet(c.coefficient_net)(
+            position,
+            velocity,
+            coeff_position,
+            coeff_values,
+        )
 
         # Green's function inputs.
-        inputs = jnp.concatenate([r, r_prime, coefficients])
+        inputs = jnp.concatenate(
+            [
+                position,
+                velocity,
+                position_prime,
+                velocity_prime,
+                coefficients,
+            ]
+        )
 
         # inputs = hk.LayerNorm(axis=[-1],
         # create_scale=True, create_offset=True)(inputs)
 
         # MLP
-        outputs = MLP(c.green_function_mlp.widths, name="green_function_mlp")(inputs)
+        outputs = MLP(
+            c.green_function_mlp.widths,
+            activate_final=True,
+            name="green_function_block_mlp",
+        )(inputs)
 
         # Wrap with exponential function to keep it non-negative.
         outputs = jnp.exp(outputs)
@@ -94,14 +237,23 @@ class CoefficientNet(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
     def __init__(
-        self, config: ml_collections.ConfigDict, name: Optional[str] = "coefficient_net"
+        self,
+        config: ml_collections.ConfigDict,
+        name: Optional[str] = "coefficient_net",
     ):
         super().__init__(name=name)
 
         self.config = config
 
-    def __call__(self, r: jnp.ndarray, coefficient_fn: FunctionInputs) -> jnp.ndarray:
-        """Compute coefficients of the equation as the inputs of Green's function.
+    def __call__(
+        self,
+        position: jax.Array,
+        velocity: jax.Array,
+        coeff_position: jax.Array,
+        coeff_values: jax.Array,
+    ) -> jax.Array:
+        """Compute coefficients of the equation as the inputs of
+        Green's function.
 
         Args:
             r: Spatial position with dimention d.shape is (d,).
@@ -115,11 +267,10 @@ class CoefficientNet(hk.Module):
         """
         c = self.config
 
-        coeff_positions, coeff_values = coefficient_fn.x, coefficient_fn.f
-
-        x, v = r[:2], r[2:]
+        x, v = position, velocity
+        coords = jnp.concatenate([x, v])
         angles_global = v / jnp.sqrt(jnp.sum(v**2, axis=-1) + 1e-16)
-        rel_vec = x - coeff_positions
+        rel_vec = x - coeff_position
         rel_dist2 = jnp.sqrt(jnp.sum(rel_vec**2, axis=-1) + 1e-16)
 
         positions_local = jnp.matmul(rel_vec, angles_global)
@@ -135,7 +286,7 @@ class CoefficientNet(hk.Module):
 
         attn_logits = vmap(
             attn_logits_fn, argnums=frozenset([1]), use_hk=True, out_axes=-1
-        )(r, frames_local)
+        )(coords, frames_local)
 
         masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)
 
@@ -145,47 +296,3 @@ class CoefficientNet(hk.Module):
         attn = jnp.exp(-attn)
 
         return attn
-
-
-class GreenFunctionResBlock(hk.Module):
-    """Green function resnet block with scattering kernel."""
-
-    def __init__(
-        self,
-        config: ml_collections.ConfigDict,
-        name: Optional[str] = "green_function_res_block",
-    ):
-        super().__init__(name=name)
-
-        self.config = config
-
-    def __call__(
-        self,
-        r: jnp.ndarray,
-        r_prime: jnp.ndarray,
-        # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
-        coefficient_fn: FunctionInputs,
-        scattering_kernel: FunctionInputs,
-        # ((u,r,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
-    ) -> jnp.ndarray:
-
-        c = self.config
-
-        green_func_module = GreenFunctionNet(c.green_function)
-
-        green_fn_block_output = green_func_module(r, r_prime, coefficient_fn)
-
-        if c.green_res_block.depth > 0:
-
-            r_star, weights = scattering_kernel.x[2:], scattering_kernel.f
-            # weights = (1 - scattering_kernel_coeff) * weights
-
-            for _ in range(c.green_res_block.depth):
-                green_fn_kernel_quad = quad(
-                    green_func_module, (r_star, weights), argnum=0, use_hk=True
-                )(
-                    r_prime, coefficient_fn
-                )  # shape: [N']
-                green_fn_block_output += Linear(name="linear")(green_fn_kernel_quad)
-
-        return green_fn_block_output  # shape: [N']
