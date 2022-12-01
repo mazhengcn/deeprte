@@ -39,7 +39,7 @@ CONFIG = ml_collections.ConfigDict(
         "data": {},
         "rte_operator": {
             "green_function": {
-                "green_function_mlp": {"widths": [128, 128, 128, 128, 1]},
+                "green_function_mlp": {"widths": [128, 128, 128, 128]},
                 "coefficient_net": {
                     "attention_net": {"widths": [64, 1]},
                     "pointwise_mlp": {"widths": [64, 2]},
