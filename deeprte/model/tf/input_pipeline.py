@@ -1,18 +1,20 @@
-import ml_collections
 import copy
+from typing import Generator, Optional, Sequence
+
 import jax
-import tensorflow as tf
+import ml_collections
 import numpy as np
-from typing import Generator, Sequence, Optional
-from deeprte.data.pipeline import FeatureDict, DataPipeline
+import tensorflow as tf
+import tensorflow_datasets as tfds
+
+from deeprte.data.pipeline import DataPipeline, FeatureDict
+from deeprte.model.tf import feature_transform
 from deeprte.model.tf.rte_dataset import (
-    divide_batch_feat,
     TensorDict,
+    divide_batch_feat,
     make_collocation_axis,
     np_to_tensor_dict,
 )
-import tensorflow_datasets as tfds
-from deeprte.model.tf import feature_transform
 
 AUTOTUNE = tf.data.AUTOTUNE
 
