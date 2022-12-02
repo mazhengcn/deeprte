@@ -26,6 +26,10 @@ FEATURES = {
         tf.float32,
         [NUM_SAMPLES, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS],
     ),
+    "self_scattering_kernel": (
+        tf.float32,
+        [NUM_SAMPLES, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
+    ),
     "boundary_coords": (
         tf.float32,
         [NUM_BOUNDARY_COORDS, 2 * NUM_DIM],
