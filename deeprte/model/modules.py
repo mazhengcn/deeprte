@@ -41,15 +41,19 @@ class GreenFunction(hk.Module):
 
     def __call__(
         self,
-        x: jax.Array,
-        v: jax.Array,
-        x_prime: jax.Array,
-        v_prime: jax.Array,
+        coords: jax.Array,
+        coords_prime: jax.Array,
         scattering_kernel: jax.Array,
         batch: TensorDict,
     ) -> jax.Array:
 
         c = self.config
+
+        x, v = coords[:NUM_DIM], coords[NUM_DIM:]
+        x_prime, v_prime = (
+            coords_prime[:NUM_DIM],
+            coords_prime[NUM_DIM:],
+        )
 
         green_fn_module = TransportModel(c.scatter_model.transport_model)
         green_fn_output = green_fn_module(
@@ -72,60 +76,7 @@ class GreenFunction(hk.Module):
             weights = (1 - scattering_kernel) * batch["velocity_weights"]
 
             green_fn_output += jnp.einsum(
-                "i,ij->j",
-                weights,
-                scatter_block_output,
-            )
-
-        green_fn_output = MLP([1])(green_fn_output)
-
-        return green_fn_output
-
-
-class GreenFunction(hk.Module):
-    def __init__(
-        self,
-        config,
-        name: Optional[str] = "green_function",
-    ):
-        super().__init__(name=name)
-
-        self.config = config
-
-    def __call__(
-        self,
-        x: jax.Array,
-        v: jax.Array,
-        x_prime: jax.Array,
-        v_prime: jax.Array,
-        scattering_kernel: jax.Array,
-        batch: TensorDict,
-    ) -> jax.Array:
-
-        c = self.config
-
-        green_fn_module = TransportModel(c.scatter_model.transport_model)
-        green_fn_output = green_fn_module(
-            x,
-            v,
-            x_prime,
-            v_prime,
-            batch["position_coords"],
-            batch["sigma"],
-        )
-
-        if c.scatter_model.res_block_depth > 0:
-            scatter_func_module = ScatterModel(c.scatter_model)
-            scatter_block_output = scatter_func_module(
-                x,
-                x_prime,
-                v_prime,
-                batch,
-            )
-            weights = (1 - scattering_kernel) * batch["velocity_weights"]
-
-            green_fn_output += jnp.einsum(
-                "i,ij->j",
+                "j,ijk->k",
                 weights,
                 scatter_block_output,
             )
@@ -157,7 +108,7 @@ class ScatterModel(hk.Module):
 
         green_func_module = TransportModel(c.transport_model)
 
-        weights = (1 - batch["self_scattering_kernel"]) * batch["velocity_weights"]
+        res_weights = (1 - batch["self_scattering_kernel"]) * batch["velocity_weights"]
 
         _res_block_output = vmap(
             green_func_module,
@@ -171,13 +122,13 @@ class ScatterModel(hk.Module):
             batch["position_coords"],
             batch["sigma"],
         )  # shape: [N_v*, N_latent]
-
+        _output = _res_block_output
         if c.res_block_depth > 1:
 
             def _res_block(res_block_output):
                 _res = jnp.einsum(
                     "ij,jk->ik",
-                    weights,
+                    res_weights,
                     res_block_output,
                 )
                 _res = MLP(
@@ -185,13 +136,17 @@ class ScatterModel(hk.Module):
                     activate_final=True,
                 )(_res)
 
-                return res_block_output + _res
+                res_block_output += _res
 
-            _res_block_output = layer_stack(c.res_block_depth - 1, with_state=False)(
-                _res_block
-            )(_res_block_output)
+                return res_block_output, res_block_output
 
-        return _res_block_output
+            _res_block_output, zs = layer_stack(
+                c.res_block_depth - 1,
+                with_state=True,
+            )(_res_block)(_res_block_output)
+            _output = jnp.concatenate((_output[jnp.newaxis, ...], zs))
+
+        return _output
 
 
 class TransportModel(hk.Module):
