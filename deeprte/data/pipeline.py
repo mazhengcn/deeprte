@@ -31,6 +31,7 @@ def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
         "sigma": sigma,
         "psi_label": psi,
         "scattering_kernel": scattering_kernel,
+        "self_scattering_kernel": np_data["scattering_kernel"],
         "boundary": psi_bc,
     }
 
