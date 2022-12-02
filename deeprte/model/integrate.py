@@ -27,7 +27,7 @@ def quad(
     quad_points: tuple[jnp.ndarray, jnp.ndarray],
     argnum=0,
     has_aux: Optional[bool] = False,
-    use_hk: Optional[bool] = False,
+    use_hk: Optional[bool] = True,
 ) -> Callable[..., float]:
     """Compute the integral operator for a scalar function using
     quadratures."""
