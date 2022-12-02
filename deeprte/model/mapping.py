@@ -78,7 +78,7 @@ def vmap(
     excluded: frozenset = None,
     in_axes: Optional[int | tuple] = 0,
     out_axes: Optional[int | tuple] = 0,
-    use_hk: Optional[bool] = False,
+    use_hk: Optional[bool] = True,
 ) -> Callable[..., Any]:
 
     if argnums and excluded:
@@ -111,7 +111,7 @@ def sharded_map(
     shard_size: int | None = 1,
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
-    use_hk: bool = False,
+    use_hk: bool = True,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
     """Sharded vmap.
 
@@ -141,7 +141,7 @@ def sharded_apply(
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
     new_out_axes: bool = False,
-    use_hk: bool = False,
+    use_hk: bool = True,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
     """Sharded apply.
 
