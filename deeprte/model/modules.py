@@ -29,6 +29,50 @@ from deeprte.model.tf.rte_dataset import TensorDict
 from deeprte.model.tf.rte_features import NUM_DIM
 
 
+def mean_squared_loss_fn(x, y, axis=None):
+    return jnp.mean(jnp.square(x - y), axis=axis)
+
+
+class RTEModel(hk.Module):
+    def __init__(self, config, name: Optional[str] = "RTE_model"):
+        super().__init__(name)
+        self.config = config
+
+    def __call__(
+        self,
+        coords: jax.Array,
+        scattering_kernel: jax.Array,
+        batch: TensorDict,
+    ):
+
+        green_func_module = GreenFunction(
+            self.config.green_function,
+        )
+        print(
+            batch["sigma"].shape,
+        )
+        sol = quad(
+            green_func_module,
+            (
+                batch["boundary_coords"],
+                batch["boundary"] * batch["boundary_weights"],
+            ),
+            argnum=1,
+            use_hk=True,
+        )(coords, scattering_kernel, batch)
+
+        return sol
+
+    # def loss(self, value, batch):
+
+    #     predictions = value["sol"]
+    #     labels = batch["psi_label"]
+
+    #     loss = mean_squared_loss_fn(predictions, labels, axis=-1)
+
+    #     return dict(loss=loss)
+
+
 class GreenFunction(hk.Module):
     def __init__(
         self,
@@ -74,6 +118,7 @@ class GreenFunction(hk.Module):
                 batch,
             )
             weights = (1 - scattering_kernel) * batch["velocity_weights"]
+
             if c.scatter_model.res_block_depth == 1:
                 expr = "j,jk->k"
             else:
