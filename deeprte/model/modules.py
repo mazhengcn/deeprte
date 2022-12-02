@@ -22,151 +22,17 @@ import jax.numpy as jnp
 import ml_collections
 
 from deeprte.model.integrate import quad
+from deeprte.model.layer_stack import layer_stack
 from deeprte.model.mapping import vmap
 from deeprte.model.networks import MLP, Linear
 from deeprte.model.tf.rte_dataset import TensorDict
 from deeprte.model.tf.rte_features import NUM_DIM
 
 
-class GreenFunctionResBlock(hk.Module):
-    """Green function resnet block with scattering kernel."""
-
+class GreenFunction(hk.Module):
     def __init__(
         self,
-        config: ml_collections.ConfigDict,
-        name: Optional[str] = "green_function_res_block",
-    ):
-        super().__init__(name=name)
-
-        self.config = config
-
-    def __call__(
-        self,
-        coords: jnp.ndarray,
-        scattering_kernel: jnp.ndarray,
-        batch: TensorDict,
-    ) -> jnp.ndarray:
-
-        c = self.config
-
-        green_func_module = GreenFunctionNet(c.green_function)
-
-        green_fn_block_output = green_func_module(
-            coords, batch["boundary_coords"], coeff_coords, coeff_values
-        )
-
-        if c.green_res_block.depth > 0:
-
-            r_star, weights = scattering_kernel_coords[2:], scattering_kernel
-            # weights = (1 - scattering_kernel_coeff) * weights
-
-            for _ in range(c.green_res_block.depth):
-                green_fn_kernel_quad = quad(
-                    green_func_module, (r_star, weights), argnum=0, use_hk=True
-                )(
-                    r_prime, coeff_coords, coeff_values
-                )  # shape: [N']
-                green_fn_block_output += Linear()(
-                    green_fn_kernel_quad,
-                )
-
-        return green_fn_block_output  # shape: [N']
-
-
-class GreenFunctionNet(hk.Module):
-    """Green function net."""
-
-    def __init__(
-        self,
-        config: ml_collections.ConfigDict,
-        name: Optional[str] = "green_function_res_block",
-    ):
-        super().__init__(name=name)
-
-        self.config = config
-
-    def __call__(
-        self,
-        phase_coords: jax.Array,
-        boundary_coords: jax.Array,
-        # scattering_kernel_coeff: jnp.ndarray,  # [Nv*,]
-        coeff_position: jax.Array,
-        coeff_values: jax.Array,
-        scattering_kernel_coords: jax.Array,  # ((u,u*):[Nv*,4], (1-P(u,u*))*omega:[Nv*,])
-        scattering_kernel: jax.Array,
-        batch: TensorDict,
-    ) -> jax.Array:
-
-        c = self.config
-
-        green_func_module = GreenFunctionBlock(c)
-
-        inputs = (
-            phase_coords[:NUM_DIM],
-            phase_coords[NUM_DIM:],
-            boundary_coords[:NUM_DIM],
-            boundary_coords[NUM_DIM:],
-            coeff_position,
-            coeff_values,
-        )
-
-        green_fn_block_output = green_func_module(*inputs)
-
-        if c.green_res_block.depth > 0:
-
-            coords_star, weights = (
-                scattering_kernel_coords,
-                (1 - scattering_kernel) * batch["velocity_weights"],
-            )
-            res_block_inputs = (*inputs[:3], coeff_position, coeff_values)
-
-            def _green_res_fn(green_fn):
-                def func(*inputs):
-                    green_fn_kernel_quad = quad(
-                        green_fn,
-                        (coords_star, weights),
-                        argnum=3,
-                        use_hk=True,
-                    )(
-                        *inputs[:3], coeff_position, coeff_values
-                    )  # shape: [N_latent]
-                    green_fn_res = MLP(
-                        c.green_function_mlp.widths[-1:],
-                        activate_final=True,
-                    )(green_fn_kernel_quad)
-                    return green_fn_res
-
-                return func
-
-            def _green_res_block(block_output, green_func_module):
-                func = _green_res_fn(green_func_module)
-                block_output += func(
-                    *res_block_inputs,
-                )
-                green_func_module = func
-
-                return block_output
-
-            for _ in range(c.green_res_block.depth):
-
-                func = _green_res_fn(green_func_module)
-                green_fn_block_output += func(
-                    *res_block_inputs,
-                )
-                green_func_module = func
-
-        green_fn_block_output = MLP([1])(
-            green_fn_block_output,
-        )
-        return green_fn_block_output  # shape: [1]
-
-
-class GreenFunctionBlock(hk.Module):
-    """Green's function block of solution operator."""
-
-    def __init__(
-        self,
-        config: ml_collections.ConfigDict,
+        config,
         name: Optional[str] = "green_function",
     ):
         super().__init__(name=name)
@@ -175,10 +41,177 @@ class GreenFunctionBlock(hk.Module):
 
     def __call__(
         self,
-        position: jax.Array,
-        velocity: jax.Array,  # pylint:disable=invalid-name
-        position_prime: jax.Array,
-        velocity_prime: jax.Array,
+        x: jax.Array,
+        v: jax.Array,
+        x_prime: jax.Array,
+        v_prime: jax.Array,
+        scattering_kernel: jax.Array,
+        batch: TensorDict,
+    ) -> jax.Array:
+
+        c = self.config
+
+        green_fn_module = TransportModel(c.scatter_model.transport_model)
+        green_fn_output = green_fn_module(
+            x,
+            v,
+            x_prime,
+            v_prime,
+            batch["position_coords"],
+            batch["sigma"],
+        )
+
+        if c.scatter_model.res_block_depth > 0:
+            scatter_func_module = ScatterModel(c.scatter_model)
+            scatter_block_output = scatter_func_module(
+                x,
+                x_prime,
+                v_prime,
+                batch,
+            )
+            weights = (1 - scattering_kernel) * batch["velocity_weights"]
+
+            green_fn_output += jnp.einsum(
+                "i,ij->j",
+                weights,
+                scatter_block_output,
+            )
+
+        green_fn_output = MLP([1])(green_fn_output)
+
+        return green_fn_output
+
+
+class GreenFunction(hk.Module):
+    def __init__(
+        self,
+        config,
+        name: Optional[str] = "green_function",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        x: jax.Array,
+        v: jax.Array,
+        x_prime: jax.Array,
+        v_prime: jax.Array,
+        scattering_kernel: jax.Array,
+        batch: TensorDict,
+    ) -> jax.Array:
+
+        c = self.config
+
+        green_fn_module = TransportModel(c.scatter_model.transport_model)
+        green_fn_output = green_fn_module(
+            x,
+            v,
+            x_prime,
+            v_prime,
+            batch["position_coords"],
+            batch["sigma"],
+        )
+
+        if c.scatter_model.res_block_depth > 0:
+            scatter_func_module = ScatterModel(c.scatter_model)
+            scatter_block_output = scatter_func_module(
+                x,
+                x_prime,
+                v_prime,
+                batch,
+            )
+            weights = (1 - scattering_kernel) * batch["velocity_weights"]
+
+            green_fn_output += jnp.einsum(
+                "i,ij->j",
+                weights,
+                scatter_block_output,
+            )
+
+        green_fn_output = MLP([1])(green_fn_output)
+
+        return green_fn_output
+
+
+class ScatterModel(hk.Module):
+    def __init__(
+        self,
+        config,
+        name: Optional[str] = "scatter_model",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        x: jax.Array,
+        x_prime: jax.Array,
+        v_prime: jax.Array,
+        batch: TensorDict,
+    ) -> jax.Array:
+
+        c = self.config
+
+        green_func_module = TransportModel(c.transport_model)
+
+        weights = (1 - batch["self_scattering_kernel"]) * batch["velocity_weights"]
+
+        _res_block_output = vmap(
+            green_func_module,
+            argnums=frozenset([1]),
+            use_hk=True,
+        )(
+            x,
+            batch["velocity_coords"],
+            x_prime,
+            v_prime,
+            batch["position_coords"],
+            batch["sigma"],
+        )  # shape: [N_v*, N_latent]
+
+        if c.res_block_depth > 1:
+
+            def _res_block(res_block_output):
+                _res = jnp.einsum(
+                    "ij,jk->ik",
+                    weights,
+                    res_block_output,
+                )
+                _res = MLP(
+                    c.transport_model.transport_block_mlp.widths[-1:],
+                    activate_final=True,
+                )(_res)
+
+                return res_block_output + _res
+
+            _res_block_output = layer_stack(c.res_block_depth - 1, with_state=False)(
+                _res_block
+            )(_res_block_output)
+
+        return _res_block_output
+
+
+class TransportModel(hk.Module):
+    """Green's function transport block of solution operator."""
+
+    def __init__(
+        self,
+        config: ml_collections.ConfigDict,
+        name: Optional[str] = "transport_model",
+    ):
+        super().__init__(name=name)
+
+        self.config = config
+
+    def __call__(
+        self,
+        x: jax.Array,
+        v: jax.Array,  # pylint:disable=invalid-name
+        x_prime: jax.Array,
+        v_prime: jax.Array,
         coeff_position: jax.Array,
         coeff_values: jax.Array,
     ) -> jax.Array:
@@ -200,8 +233,8 @@ class GreenFunctionBlock(hk.Module):
 
         # Get nn output of coefficient net.
         coefficients = CoefficientNet(c.coefficient_net)(
-            position,
-            velocity,
+            x,
+            v,
             coeff_position,
             coeff_values,
         )
@@ -209,10 +242,10 @@ class GreenFunctionBlock(hk.Module):
         # Green's function inputs.
         inputs = jnp.concatenate(
             [
-                position,
-                velocity,
-                position_prime,
-                velocity_prime,
+                x,
+                v,
+                x_prime,
+                v_prime,
                 coefficients,
             ]
         )
@@ -222,9 +255,9 @@ class GreenFunctionBlock(hk.Module):
 
         # MLP
         outputs = MLP(
-            c.green_function_mlp.widths,
+            c.transport_block_mlp.widths,
             activate_final=True,
-            name="green_function_block_mlp",
+            name="transport_block_mlp",
         )(inputs)
 
         # Wrap with exponential function to keep it non-negative.
@@ -247,8 +280,8 @@ class CoefficientNet(hk.Module):
 
     def __call__(
         self,
-        position: jax.Array,
-        velocity: jax.Array,
+        x: jax.Array,
+        v: jax.Array,
         coeff_position: jax.Array,
         coeff_values: jax.Array,
     ) -> jax.Array:
@@ -267,7 +300,6 @@ class CoefficientNet(hk.Module):
         """
         c = self.config
 
-        x, v = position, velocity
         coords = jnp.concatenate([x, v])
         angles_global = v / jnp.sqrt(jnp.sum(v**2, axis=-1) + 1e-16)
         rel_vec = x - coeff_position
