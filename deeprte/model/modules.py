@@ -24,13 +24,88 @@ import ml_collections
 from deeprte.model.integrate import quad
 from deeprte.model.layer_stack import layer_stack
 from deeprte.model.mapping import vmap
-from deeprte.model.networks import MLP, Linear
+from deeprte.model.networks import MLP
 from deeprte.model.tf.rte_dataset import TensorDict
-from deeprte.model.tf.rte_features import NUM_DIM
+from deeprte.model.tf.rte_features import (
+    _BATCH_FEATURE_NAMES,
+    _COLLOCATION_FEATURE_NAMES,
+    NUM_DIM,
+)
 
 
 def mean_squared_loss_fn(x, y, axis=None):
     return jnp.mean(jnp.square(x - y), axis=axis)
+
+
+def make_batch_axes_dict(batch):
+    return {k: 0 if k in _BATCH_FEATURE_NAMES else None for k in batch}
+
+
+def make_collocation_axes_dict(batch):
+    return {k: 0 if k in _COLLOCATION_FEATURE_NAMES else None for k in batch}
+
+
+class DeepRTE(hk.Module):
+    def __init__(self, config, name: Optional[str] = "RTE_model"):
+        super().__init__(name)
+
+        self.config = config
+        self.batch_axes_dict = None
+        self.collocation_axes_dict = None
+
+    def __call__(
+        self,
+        batch: TensorDict,
+        is_training: bool,
+        compute_loss: bool,
+    ):
+        ret = {}
+
+        rte_module = RTEModel(self.config)
+
+        # if is_training:
+        if not self.batch_axes_dict:
+            self.batch_axes_dict = make_batch_axes_dict(batch)
+        if not self.collocation_axes_dict:
+            self.collocation_axes_dict = make_collocation_axes_dict(batch)
+
+        if not is_training:
+            rte_module = hk.vmap(
+                hk.vmap(
+                    rte_module,
+                    in_axes=(self.collocation_axes_dict,),
+                    split_rng=(not hk.running_init()),
+                ),
+                in_axes=(self.batch_axes_dict,),
+                split_rng=(not hk.running_init()),
+            )
+        else:
+            rte_module = hk.vmap(
+                vmap(
+                    rte_module,
+                    shard_size=128,
+                    in_axes=(self.collocation_axes_dict,),
+                ),
+                in_axes=(self.batch_axes_dict,),
+                split_rng=(not hk.running_init()),
+            )
+
+        ret["rte_predictions"] = rte_module(batch)
+
+        if compute_loss:
+            loss = self.loss(ret, batch)
+            ret["loss"] = loss
+
+        return ret
+
+    def loss(self, value, batch):
+        pred = value["rte_predictions"]
+        label = batch["psi_label"]
+
+        mse = mean_squared_loss_fn(pred, label)
+        rmspe = jnp.sqrt(mse / jnp.mean(label**2))
+
+        return dict(mse=mse, rmspe=rmspe)
 
 
 class RTEModel(hk.Module):
@@ -40,16 +115,11 @@ class RTEModel(hk.Module):
 
     def __call__(
         self,
-        coords: jax.Array,
-        scattering_kernel: jax.Array,
         batch: TensorDict,
     ):
 
         green_func_module = GreenFunction(
             self.config.green_function,
-        )
-        print(
-            batch["sigma"].shape,
         )
         sol = quad(
             green_func_module,
@@ -58,19 +128,9 @@ class RTEModel(hk.Module):
                 batch["boundary"] * batch["boundary_weights"],
             ),
             argnum=1,
-            use_hk=True,
-        )(coords, scattering_kernel, batch)
+        )(batch["phase_coords"], batch["scattering_kernel"], batch)
 
         return sol
-
-    # def loss(self, value, batch):
-
-    #     predictions = value["sol"]
-    #     labels = batch["psi_label"]
-
-    #     loss = mean_squared_loss_fn(predictions, labels, axis=-1)
-
-    #     return dict(loss=loss)
 
 
 class GreenFunction(hk.Module):
@@ -99,7 +159,7 @@ class GreenFunction(hk.Module):
             coords_prime[NUM_DIM:],
         )
 
-        green_fn_module = TransportModel(c.scatter_model.transport_model)
+        green_fn_module = TransportModule(c.scatter_model.transport_model)
         green_fn_output = green_fn_module(
             x,
             v,
@@ -110,7 +170,7 @@ class GreenFunction(hk.Module):
         )
 
         if c.scatter_model.res_block_depth > 0:
-            scatter_func_module = ScatterModel(c.scatter_model)
+            scatter_func_module = ScatterModule(c.scatter_model)
             scatter_block_output = scatter_func_module(
                 x,
                 x_prime,
@@ -135,7 +195,7 @@ class GreenFunction(hk.Module):
         return green_fn_output
 
 
-class ScatterModel(hk.Module):
+class ScatterModule(hk.Module):
     def __init__(
         self,
         config,
@@ -155,7 +215,7 @@ class ScatterModel(hk.Module):
 
         c = self.config
 
-        green_func_module = TransportModel(c.transport_model)
+        green_func_module = TransportModule(c.transport_model)
 
         res_weights = (1 - batch["self_scattering_kernel"]) * batch["velocity_weights"]
 
@@ -198,7 +258,7 @@ class ScatterModel(hk.Module):
         return _output
 
 
-class TransportModel(hk.Module):
+class TransportModule(hk.Module):
     """Green's function transport block of solution operator."""
 
     def __init__(
@@ -320,8 +380,11 @@ class CoefficientNet(hk.Module):
             attn_logits_per_example = attn_mod(qk)
             return attn_logits_per_example
 
-        attn_logits = vmap(
-            attn_logits_fn, argnums=frozenset([1]), use_hk=True, out_axes=-1
+        attn_logits = hk.vmap(
+            attn_logits_fn,
+            in_axes=(None, 0),
+            out_axes=-1,
+            split_rng=(not hk.running_init()),
         )(coords, frames_local)
 
         masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)

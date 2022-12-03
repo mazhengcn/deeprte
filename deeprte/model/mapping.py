@@ -108,7 +108,7 @@ def vmap(
 
 def sharded_map(
     func: Callable[..., PYTREE_JAX_ARRAY],
-    shard_size: int | None = 1,
+    shard_size: int | None = None,
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
     use_hk: bool = True,
@@ -140,8 +140,8 @@ def sharded_apply(
     shard_size: int | None = 1,
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
-    new_out_axes: bool = False,
     use_hk: bool = True,
+    new_out_axes: bool = False,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
     """Sharded apply.
 
