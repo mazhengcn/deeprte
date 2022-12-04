@@ -28,7 +28,7 @@ CONFIG_DATASET = ml_collections.ConfigDict(
 )
 CONFIG_TRAINING = ml_collections.ConfigDict(
     {
-        "num_epoch": 5000,
+        "num_epochs": 5000,
         "optimizer": {
             "base_lr": 1e-3,
             "scale_by_batch": True,
@@ -37,6 +37,8 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
                 "transition_steps": 200,
                 "decay_rate": 0.96,
             },
+            "optimizer": "adam",
+            "adam_kwargs": {},
         },
     }
 )

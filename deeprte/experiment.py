@@ -29,17 +29,16 @@ from jaxline import experiment
 from jaxline import utils as jl_utils
 
 from deeprte import optimizers
-from deeprte.data.pipeline import FeatureDict, DataPipeline
-from deeprte.model.tf import dataset
+from deeprte.data.pipeline import FeatureDict
+from deeprte.model.modules import DeepRTE
 from deeprte.model.tf.input_pipeline import (
+    load_tf_data,
     make_device_batch,
     tf_data_to_generator,
-    load_tf_data,
 )
-from deeprte.model.tf.rte_dataset import np_to_tensor_dict
 
 OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
-Scalars = Mapping[str, jnp.ndarray]
+Scalars = Mapping[str, jax.Array]
 
 
 def _format_logs(prefix, results):
@@ -87,10 +86,9 @@ class Trainer(experiment.AbstractExperiment):
         self._state = None
         self._opt_state = None
 
-        # Initialize solution and model functions
-        self.solution = None
+        # Initialize model functions
         self.model = None
-        # self._init_solution_and_model()
+        self._construct_model()
 
         # Initialize train and eval functions
         self._train_input = None
@@ -114,7 +112,7 @@ class Trainer(experiment.AbstractExperiment):
     #
 
     def step(
-        self, global_step: jnp.ndarray, rng: jnp.ndarray, *unused_args, **unused_kwargs
+        self, global_step: jax.Array, rng: jax.Array, *unused_args, **unused_kwargs
     ) -> Scalars:
         """See base class."""
         if not self._training:
@@ -143,9 +141,9 @@ class Trainer(experiment.AbstractExperiment):
         params: hk.Params,
         state: hk.State,
         opt_state: OptState,
-        global_step: jnp.ndarray,
-        rng: jnp.ndarray,
-        batch: dataset.Batch,
+        global_step: jax.Array,
+        rng: jax.Array,
+        batch: FeatureDict,
     ) -> tuple[hk.Params, hk.State, optax.OptState, Scalars]:
         # Logging dict.
         scalars = {}
@@ -170,6 +168,24 @@ class Trainer(experiment.AbstractExperiment):
         scalars = jax.lax.pmean(scalars, axis_name="i")
 
         return params, state, opt_state, scalars
+
+    def _loss(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: jax.Array,
+        batch: FeatureDict,
+    ) -> tuple[jax.Array, tuple[Scalars, hk.State]]:
+        # Get solution_op function
+        rte_model_fn = functools.partial(self.model.apply, params, state, rng)
+        # Return loss and loss_scalars dict for logging.
+        ret, state = rte_model_fn(batch)
+        # Divided by device count since we have summed across all devices
+        loss_scalars = ret["loss"]
+        loss = loss_scalars["mse"]
+        scaled_loss = loss / jax.local_device_count()
+
+        return scaled_loss, (loss_scalars, state)
 
     def _build_train_input(self) -> Generator[FeatureDict, None, None]:
         """Build train input as generator/iterator."""
@@ -196,9 +212,6 @@ class Trainer(experiment.AbstractExperiment):
         # pylint: disable=invalid-name
         c = self.config
 
-        if not self.train_input:
-            self._build_train_and_val_input()
-
         # Performs prefetching of elements from an iterable in a separate thread.
         train_input = jl_utils.py_prefetch(self._build_train_input)
         # This keeps two batches per-device in memory at all times, allowing
@@ -212,7 +225,7 @@ class Trainer(experiment.AbstractExperiment):
         # multiplied by repeat.
 
         steps_per_epoch = (
-            c.dataset.data_split.num_train_examples
+            c.dataset.data_split.num_train_samples
             / c.dataset.train.batch_size
             * c.dataset.train.repeat
         )
@@ -220,11 +233,11 @@ class Trainer(experiment.AbstractExperiment):
 
         # Get learning rate schedule.
         self._lr_schedule = optimizers.get_learning_rate_schedule(
-            total_batch_size, steps_per_epoch, total_steps, c.optimizer
+            total_batch_size, steps_per_epoch, total_steps, c.training.optimizer
         )
         # Optimizer
         self.optimizer = optimizers.make_optimizer(
-            c.optimizer,
+            c.training.optimizer,
             self._lr_schedule,
         )
 
@@ -234,7 +247,7 @@ class Trainer(experiment.AbstractExperiment):
 
             # Pmap initial functions
             # init_net = jax.pmap(lambda *a: self.solution.init(*a))
-            init_net = jax.pmap(self.solution.init)
+            init_net = jax.pmap(self.model.init)
             init_opt = jax.pmap(self.optimizer.init)
 
             # Init uses the same RNG key on all hosts+devices to ensure
@@ -243,7 +256,7 @@ class Trainer(experiment.AbstractExperiment):
 
             # Load initial inputs
             dummy_inputs = self._build_dummy_input()
-            self._params, self._state = init_net(init_rng, *dummy_inputs)
+            self._params, self._state = init_net(init_rng, dummy_inputs)
             self._opt_state = init_opt(self._params)
 
             # Log total number of parameters
@@ -269,7 +282,7 @@ class Trainer(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(self, global_step, rng: jnp.ndarray, **unused_args) -> Scalars:
+    def evaluate(self, global_step, rng: jax.Array, **unused_args) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
@@ -283,7 +296,7 @@ class Trainer(experiment.AbstractExperiment):
         metrics = self._eval_epoch(self._params, self._state, rng)
         # Covert jnp.ndarry to list to have less verbose.
         metrics = jax.tree_util.tree_map(
-            lambda x: x.tolist() if isinstance(x, jnp.ndarray) else x, metrics
+            lambda x: x.tolist() if isinstance(x, jax.Array) else x, metrics
         )
         t_diff = time.time() - t_0
 
@@ -325,7 +338,7 @@ class Trainer(experiment.AbstractExperiment):
             save_path=c.data_split.save_path,
         )
 
-    def _build_dummy_input(self) -> tuple[jnp.ndarray]:
+    def _build_dummy_input(self) -> tuple[jax.Array]:
         """Load dummy data for initializing network parameters."""
 
         ds = tf_data_to_generator(
@@ -336,12 +349,22 @@ class Trainer(experiment.AbstractExperiment):
             repeat=1,
         )
 
-        dummy_inputs = jax.tree_util.tree_map(lambda x: x.squeeze(), next(ds))
-
-        if jax.local_device_count() == 1:
-            dummy_inputs = jax.tree_util.tree_map(
-                lambda x: x[None, ...],
-                dummy_inputs,
-            )
+        dummy_inputs = next(ds)
 
         return dummy_inputs
+
+    def _construct_model(self):
+        # Create solution instance.
+        if not self.model:
+
+            def _forward_fn(batch):
+                model = DeepRTE(self.config.model)
+                return model(
+                    batch,
+                    is_training=True,
+                    compute_loss=True,
+                )
+
+            self.model = hk.transform_with_state(_forward_fn)
+        else:
+            raise ValueError("Model instance is already initialized.")
