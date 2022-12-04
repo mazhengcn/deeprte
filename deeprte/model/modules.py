@@ -46,7 +46,7 @@ def make_collocation_axes_dict(batch):
 
 
 class DeepRTE(hk.Module):
-    def __init__(self, config, name: Optional[str] = "RTE_model"):
+    def __init__(self, config, name: Optional[str] = "DeepRTE"):
         super().__init__(name)
 
         self.config = config
@@ -61,7 +61,22 @@ class DeepRTE(hk.Module):
     ):
         ret = {}
 
-        rte_module = RTEModel(self.config)
+        # rte_module = RTEModel(self.config)
+
+        def rte_module(batch: TensorDict) -> jax.Array:
+            green_func_module = GreenFunction(
+                self.config.green_function,
+            )
+            sol = quad(
+                green_func_module,
+                (
+                    batch["boundary_coords"],
+                    batch["boundary"] * batch["boundary_weights"],
+                ),
+                argnum=1,
+            )(batch["phase_coords"], batch["scattering_kernel"], batch)
+
+            return sol
 
         # if is_training:
         if not self.batch_axes_dict:
@@ -106,31 +121,6 @@ class DeepRTE(hk.Module):
         rmspe = jnp.sqrt(mse / jnp.mean(label**2))
 
         return dict(mse=mse, rmspe=rmspe)
-
-
-class RTEModel(hk.Module):
-    def __init__(self, config, name: Optional[str] = "RTE_model"):
-        super().__init__(name)
-        self.config = config
-
-    def __call__(
-        self,
-        batch: TensorDict,
-    ):
-
-        green_func_module = GreenFunction(
-            self.config.green_function,
-        )
-        sol = quad(
-            green_func_module,
-            (
-                batch["boundary_coords"],
-                batch["boundary"] * batch["boundary_weights"],
-            ),
-            argnum=1,
-        )(batch["phase_coords"], batch["scattering_kernel"], batch)
-
-        return sol
 
 
 class GreenFunction(hk.Module):
