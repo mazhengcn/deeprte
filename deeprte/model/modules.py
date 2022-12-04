@@ -58,6 +58,7 @@ class DeepRTE(hk.Module):
         batch: TensorDict,
         is_training: bool,
         compute_loss: bool,
+        compute_metrics: bool,
     ):
         ret = {}
 
@@ -84,7 +85,7 @@ class DeepRTE(hk.Module):
         if not self.collocation_axes_dict:
             self.collocation_axes_dict = make_collocation_axes_dict(batch)
 
-        if not is_training:
+        if is_training:
             rte_module = hk.vmap(
                 hk.vmap(
                     rte_module,
@@ -111,6 +112,10 @@ class DeepRTE(hk.Module):
             loss = self.loss(ret, batch)
             ret["loss"] = loss
 
+        if compute_metrics:
+            metrics = self.metrics(ret, batch)
+            ret["metrics"] = metrics
+
         return ret
 
     def loss(self, value, batch):
@@ -118,6 +123,15 @@ class DeepRTE(hk.Module):
         label = batch["psi_label"]
 
         mse = mean_squared_loss_fn(pred, label)
+        rmspe = jnp.sqrt(mse / jnp.mean(label**2))
+
+        return dict(mse=mse, rmspe=rmspe)
+
+    def metrics(self, value, batch):
+        pred = value["rte_predictions"]
+        label = batch["psi_label"]
+
+        mse = mean_squared_loss_fn(pred, label, axis=-1)
         rmspe = jnp.sqrt(mse / jnp.mean(label**2))
 
         return dict(mse=mse, rmspe=rmspe)

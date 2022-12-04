@@ -22,7 +22,6 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import ml_collections
-import numpy as np
 import optax
 from absl import logging
 from jaxline import experiment
@@ -87,7 +86,8 @@ class Trainer(experiment.AbstractExperiment):
         self._opt_state = None
 
         # Initialize model functions
-        self.model = None
+        self.train_model = None
+        self.eval_model = None
         self._construct_model()
 
         # Initialize train and eval functions
@@ -177,7 +177,7 @@ class Trainer(experiment.AbstractExperiment):
         batch: FeatureDict,
     ) -> tuple[jax.Array, tuple[Scalars, hk.State]]:
         # Get solution_op function
-        rte_model_fn = functools.partial(self.model.apply, params, state, rng)
+        rte_model_fn = functools.partial(self.train_model.apply, params, state, rng)
         # Return loss and loss_scalars dict for logging.
         ret, state = rte_model_fn(batch)
         # Divided by device count since we have summed across all devices
@@ -247,7 +247,7 @@ class Trainer(experiment.AbstractExperiment):
 
             # Pmap initial functions
             # init_net = jax.pmap(lambda *a: self.solution.init(*a))
-            init_net = jax.pmap(self.model.init)
+            init_net = jax.pmap(self.train_model.init)
             init_opt = jax.pmap(self.optimizer.init)
 
             # Init uses the same RNG key on all hosts+devices to ensure
@@ -307,7 +307,74 @@ class Trainer(experiment.AbstractExperiment):
 
         return metrics
 
-    def _build_val_input(self) -> Generator[FeatureDict, None, None]:
+    def _eval_epoch(
+        self, params: hk.Params, state: hk.State, rng: jax.Array
+    ) -> Scalars:
+        """Evaluates an epoch."""
+        num_examples = 0.0
+        summed_metrics = None
+
+        for batch in self._eval_input:
+            # Account for pmaps
+            num_examples += jnp.prod(jnp.array(batch["psi_label"].shape[:2]))
+            metrics = self.eval_fn(params, state, rng, batch)
+            # Accumulate the sum of scalars for each step.
+            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            if summed_metrics is None:
+                summed_metrics = metrics
+            else:
+                summed_metrics = jax.tree_util.tree_map(
+                    jnp.add, summed_metrics, metrics
+                )
+
+        # Compute mean_metrics
+        mean_metrics = jax.tree_util.tree_map(
+            lambda x: x / num_examples, summed_metrics
+        )
+
+        # Eval metrics dict
+        metrics = {}
+        # Take sqrt if it is squared
+        for k, v in mean_metrics.items():  # pylint: disable=invalid-name
+            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+
+        return metrics
+
+    def _eval_fn(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: jax.Array,
+        batch: FeatureDict,
+    ) -> Scalars:
+        """Evaluates a batch."""
+        metrics = {}
+
+        eval_func = functools.partial(self.eval_model.apply, params, state, rng)
+
+        # metrics.update(self.model.metrics(eval_func, batch))
+
+        ret, state = eval_func(batch)
+        # Divided by device count since we have summed across all devices
+        metrics.update(ret["metrics"])
+
+        # NOTE: Returned values will be summed and finally divided
+        # by num_samples.
+        return jax.lax.psum(metrics, axis_name="i")
+
+    def _initialize_evaluation(self):
+
+        # Evaluation input as a Generator
+        eval_input = jl_utils.py_prefetch(self._build_eval_input)
+        self._eval_input = jl_utils.double_buffer_on_gpu(eval_input)
+
+        # We pmap the evaluation function
+        self.eval_fn = jax.pmap(self._eval_fn, axis_name="i")
+
+        # Set evaluating state to True after initialization.
+        self._evaluating = True
+
+    def _build_eval_input(self) -> Generator[FeatureDict, None, None]:
         c = self.config.dataset
         batch_sizes = make_device_batch(
             c.validation.batch_size,
@@ -355,7 +422,7 @@ class Trainer(experiment.AbstractExperiment):
 
     def _construct_model(self):
         # Create solution instance.
-        if not self.model:
+        if not self.train_model:
 
             def _forward_fn(batch):
                 model = DeepRTE(self.config.model)
@@ -363,8 +430,24 @@ class Trainer(experiment.AbstractExperiment):
                     batch,
                     is_training=True,
                     compute_loss=True,
+                    compute_metrics=False,
                 )
 
-            self.model = hk.transform_with_state(_forward_fn)
+            self.train_model = hk.transform_with_state(_forward_fn)
+        else:
+            raise ValueError("Model instance is already initialized.")
+
+        if not self.eval_model:
+
+            def _forward_fn(batch):
+                model = DeepRTE(self.config.model)
+                return model(
+                    batch,
+                    is_training=False,
+                    compute_loss=True,
+                    compute_metrics=True,
+                )
+
+            self.eval_model = hk.transform_with_state(_forward_fn)
         else:
             raise ValueError("Model instance is already initialized.")
