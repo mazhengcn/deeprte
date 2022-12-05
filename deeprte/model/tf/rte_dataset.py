@@ -16,13 +16,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Mapping, Dict
+from typing import Dict, Mapping, Optional, Sequence
 
 import numpy as np
 import tensorflow as tf
 
-from deeprte.model.tf import rte_features
 from deeprte.data.pipeline import FeatureDict
+from deeprte.model.tf import rte_features
 
 TensorDict = Dict[str, tf.Tensor]
 AUTOTUNE = tf.data.AUTOTUNE
@@ -82,7 +82,7 @@ def parse_reshape_logic(
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
-            num_samples=placeholder_shape["num_samples"],
+            num_samples=placeholder_shape["num_examples"],
             num_position_coords=placeholder_shape["num_position_coords"],
             num_velocity_coords=placeholder_shape["num_velocity_coords"],
             num_phase_coords=placeholder_shape["num_phase_coords"],
