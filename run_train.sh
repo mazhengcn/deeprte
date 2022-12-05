@@ -17,13 +17,11 @@ set -e
 export CUDA_VISIBLE_DEVICES="1,2,3"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-DATA_PATH=${1:-"./data/train/scattering-kernel/train-scattering-kernel.npz"}
+DATA_PATH=${1:-"/workspaces/deeprte/rte_data/rte_data/matlab/eval-data/test_shape.mat"}
 
 python run_deeprte.py \
 	--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.data_path="${DATA_PATH}" \
-	--config.experiment_kwargs.config.training.batch_size="6" \
-	--config.experiment_kwargs.config.evaluation.batch_size="30" \
 	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
 	--jaxline_mode="train_eval_multithreaded" \
 	--alsologtostderr="true"

@@ -41,10 +41,10 @@ def get_learning_rate_schedule(
 
     schedule_type = optimizer_config.schedule_type
     if schedule_type == "steps":
-        boundaries = optimizer_config.step_decay_kwargs.decay_boundaries
+        boundaries = optimizer_config.decay_kwargs.decay_boundaries
         boundaries.sort()
 
-        decay_rate = optimizer_config.step_decay_kwargs.decay_rate
+        decay_rate = optimizer_config.decay_kwargs.decay_rate
         boundaries_and_scales = {
             int(boundary * total_steps): decay_rate for boundary in boundaries
         }
@@ -53,9 +53,9 @@ def get_learning_rate_schedule(
         )
     elif schedule_type == "exponential":
         transition_steps = (
-            optimizer_config.exponential_decay_kwargs.transition_steps
+            optimizer_config.decay_kwargs.transition_steps
         )
-        decay_rate = optimizer_config.exponential_decay_kwargs.decay_rate
+        decay_rate = optimizer_config.decay_kwargs.decay_rate
         schedule_fn = optax.exponential_decay(
             init_value=base_lr,
             transition_steps=transition_steps,
@@ -63,17 +63,17 @@ def get_learning_rate_schedule(
         )
     elif schedule_type == "cosine":
         warmup_steps = (
-            optimizer_config.cosine_decay_kwargs.warmup_epochs * steps_per_epoch
+            optimizer_config.decay_kwargs.warmup_epochs * steps_per_epoch
         )
         # Batch scale the other lr values as well:
         init_value = _get_batch_scaled_lr(
             total_batch_size,
-            optimizer_config.cosine_decay_kwargs.init_value,
+            optimizer_config.decay_kwargs.init_value,
             optimizer_config.scale_by_batch,
         )
         end_value = _get_batch_scaled_lr(
             total_batch_size,
-            optimizer_config.cosine_decay_kwargs.end_value,
+            optimizer_config.decay_kwargs.end_value,
             optimizer_config.scale_by_batch,
         )
 
@@ -86,11 +86,11 @@ def get_learning_rate_schedule(
         )
     elif schedule_type == "constant_cosine":
         # Convert end_value to alpha, used by cosine_decay_schedule.
-        alpha = optimizer_config.constant_cosine_decay_kwargs.end_value / base_lr
+        alpha = optimizer_config.decay_kwargs.end_value / base_lr
 
         # Number of steps spent in constant phase.
         constant_steps = int(
-            optimizer_config.constant_cosine_decay_kwargs.constant_fraction
+            optimizer_config.decay_kwargs.constant_fraction
             * total_steps
         )
         decay_steps = total_steps - constant_steps
