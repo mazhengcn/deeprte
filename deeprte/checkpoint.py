@@ -27,7 +27,7 @@ from absl import flags, logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte.experiment import Experiment
+from deeprte.experiment import Trainer
 from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
@@ -52,12 +52,12 @@ def restore_state_to_in_memory_checkpointer(restore_path):
 
     # Assign state to a dummy experiment instance for the in-memory checkpointer,
     # broadcasting to devices.
-    dummy_experiment = Experiment(
+    dummy_experiment = Trainer(
         mode="train",
         init_rng=jnp.array([0]),
         config=FLAGS.config.experiment_kwargs.config,
     )
-    for attribute, key in Experiment.CHECKPOINT_ATTRS.items():
+    for attribute, key in Trainer.CHECKPOINT_ATTRS.items():
         setattr(
             dummy_experiment,
             attribute,

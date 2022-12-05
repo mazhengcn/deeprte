@@ -26,7 +26,7 @@ from deeprte.checkpoint import (
     save_state_from_in_memory_checkpointer,
     setup_signals,
 )
-from deeprte.experiment import Experiment
+from deeprte.experiment import Trainer
 
 FLAGS = flags.FLAGS
 
@@ -34,10 +34,10 @@ FLAGS = flags.FLAGS
 def main(experiment_class, argv):
 
     # Maybe restore a model.
-    restore_path = FLAGS.config.restore_path
+    restore_dir = FLAGS.config.restore_dir
 
-    if restore_path:
-        restore_state_to_in_memory_checkpointer(restore_path)
+    if restore_dir:
+        restore_state_to_in_memory_checkpointer(restore_dir)
 
     # Maybe save a model.
     save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
@@ -67,4 +67,4 @@ def main(experiment_class, argv):
 
 if __name__ == "__main__":
     flags.mark_flag_as_required("config")
-    app.run(functools.partial(main, Experiment))
+    app.run(functools.partial(main, Trainer))
