@@ -86,8 +86,7 @@ class Trainer(experiment.AbstractExperiment):
         self._opt_state = None
 
         # Initialize model functions
-        self.train_model = None
-        self.eval_model = None
+        self.model = None
         self._construct_model()
 
         # Initialize train and eval functions
@@ -177,7 +176,15 @@ class Trainer(experiment.AbstractExperiment):
         batch: FeatureDict,
     ) -> tuple[jax.Array, tuple[Scalars, hk.State]]:
         # Get solution_op function
-        rte_model_fn = functools.partial(self.train_model.apply, params, state, rng)
+        rte_model_fn = functools.partial(
+            self.model.apply,
+            params,
+            state,
+            rng,
+            is_training=True,
+            compute_loss=True,
+            compute_metrics=False,
+        )
         # Return loss and loss_scalars dict for logging.
         ret, state = rte_model_fn(batch)
         # Divided by device count since we have summed across all devices
@@ -247,7 +254,13 @@ class Trainer(experiment.AbstractExperiment):
 
             # Pmap initial functions
             # init_net = jax.pmap(lambda *a: self.solution.init(*a))
-            init_net = jax.pmap(self.train_model.init)
+            init_net = functools.partial(
+                self.model.init,
+                is_training=True,
+                compute_loss=False,
+                compute_metrics=False,
+            )
+            init_net = jax.pmap(init_net)
             init_opt = jax.pmap(self.optimizer.init)
 
             # Init uses the same RNG key on all hosts+devices to ensure
@@ -350,7 +363,15 @@ class Trainer(experiment.AbstractExperiment):
         """Evaluates a batch."""
         metrics = {}
 
-        eval_func = functools.partial(self.eval_model.apply, params, state, rng)
+        eval_func = functools.partial(
+            self.model.apply,
+            params,
+            state,
+            rng,
+            is_training=False,
+            compute_loss=False,
+            compute_metrics=True,
+        )
 
         # metrics.update(self.model.metrics(eval_func, batch))
 
@@ -422,32 +443,17 @@ class Trainer(experiment.AbstractExperiment):
 
     def _construct_model(self):
         # Create solution instance.
-        if not self.train_model:
+        if not self.model:
 
-            def _forward_fn(batch):
+            def _forward_fn(batch, is_training, compute_loss, compute_metrics):
                 model = DeepRTE(self.config.model)
                 return model(
                     batch,
-                    is_training=True,
-                    compute_loss=True,
-                    compute_metrics=False,
+                    is_training=is_training,
+                    compute_loss=compute_loss,
+                    compute_metrics=compute_metrics,
                 )
 
-            self.train_model = hk.transform_with_state(_forward_fn)
-        else:
-            raise ValueError("Model instance is already initialized.")
-
-        if not self.eval_model:
-
-            def _forward_fn(batch):
-                model = DeepRTE(self.config.model)
-                return model(
-                    batch,
-                    is_training=False,
-                    compute_loss=True,
-                    compute_metrics=True,
-                )
-
-            self.eval_model = hk.transform_with_state(_forward_fn)
+            self.model = hk.transform_with_state(_forward_fn)
         else:
             raise ValueError("Model instance is already initialized.")
