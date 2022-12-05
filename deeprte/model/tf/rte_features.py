@@ -1,12 +1,35 @@
-from typing import Dict, Optional, Sequence, Tuple, Union
+# Copyright 2022 Zheng Ma
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import enum
+from collections.abc import Sequence
+from typing import Optional
 
 import tensorflow as tf
 
 # Type aliases.
-FeaturesMetadata = Dict[str, Tuple[tf.dtypes.DType, Sequence[Union[str, int]]]]
+FeaturesMetadata = dict[str, tuple[tf.dtypes.DType, Sequence[str | int]]]
+
+
+class FeatureType(enum.Enum):
+    ZERO_DIM = 0
+    ONE_DIM = 1
+    TWO_DIM = 2
+
 
 # Placeholder values that will be replaced with their true value at runtime.
-NUM_SAMPLES = "num batch placeholder"
+NUM_EXAMPLES = "num batch placeholder"
 NUM_POSITION_COORDS = "num position coords placeholder"
 NUM_VELOCITY_COORDS = "num velocity placeholder"
 # NUM_BOUNDARY_VELOCITY = "num boundary velocity placeholder"
@@ -17,18 +40,18 @@ NUM_DIM = 2
 
 FEATURES = {
     # Static features of rte #
-    "sigma": (tf.float32, [NUM_SAMPLES, NUM_POSITION_COORDS, 2]),
-    "boundary": (tf.float32, [NUM_SAMPLES, NUM_BOUNDARY_COORDS]),
+    "sigma": (tf.float32, [NUM_EXAMPLES, NUM_POSITION_COORDS, 2]),
+    "boundary": (tf.float32, [NUM_EXAMPLES, NUM_BOUNDARY_COORDS]),
     "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
     "velocity_coords": (tf.float32, [NUM_VELOCITY_COORDS, NUM_DIM]),
     "phase_coords": (tf.float32, [NUM_PHASE_COORDS, 2 * NUM_DIM]),
     "scattering_kernel": (
         tf.float32,
-        [NUM_SAMPLES, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS],
+        [NUM_EXAMPLES, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS],
     ),
     "self_scattering_kernel": (
         tf.float32,
-        [NUM_SAMPLES, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
+        [NUM_EXAMPLES, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
     ),
     "boundary_coords": (
         tf.float32,
@@ -36,24 +59,24 @@ FEATURES = {
     ),
     "boundary_weights": (tf.float32, [NUM_BOUNDARY_COORDS]),
     "velocity_weights": (tf.float32, [NUM_VELOCITY_COORDS]),
-    "psi_label": (tf.float32, [NUM_SAMPLES, NUM_PHASE_COORDS]),
+    "psi_label": (tf.float32, [NUM_EXAMPLES, NUM_PHASE_COORDS]),
 }
 
 _FEATURE_NAMES = [k for k in FEATURES.keys()]
 _COLLOCATION_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_PHASE_COORDS in FEATURES[k][1]
 ]
-_BATCH_FEATURE_NAMES = [k for k in FEATURES.keys() if NUM_SAMPLES in FEATURES[k][1]]
+_BATCH_FEATURE_NAMES = [k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]]
 
 
-def register_feature(name: str, type_: tf.dtypes.DType, shape_: Tuple[Union[str, int]]):
+def register_feature(name: str, type_: tf.dtypes.DType, shape_: tuple[str | int]):
     """Register extra features used in custom datasets."""
     FEATURES[name] = (type_, shape_)
 
 
 def shape(
     feature_name: str,
-    num_samples: int,
+    num_examples: int,
     num_position_coords: int,
     num_velocity_coords: int,
     num_phase_coords: int,
@@ -77,7 +100,7 @@ def shape(
     unused_dtype, raw_sizes = features[feature_name]
 
     replacements = {
-        NUM_SAMPLES: num_samples,
+        NUM_EXAMPLES: num_examples,
         NUM_POSITION_COORDS: num_position_coords,
         NUM_VELOCITY_COORDS: num_velocity_coords,
         NUM_PHASE_COORDS: num_phase_coords,

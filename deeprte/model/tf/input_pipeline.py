@@ -1,3 +1,17 @@
+# Copyright 2022 Zheng Ma
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 from typing import Generator, Optional, Sequence
 
@@ -8,7 +22,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from deeprte.data.pipeline import DataPipeline, FeatureDict
-from deeprte.model.tf import feature_transform
+from deeprte.model.tf import data_transforms
 from deeprte.model.tf.rte_dataset import (
     TensorDict,
     divide_batch_feat,
@@ -141,7 +155,7 @@ def process_features(
             ds = ds.cache()
         ds = ds.repeat()
         ds = ds.shuffle(buffer_size=buffer_size)
-        ds = feature_transform.repeat_batch(batch_sizes, ds, repeat)
+        ds = data_transforms.repeat_batch(batch_sizes, ds, repeat)
 
     # batch per_device outer first,
     # since they share the same random grid points
@@ -149,7 +163,7 @@ def process_features(
     # construct the inputs structure
     g = tf.random.Generator.from_seed(seed=seed)
     ds = ds.map(
-        feature_transform.construct_batch(
+        data_transforms.construct_batch(
             unbatched_feat=unbatched_feat,
             collocation_sizes=collocation_sizes,
             collocation_features=make_collocation_axis(),
