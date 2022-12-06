@@ -14,7 +14,7 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="1,2,3"
+export CUDA_VISIBLE_DEVICES="1,2"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 DATA_PATH=${1:-"/workspaces/deeprte/rte_data/rte_data/matlab/eval-data/test_shape.mat"}
