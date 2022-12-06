@@ -21,16 +21,22 @@ import jax
 import jax.numpy as jnp
 import ml_collections
 
+from deeprte.data.pipeline import FeatureDict
 from deeprte.model.integrate import quad
 from deeprte.model.layer_stack import layer_stack
 from deeprte.model.mapping import vmap
 from deeprte.model.networks import MLP
-from deeprte.model.tf.rte_dataset import TensorDict
 from deeprte.model.tf.rte_features import (
     _BATCH_FEATURE_NAMES,
     _COLLOCATION_FEATURE_NAMES,
     NUM_DIM,
 )
+
+
+def glorot_uniform():
+    return hk.initializers.VarianceScaling(
+        scale=1.0, mode="fan_avg", distribution="uniform"
+    )
 
 
 def mean_squared_loss_fn(x, y, axis=None):
@@ -55,7 +61,7 @@ class DeepRTE(hk.Module):
 
     def __call__(
         self,
-        batch: TensorDict,
+        batch: FeatureDict,
         is_training: bool,
         compute_loss: bool,
         compute_metrics: bool,
@@ -64,7 +70,7 @@ class DeepRTE(hk.Module):
 
         # rte_module = RTEModel(self.config)
 
-        def rte_module(batch: TensorDict) -> jax.Array:
+        def rte_module(batch: FeatureDict) -> jax.Array:
             green_func_module = GreenFunction(
                 self.config.green_function,
             )
@@ -152,7 +158,7 @@ class GreenFunction(hk.Module):
         coords: jax.Array,
         coords_prime: jax.Array,
         scattering_kernel: jax.Array,
-        batch: TensorDict,
+        batch: FeatureDict,
     ) -> jax.Array:
 
         c = self.config
@@ -162,9 +168,10 @@ class GreenFunction(hk.Module):
             coords_prime[:NUM_DIM],
             coords_prime[NUM_DIM:],
         )
+        width = c.scatter_model.transport_model.transport_block_mlp.widths[-1]
+        trans_module = TransportModule(c.scatter_model.transport_model)
 
-        green_fn_module = TransportModule(c.scatter_model.transport_model)
-        green_fn_output = green_fn_module(
+        green_fn_output = trans_module(
             x,
             v,
             x_prime,
@@ -172,26 +179,67 @@ class GreenFunction(hk.Module):
             batch["position_coords"],
             batch["sigma"],
         )
+        out_layer_weights = hk.get_parameter(
+            name="out_layer_weights",
+            shape=[
+                width,
+            ],
+            init=glorot_uniform(),
+        )
 
-        if c.scatter_model.res_block_depth > 0:
-            scatter_func_module = ScatterModule(c.scatter_model)
-            scatter_block_output = scatter_func_module(
-                x,
-                x_prime,
-                v_prime,
-                batch,
-            )
-            weights = (1 - scattering_kernel) * batch["velocity_weights"]
+        if c.scatter_model.res_block_depth == 0:
+            return jnp.einsum("i,i", green_fn_output, out_layer_weights)
 
-            green_fn_output += jnp.einsum(
-                "j,...jk->k",
-                weights,
-                scatter_block_output,
-            )
+        # prepare inputs
+        res_weights_vstar = (1 - batch["self_scattering_kernel"]) * batch[
+            "velocity_weights"
+        ]
+        res_weights_v = (1 - scattering_kernel) * batch["velocity_weights"]
 
-        green_fn_output = MLP([1])(green_fn_output)
+        output_v = green_fn_output
+        output_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
+            x,
+            batch["velocity_coords"],
+            x_prime,
+            v_prime,
+            batch["position_coords"],
+            batch["sigma"],
+        )  # shape: [N_v*, N_latent]
 
-        return green_fn_output
+        # stack layer
+        if c.scatter_model.res_block_depth > 1:
+
+            def block(x):
+                output_v, output_vstar = x
+                output_v, output_vstar = ScatterModule(c.scatter_model)(
+                    output_v,
+                    output_vstar,
+                    res_weights_v,
+                    res_weights_vstar,
+                )
+                return output_v, output_vstar
+
+            res_stack = layer_stack(c.scatter_model.res_block_depth - 1)(block)
+
+            output_v, output_vstar = res_stack((output_v, output_vstar))
+
+        weights = hk.get_parameter(
+            name="weights", shape=[width, width], init=glorot_uniform()
+        )
+        bias = hk.get_parameter(
+            name="bias",
+            shape=[
+                width,
+            ],
+            init=glorot_uniform(),
+        )
+
+        res_v = jnp.einsum("j,jk->k", res_weights_v, output_vstar)
+        res_v = jax.nn.tanh(jnp.einsum("ik,k->i", weights, res_v) + bias)
+
+        green_fn_output = output_v + res_v
+
+        return jnp.einsum("i,i", green_fn_output, out_layer_weights)
 
 
 class ScatterModule(hk.Module):
@@ -206,55 +254,44 @@ class ScatterModule(hk.Module):
 
     def __call__(
         self,
-        x: jax.Array,
-        x_prime: jax.Array,
-        v_prime: jax.Array,
-        batch: TensorDict,
+        last_block_v: jax.Array,  # shape [N_latent,]
+        last_block_vstar: jax.Array,  # shape [N_v*, N_latent]
+        res_weights_v: jax.Array,  # shape [N_v*,]
+        res_weights_vstar: jax.Array,  # shape [N_v*, N_v*]
     ) -> jax.Array:
 
         c = self.config
 
-        green_func_module = TransportModule(c.transport_model)
+        width = c.transport_model.transport_block_mlp.widths[-1]
+        weights = hk.get_parameter(
+            name="weights", shape=[width, width], init=glorot_uniform()
+        )
+        bias = hk.get_parameter(
+            name="bias",
+            shape=[
+                width,
+            ],
+            init=glorot_uniform(),
+        )
 
-        res_weights = (1 - batch["self_scattering_kernel"]) * batch["velocity_weights"]
+        # process v_output
+        res_v = jnp.einsum("j,jk->k", res_weights_v, last_block_vstar)
+        res_v = jax.nn.tanh(jnp.einsum("ik,k->i", weights, res_v) + bias)
+        block_output_v = res_v + last_block_v
 
-        _res_block_output = vmap(
-            green_func_module,
-            argnums=frozenset([1]),
-            use_hk=True,
-        )(
-            x,
-            batch["velocity_coords"],
-            x_prime,
-            v_prime,
-            batch["position_coords"],
-            batch["sigma"],
-        )  # shape: [N_v*, N_latent]
-        _output = _res_block_output
-        if c.res_block_depth > 1:
+        # if is_last_layer:
+        #     return
 
-            def _res_block(res_block_output):
-                _res = jnp.einsum(
-                    "ij,jk->ik",
-                    res_weights,
-                    res_block_output,
-                )
-                _res = MLP(
-                    c.transport_model.transport_block_mlp.widths[-1:],
-                    activate_final=True,
-                )(_res)
+        # process vstar_output
+        res_vstar = jnp.einsum(
+            "ij,jk->ik",
+            res_weights_vstar,
+            last_block_vstar,
+        )
+        res_vstar = jax.nn.tanh(jnp.einsum("ik,jk->ji", weights, res_vstar) + bias)
+        block_output_vstar = res_vstar + last_block_vstar
 
-                res_block_output += _res
-
-                return res_block_output, res_block_output
-
-            _res_block_output, zs = layer_stack(
-                c.res_block_depth - 1,
-                with_state=True,
-            )(_res_block)(_res_block_output)
-            _output = jnp.concatenate((_output[jnp.newaxis, ...], zs))
-
-        return _output
+        return block_output_v, block_output_vstar
 
 
 class TransportModule(hk.Module):
