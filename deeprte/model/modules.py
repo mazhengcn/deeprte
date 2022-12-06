@@ -183,13 +183,8 @@ class GreenFunction(hk.Module):
             )
             weights = (1 - scattering_kernel) * batch["velocity_weights"]
 
-            if c.scatter_model.res_block_depth == 1:
-                expr = "j,jk->k"
-            else:
-                expr = "j,ijk->k"
-
             green_fn_output += jnp.einsum(
-                expr,
+                "j,...jk->k",
                 weights,
                 scatter_block_output,
             )
