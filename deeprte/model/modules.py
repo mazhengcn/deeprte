@@ -81,7 +81,7 @@ class DeepRTE(hk.Module):
                     batch["boundary"] * batch["boundary_weights"],
                 ),
                 argnum=1,
-            )(batch["phase_coords"], batch["scattering_kernel"], batch)
+            )(batch["phase_coords"], batch)
 
             return sol
 
@@ -157,7 +157,6 @@ class GreenFunction(hk.Module):
         self,
         coords: jax.Array,
         coords_prime: jax.Array,
-        scattering_kernel: jax.Array,
         batch: FeatureDict,
     ) -> jax.Array:
 
@@ -194,7 +193,7 @@ class GreenFunction(hk.Module):
         res_weights_vstar = (1 - batch["self_scattering_kernel"]) * batch[
             "velocity_weights"
         ]
-        res_weights_v = (1 - scattering_kernel) * batch["velocity_weights"]
+        res_weights_v = (1 - batch["scattering_kernel"]) * batch["velocity_weights"]
 
         output_v = green_fn_output
         output_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
