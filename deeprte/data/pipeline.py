@@ -76,7 +76,7 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
     shape_dict["num_x"] = np.shape(np.squeeze(np_data["x"]))[0]
     shape_dict["num_y"] = np.shape(np.squeeze(np_data["y"]))[0]
     shape_dict["num_v"] = np.shape(np.squeeze(np_data["ct"]))[0]
-    shape_dict["num_samples"] = np.shape(np_data["psi_label"])[0]
+    shape_dict["num_examples"] = np.shape(np_data["psi_label"])[0]
 
     return shape_dict
 
@@ -115,7 +115,7 @@ class DataPipeline:
 
         if pre_shuffle:
             rng = np.random.default_rng(seed=pre_shuffle_seed)
-            indices = np.arange(shape_dict["num_samples"])
+            indices = np.arange(shape_dict["num_examples"])
 
             _ = rng.shuffle(indices)
 
@@ -143,7 +143,7 @@ class DataPipeline:
             np.savez(save_path, **test_ds, **grid_feature, **shape_dict)
 
             shape_dict["num_train_and_val"] = (
-                shape_dict["num_samples"] - num_test_samples
+                shape_dict["num_examples"] - num_test_samples
             )
 
             return {**train_ds, **grid_feature, **shape_dict}

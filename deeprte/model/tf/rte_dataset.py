@@ -82,7 +82,7 @@ def parse_reshape_logic(
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
-            num_samples=placeholder_shape["num_examples"],
+            num_examples=placeholder_shape["num_examples"],
             num_position_coords=placeholder_shape["num_position_coords"],
             num_velocity_coords=placeholder_shape["num_velocity_coords"],
             num_phase_coords=placeholder_shape["num_phase_coords"],
@@ -108,7 +108,7 @@ def parse_reshape_logic(
 
 def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]:
     shape_dict = {}
-    shape_dict["num_samples"] = features["num_train_and_val"]
+    shape_dict["num_examples"] = features["num_train_and_val"]
     num_x, num_y, num_v = features["num_x"], features["num_y"], features["num_v"]
     shape_dict["num_position_coords"] = num_x * num_y
     shape_dict["num_velocity_coords"] = num_v

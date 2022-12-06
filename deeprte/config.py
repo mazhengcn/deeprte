@@ -8,8 +8,8 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "data_path": "",
         "num_samples": 10,
         "train": {
-            "batch_size": 6,
-            "collocation_sizes": 500,
+            "batch_size": 2,
+            "collocation_sizes": 300,
             "repeat": 1,
         },
         "validation": {
@@ -66,12 +66,12 @@ CONFIG_MODEL = ml_collections.ConfigDict(
         "green_function": {
             "scatter_model": {
                 "transport_model": {
-                    "transport_block_mlp": {"widths": [128, 128, 128, 128]},
+                    "transport_block_mlp": {"widths": [128, 128, 128, 32]},
                     "coefficient_net": {
                         "attention_net": {"widths": [64, 1]},
                     },
                 },
-                "res_block_depth": 2,
+                "res_block_depth": 1,
             },
             "activation": "gelu",
         }
