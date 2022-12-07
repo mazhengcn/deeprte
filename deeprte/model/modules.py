@@ -33,6 +33,18 @@ from deeprte.model.tf.rte_features import (
 )
 
 
+def dropout_wrapper(module, input_act, output_act=None, **kwargs):
+    """Applies module + dropout + residual update."""
+    if output_act is None:
+        output_act = input_act
+
+    residual = module(input_act, **kwargs)
+
+    new_act = output_act + residual
+
+    return new_act
+
+
 def glorot_uniform():
     return hk.initializers.VarianceScaling(
         scale=1.0, mode="fan_avg", distribution="uniform"
@@ -114,13 +126,16 @@ class DeepRTE(hk.Module):
 
         ret["rte_predictions"] = rte_module(batch)
 
+        if compute_metrics:
+            metrics = self.metrics(ret, batch)
+            ret["metrics"] = metrics
+
         if compute_loss:
             loss = self.loss(ret, batch)
             ret["loss"] = loss
 
-        if compute_metrics:
-            metrics = self.metrics(ret, batch)
-            ret["metrics"] = metrics
+            # total_loss = loss["mse"]
+            # return ret, total_loss
 
         return ret
 
@@ -195,8 +210,8 @@ class GreenFunction(hk.Module):
         ]
         res_weights_v = (1 - batch["scattering_kernel"]) * batch["velocity_weights"]
 
-        output_v = green_fn_output
-        output_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
+        act_v = green_fn_output
+        act_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
             x,
             batch["velocity_coords"],
             x_prime,
@@ -209,43 +224,45 @@ class GreenFunction(hk.Module):
         if c.scatter_model.res_block_depth > 1:
 
             def block(x):
-                output_v, output_vstar = x
-                output_v, output_vstar = ScatterModule(c.scatter_model)(
-                    output_v,
-                    output_vstar,
-                    res_weights_v,
-                    res_weights_vstar,
+                scattering_module = ScatteringModule(c.scatter_model)
+                act_v, act_vstar = x
+
+                act_v = dropout_wrapper(
+                    module=scattering_module,
+                    input_act=act_vstar,
+                    res_weights=res_weights_v,
+                    output_act=act_v,
                 )
-                return output_v, output_vstar
+
+                act_vstar = dropout_wrapper(
+                    module=scattering_module,
+                    input_act=act_vstar,
+                    res_weights=res_weights_vstar,
+                )
+
+                return act_v, act_vstar
 
             res_stack = layer_stack(c.scatter_model.res_block_depth - 1)(block)
 
-            output_v, output_vstar = res_stack((output_v, output_vstar))
+            act_v, act_vstar = res_stack((act_v, act_vstar))
 
-        weights = hk.get_parameter(
-            name="weights", shape=[width, width], init=glorot_uniform()
+        scattering_module = ScatteringModule(c.scatter_model)
+
+        green_fn_output = dropout_wrapper(
+            module=scattering_module,
+            input_act=act_vstar,
+            res_weights=res_weights_v,
+            output_act=act_v,
         )
-        bias = hk.get_parameter(
-            name="bias",
-            shape=[
-                width,
-            ],
-            init=glorot_uniform(),
-        )
-
-        res_v = jnp.einsum("j,jk->k", res_weights_v, output_vstar)
-        res_v = jax.nn.tanh(jnp.einsum("ik,k->i", weights, res_v) + bias)
-
-        green_fn_output = output_v + res_v
 
         return jnp.einsum("i,i", green_fn_output, out_layer_weights)
 
 
-class ScatterModule(hk.Module):
+class ScatteringModule(hk.Module):
     def __init__(
         self,
         config,
-        name: Optional[str] = "scatter_model",
+        name: Optional[str] = "scattering_module",
     ):
         super().__init__(name=name)
 
@@ -253,10 +270,8 @@ class ScatterModule(hk.Module):
 
     def __call__(
         self,
-        last_block_v: jax.Array,  # shape [N_latent,]
-        last_block_vstar: jax.Array,  # shape [N_v*, N_latent]
-        res_weights_v: jax.Array,  # shape [N_v*,]
-        res_weights_vstar: jax.Array,  # shape [N_v*, N_v*]
+        act: jax.Array,  # shape [N_v*, N_latent]
+        res_weights: jax.Array,  # shape [..., N_v*]
     ) -> jax.Array:
 
         c = self.config
@@ -273,24 +288,10 @@ class ScatterModule(hk.Module):
             init=glorot_uniform(),
         )
 
-        # process v_output
-        res_v = jnp.einsum("j,jk->k", res_weights_v, last_block_vstar)
-        res_v = jax.nn.tanh(jnp.einsum("ik,k->i", weights, res_v) + bias)
-        block_output_v = res_v + last_block_v
+        residue = jnp.einsum("...j,jk->...k", res_weights, act)
+        residue = jax.nn.tanh(jnp.einsum("ik,...k->...i", weights, residue) + bias)
 
-        # if is_last_layer:
-        #     return
-
-        # process vstar_output
-        res_vstar = jnp.einsum(
-            "ij,jk->ik",
-            res_weights_vstar,
-            last_block_vstar,
-        )
-        res_vstar = jax.nn.tanh(jnp.einsum("ik,jk->ji", weights, res_vstar) + bias)
-        block_output_vstar = res_vstar + last_block_vstar
-
-        return block_output_v, block_output_vstar
+        return residue
 
 
 class TransportModule(hk.Module):
@@ -299,7 +300,7 @@ class TransportModule(hk.Module):
     def __init__(
         self,
         config: ml_collections.ConfigDict,
-        name: Optional[str] = "transport_model",
+        name: Optional[str] = "transport_module",
     ):
         super().__init__(name=name)
 
