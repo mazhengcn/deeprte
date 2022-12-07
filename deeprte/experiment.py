@@ -327,7 +327,7 @@ class Trainer(experiment.AbstractExperiment):
         num_examples = 0.0
         summed_metrics = None
 
-        for batch in self._eval_input:
+        for batch in self._eval_input():
             # Account for pmaps
             num_examples += jnp.prod(jnp.array(batch["psi_label"].shape[:2]))
             metrics = self.eval_fn(params, state, rng, batch)
@@ -384,10 +384,16 @@ class Trainer(experiment.AbstractExperiment):
         return jax.lax.psum(metrics, axis_name="i")
 
     def _initialize_evaluation(self):
+        def prefetch_and_double_buffer_input():
+            # Performs prefetching of elements from an iterable in a separate thread.
+            eval_input = jl_utils.py_prefetch(self._build_eval_input)
+            # This keeps two batches per-device in memory at all times, allowing
+            # h2d transfers to overlap with execution (see b/173483287 for details).
+            return jl_utils.double_buffer_on_gpu(eval_input)
+            # return eval_input
 
         # Evaluation input as a Generator
-        eval_input = jl_utils.py_prefetch(self._build_eval_input)
-        self._eval_input = jl_utils.double_buffer_on_gpu(eval_input)
+        self._eval_input = prefetch_and_double_buffer_input
 
         # We pmap the evaluation function
         self.eval_fn = jax.pmap(self._eval_fn, axis_name="i")
