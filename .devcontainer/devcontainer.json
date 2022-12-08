@@ -1,19 +1,17 @@
 {
-    "image": "python:3.10-slim",
+    "name": "DeepRTE Dev Container",
+    "image": "python:3.10-slim-bullseye",
     "features": {
+        "ghcr.io/devcontainers/features/common-utils:1": {},
         "ghcr.io/devcontainers/features/nvidia-cuda:1": {
             "installCudnn": true
         },
         "ghcr.io/mazhengcn/devcontainer-features/jax:1": {
             "jaxlibBackend": "cuda",
             "installNNlibs": false
-        },
-        "ghcr.io/devcontainers/features/common-utils:1": {
-            "username": "none"
         }
     },
     "runArgs": [
-        "--name=deeprte",
         "--gpus=all",
         "--shm-size=1g"
     ],
@@ -24,24 +22,22 @@
             },
             "extensions": [
                 "ms-python.vscode-python",
-                "ms-python.vscode-pylance",
                 "ms-python.flake8",
-                "ms-python.black-formatter",
-                "ms-python.isort"
+                "ms-python.black-formatter"
             ]
         }
     },
     "mounts": [
         {
-            "type": "volume",
             "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/rte_data"
+            "target": "${containerWorkspaceFolder}/rte_data",
+            "type": "volume"
         },
         {
-            "type": "volume",
             "source": "vscode-python-extensions",
-            "target": "/root/.vscode-server/extensions"
+            "target": "/root/.vscode-server/extensions",
+            "type": "volume"
         }
     ],
-    "postCreateCommand": "python -m pip install --no-cache-dir -e ."
+    "postCreateCommand": "python -m pip install -e ."
 }

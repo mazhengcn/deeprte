@@ -29,7 +29,7 @@ dependencies = [
     "optax>=0.1.2",
     "tensorflow-cpu>=2.9.0",
     "tensorflow_datasets>=4.5.2",
-    "jaxline@git+https://github.com/mazhengcn/jaxline"
+    "jaxline@git+https://github.com/mazhengcn/jaxline.git"
 ]
 
 [project.urls]
