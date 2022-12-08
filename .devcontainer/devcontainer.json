@@ -1,5 +1,5 @@
 {
-    "name": "DeepRTE Dev Container",
+    "name": "DeepRTE",
     "image": "python:3.10-slim-bullseye",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:1": {},
@@ -31,11 +31,6 @@
         {
             "source": "rte_data",
             "target": "${containerWorkspaceFolder}/rte_data",
-            "type": "volume"
-        },
-        {
-            "source": "vscode-python-extensions",
-            "target": "/root/.vscode-server/extensions",
             "type": "volume"
         }
     ],
