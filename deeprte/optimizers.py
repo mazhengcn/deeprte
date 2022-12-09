@@ -52,9 +52,7 @@ def get_learning_rate_schedule(
             init_value=base_lr, boundaries_and_scales=boundaries_and_scales
         )
     elif schedule_type == "exponential":
-        transition_steps = (
-            optimizer_config.decay_kwargs.transition_steps
-        )
+        transition_steps = optimizer_config.decay_kwargs.transition_steps
         decay_rate = optimizer_config.decay_kwargs.decay_rate
         schedule_fn = optax.exponential_decay(
             init_value=base_lr,
@@ -62,9 +60,7 @@ def get_learning_rate_schedule(
             decay_rate=decay_rate,
         )
     elif schedule_type == "cosine":
-        warmup_steps = (
-            optimizer_config.decay_kwargs.warmup_epochs * steps_per_epoch
-        )
+        warmup_steps = optimizer_config.decay_kwargs.warmup_epochs * steps_per_epoch
         # Batch scale the other lr values as well:
         init_value = _get_batch_scaled_lr(
             total_batch_size,
@@ -90,8 +86,7 @@ def get_learning_rate_schedule(
 
         # Number of steps spent in constant phase.
         constant_steps = int(
-            optimizer_config.decay_kwargs.constant_fraction
-            * total_steps
+            optimizer_config.decay_kwargs.constant_fraction * total_steps
         )
         decay_steps = total_steps - constant_steps
 
