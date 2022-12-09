@@ -42,8 +42,7 @@ def cartesian_product(*arrays):
     return arr
 
 
-@jax.jit
-def jax_cartesian_product(*arrays):
+def jax_cartesian_product(arrays):
     """Compute cartesian product of arrays
     with different shapes in an efficient manner.
 
@@ -54,13 +53,14 @@ def jax_cartesian_product(*arrays):
     Returns:
         Cartesian product of arrays with shape (N_1, N_2, ..., N_n, sum(d_i)).
     """
-    d = [*map(lambda x: x.shape[-1], arrays)]
-    ls = [*map(len, arrays)]
-    inds = [*map(jnp.arange, ls)]
+    num_arrs = len(arrays)
 
-    dtype = jnp.result_type(*arrays)
-    arr = jnp.empty(ls + [sum(d)], dtype=dtype)
+    def concat_fn(a):
+        return jnp.concatenate(a, axis=-1)
 
-    for i, ind in enumerate(jnp.ix_(*inds)):
-        arr = arr.at[..., sum(d[:i]) : sum(d[: i + 1]) * d].set(arrays[i][ind])
-    return arr
+    for i in range(num_arrs):
+        in_axes = [None] * num_arrs
+        in_axes[-i - 1] = int(0)
+        concat_fn = jax.vmap(concat_fn, in_axes=(in_axes,))
+
+    return concat_fn(arrays)
