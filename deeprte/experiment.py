@@ -111,7 +111,11 @@ class Trainer(experiment.AbstractExperiment):
     #
 
     def step(
-        self, global_step: jax.Array, rng: jax.Array, *unused_args, **unused_kwargs
+        self,
+        global_step: jax.Array,
+        rng: jax.Array,
+        *unused_args,
+        **unused_kwargs,
     ) -> Scalars:
         """See base class."""
         if not self._training:
@@ -301,7 +305,9 @@ class Trainer(experiment.AbstractExperiment):
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
-        logging.info("Running evaluation at global_step %s...", global_step_value)
+        logging.info(
+            "Running evaluation at global_step %s...", global_step_value
+        )
 
         t_0 = time.time()
         # Run evaluation for an epoch
@@ -331,7 +337,9 @@ class Trainer(experiment.AbstractExperiment):
             num_examples += jnp.prod(jnp.array(batch["psi_label"].shape[:2]))
             metrics = self.eval_fn(params, state, rng, batch)
             # Accumulate the sum of scalars for each step.
-            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
+            metrics = jax.tree_util.tree_map(
+                lambda x: jnp.sum(x[0], axis=0), metrics
+            )
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
@@ -348,7 +356,9 @@ class Trainer(experiment.AbstractExperiment):
         metrics = {}
         # Take sqrt if it is squared
         for k, v in mean_metrics.items():  # pylint: disable=invalid-name
-            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+            metrics["eval_" + k] = (
+                jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+            )
 
         return metrics
 
