@@ -13,13 +13,18 @@
 # limitations under the License.
 
 
+import dataclasses
+
 import jax
 import jax.numpy as jnp
 
+from deeprte.model.geometry.struct_of_array import StructOfArray
 
+
+# @StructOfArray(same_dtype=True)
 class Characteristics:
-    def __init__(self, grid: jax.Array):
-
+    # grid: jax.Array = dataclasses.field(metadata={"dtype": jnp.float32})
+    def __init__(self, grid):
         self.grid = grid
 
     @classmethod

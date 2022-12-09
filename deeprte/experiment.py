@@ -29,7 +29,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import optimizers
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model.modules import DeepRTE
+from deeprte.model.modules_v2 import DeepRTE
 from deeprte.model.tf.input_pipeline import (
     load_tf_data,
     make_device_batch,
@@ -186,10 +186,9 @@ class Trainer(experiment.AbstractExperiment):
             compute_metrics=False,
         )
         # Return loss and loss_scalars dict for logging.
-        ret, state = rte_model_fn(batch)
+        (loss, ret), state = rte_model_fn(batch)
         # Divided by device count since we have summed across all devices
         loss_scalars = ret["loss"]
-        loss = loss_scalars["mse"]
         scaled_loss = loss / jax.local_device_count()
 
         return scaled_loss, (loss_scalars, state)
@@ -452,7 +451,7 @@ class Trainer(experiment.AbstractExperiment):
         if not self.model:
 
             def _forward_fn(batch, is_training, compute_loss, compute_metrics):
-                model = DeepRTE(self.config.model)
+                model = DeepRTE(self.config.model, self.config.model)
                 return model(
                     batch,
                     is_training=is_training,

@@ -9,7 +9,7 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "num_samples": 10,
         "train": {
             "batch_size": 2,
-            "collocation_sizes": 300,
+            "collocation_sizes": 150,
             "repeat": 1,
         },
         "validation": {
@@ -63,10 +63,11 @@ CONFIG_GLOBAL = ml_collections.ConfigDict(
 
 CONFIG_MODEL = ml_collections.ConfigDict(
     {
+        "deterministic": True,
         "green_function": {
-            "scatter_model": {
-                "transport_model": {
-                    "transport_block_mlp": {"widths": [128, 128, 128, 32]},
+            "scattering_module": {
+                "attenuation_module": {
+                    "attenuation_block_mlp": {"widths": [128, 128, 128, 32]},
                     "coefficient_net": {
                         "attention_net": {"widths": [64, 1]},
                     },
@@ -74,7 +75,7 @@ CONFIG_MODEL = ml_collections.ConfigDict(
                 "res_block_depth": 1,
             },
             "activation": "gelu",
-        }
+        },
     }
 )
 
