@@ -100,7 +100,9 @@ def get_config() -> ml_collections.ConfigDict:
 
     if "transition_steps" in CONFIG_TRAINING.optimizer.decay_kwargs:
         num = CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps
-        CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = steps_from_epochs(num)
+        CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = (
+            steps_from_epochs(num)
+        )
 
     CONFIG_GLOBAL.save_checkpoint_interval = steps_from_epochs(
         CONFIG_GLOBAL.save_checkpoint_interval
@@ -135,7 +137,9 @@ def make_split_num(
     split_config = config.data_split
     num_test = split_config.num_test_samples
     num_train_and_val = config.num_samples - num_test
-    num_train = int(num_train_and_val * split_config.train_validation_split_rate)
+    num_train = int(
+        num_train_and_val * split_config.train_validation_split_rate
+    )
     num_val = num_train_and_val - num_train
 
     split_config["num_train_samples"] = num_train

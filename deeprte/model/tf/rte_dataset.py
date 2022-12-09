@@ -42,7 +42,9 @@ def _make_features_metadata(
 ) -> rte_features.FeaturesMetadata:
     """Makes a feature name to type and shape mapping from a list of names."""
 
-    features_metadata = {name: rte_features.FEATURES[name] for name in feature_names}
+    features_metadata = {
+        name: rte_features.FEATURES[name] for name in feature_names
+    }
     return features_metadata
 
 
@@ -64,12 +66,16 @@ def np_to_tensor_dict(
     features_names = features_names or rte_features._FEATURE_NAMES
     features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
-        k: tf.constant(v) for k, v in np_example.items() if k in features_metadata
+        k: tf.constant(v)
+        for k, v in np_example.items()
+        if k in features_metadata
     }
 
     # Ensures shapes are as expected. Needed for setting size of empty features
     # e.g. when no template hits were found.
-    tensor_dict = parse_reshape_logic(tensor_dict, placeholder_shape, features_metadata)
+    tensor_dict = parse_reshape_logic(
+        tensor_dict, placeholder_shape, features_metadata
+    )
     return tensor_dict
 
 
@@ -101,15 +107,23 @@ def parse_reshape_logic(
             "into %s" % (k, tf.size(v), new_shape),
         )
         with tf.control_dependencies([assert_equal]):
-            parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
+            parsed_features[k] = tf.reshape(
+                v, new_shape, name="reshape_%s" % k
+            )
 
     return parsed_features
 
 
-def make_features_shape(features: Mapping[str, np.ndarray]) -> Mapping[str, int]:
+def make_features_shape(
+    features: Mapping[str, np.ndarray]
+) -> Mapping[str, int]:
     shape_dict = {}
     shape_dict["num_examples"] = features["num_train_and_val"]
-    num_x, num_y, num_v = features["num_x"], features["num_y"], features["num_v"]
+    num_x, num_y, num_v = (
+        features["num_x"],
+        features["num_y"],
+        features["num_v"],
+    )
     shape_dict["num_position_coords"] = num_x * num_y
     shape_dict["num_velocity_coords"] = num_v
     shape_dict["num_phase_coords"] = num_x * num_y * num_v

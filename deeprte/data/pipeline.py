@@ -21,9 +21,12 @@ def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     psi_bc = np_data["psi_bc"]  # [B, 2*(I+J), 4]
 
     scattering_kernel_value = np.tile(
-        np_data["scattering_kernel"], (1, sigma_t.shape[1] * sigma_t.shape[2], 1)
+        np_data["scattering_kernel"],
+        (1, sigma_t.shape[1] * sigma_t.shape[2], 1),
     )
-    scattering_kernel = scattering_kernel_value.reshape(*(psi.shape + psi.shape[-1:]))
+    scattering_kernel = scattering_kernel_value.reshape(
+        *(psi.shape + psi.shape[-1:])
+    )
 
     sigma = np.stack([sigma_t, sigma_a], axis=-1)
 

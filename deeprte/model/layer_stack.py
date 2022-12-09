@@ -11,7 +11,9 @@ import jax
 import jax.numpy as jnp
 
 LayerStackCarry = collections.namedtuple("LayerStackCarry", ["x", "rng"])
-LayerStackScanned = collections.namedtuple("LayerStackScanned", ["i", "args_ys"])
+LayerStackScanned = collections.namedtuple(
+    "LayerStackScanned", ["i", "args_ys"]
+)
 
 # WrappedFn should take in arbitrarily nested `jnp.ndarray`, and return the
 # exact same type. We cannot express this with `typing`. So we just use it
@@ -85,13 +87,16 @@ class _LayerStack(hk.Module):
             def getter(next_getter, value, context):
                 trailing_dims = len(context.original_shape) + 1
                 sliced_value = jax.lax.index_in_dim(
-                    value, index=0, axis=value.ndim - trailing_dims, keepdims=False
+                    value,
+                    index=0,
+                    axis=value.ndim - trailing_dims,
+                    keepdims=False,
                 )
                 return next_getter(sliced_value)
 
-            with hk.experimental.custom_creator(creator), hk.experimental.custom_getter(
-                getter
-            ):
+            with hk.experimental.custom_creator(
+                creator
+            ), hk.experimental.custom_getter(getter):
                 if len(args_ys) == 1 and args_ys[0] is None:
                     args0 = (None,)
                 else:
@@ -140,11 +145,15 @@ class _LayerStack(hk.Module):
 
                 with hk.experimental.custom_getter(getter):
                     if rng is None:
-                        out_x, z = self._call_wrapped(carry.x, *scanned.args_ys)
+                        out_x, z = self._call_wrapped(
+                            carry.x, *scanned.args_ys
+                        )
                     else:
                         rng, rng_ = jax.random.split(rng)
                         with hk.with_rng(rng_):
-                            out_x, z = self._call_wrapped(carry.x, *scanned.args_ys)
+                            out_x, z = self._call_wrapped(
+                                carry.x, *scanned.args_ys
+                            )
                 return LayerStackCarry(x=out_x, rng=rng), z
 
             carry = LayerStackCarry(x=x, rng=hk.maybe_next_rng_key())
@@ -201,7 +210,10 @@ class _LayerStackWithState(_LayerStack):
 
 
 def layer_stack(
-    num_layers: int, with_state=False, unroll: int = 1, name: Optional[str] = None
+    num_layers: int,
+    with_state=False,
+    unroll: int = 1,
+    name: Optional[str] = None,
 ):
     """Utility to wrap a Haiku function and recursively apply it to an input.
 
@@ -254,18 +266,18 @@ def layer_stack(
             def wrapped(x, *args):
                 for ys in args:
                     assert ys.shape[0] == num_layers
-                return _LayerStackWithState(f, num_layers, unroll=unroll, name=name)(
-                    x, *args
-                )
+                return _LayerStackWithState(
+                    f, num_layers, unroll=unroll, name=name
+                )(x, *args)
 
         else:
             _check_no_varargs(f)
 
             @functools.wraps(f)
             def wrapped(*args):
-                ret = _LayerStackNoState(f, num_layers, unroll=unroll, name=name)(
-                    args, None
-                )[0]
+                ret = _LayerStackNoState(
+                    f, num_layers, unroll=unroll, name=name
+                )(args, None)[0]
                 if len(args) == 1:
                     # If the function takes a single argument, we must also return a
                     # single value, and not a tuple of length 1.

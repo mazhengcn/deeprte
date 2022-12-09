@@ -22,7 +22,9 @@ import jax.numpy as jnp
 import numpy as np
 
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
-TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(0.87962566103423978, dtype=np.float32)
+TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
+    0.87962566103423978, dtype=np.float32
+)
 
 
 def get_initializer_scale(initializer_name, input_shape):
@@ -134,11 +136,17 @@ class Linear(hk.Module):
         out_letters = "hijkl"[: self.num_output_dims]
 
         weight_shape = in_shape + self.output_shape
-        weights = hk.get_parameter("weights", weight_shape, inputs.dtype, weight_init)
+        weights = hk.get_parameter(
+            "weights", weight_shape, inputs.dtype, weight_init
+        )
 
-        equation = f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
+        equation = (
+            f"...{in_letters}, {in_letters}{out_letters}->...{out_letters}"
+        )
 
-        output = jnp.einsum(equation, inputs, weights, precision=self.precision)
+        output = jnp.einsum(
+            equation, inputs, weights, precision=self.precision
+        )
 
         if self.use_bias:
             bias = hk.get_parameter(
@@ -191,7 +199,7 @@ class MLP(hk.Module):
                 self.use_bias,
                 self.bias_init,
                 self.precision,
-                name="linear"
+                name="linear",
             )(out)
             if i < (self.num_layers - 1) or self.activate_final:
                 out = self.activation(out)

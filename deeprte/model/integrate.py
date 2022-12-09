@@ -38,9 +38,9 @@ def quad(
         args = list(args)
         args.insert(argnum, nodes)
         if not has_aux:
-            values = mapping.vmap(func, argnums={argnum}, out_axes=-1, use_hk=use_hk)(
-                *args
-            )
+            values = mapping.vmap(
+                func, argnums={argnum}, out_axes=-1, use_hk=use_hk
+            )(*args)
             return jnp.matmul(values, weights)
         else:
             values, aux = mapping.vmap(

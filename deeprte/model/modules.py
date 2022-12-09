@@ -208,7 +208,9 @@ class GreenFunction(hk.Module):
         res_weights_vstar = (1 - batch["self_scattering_kernel"]) * batch[
             "velocity_weights"
         ]
-        res_weights_v = (1 - batch["scattering_kernel"]) * batch["velocity_weights"]
+        res_weights_v = (1 - batch["scattering_kernel"]) * batch[
+            "velocity_weights"
+        ]
 
         act_v = green_fn_output
         act_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
@@ -289,7 +291,9 @@ class ScatteringModule(hk.Module):
         )
 
         residue = jnp.einsum("...j,jk->...k", res_weights, act)
-        residue = jax.nn.tanh(jnp.einsum("ik,...k->...i", weights, residue) + bias)
+        residue = jax.nn.tanh(
+            jnp.einsum("ik,...k->...i", weights, residue) + bias
+        )
 
         return residue
 
