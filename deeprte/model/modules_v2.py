@@ -21,7 +21,7 @@ import jax
 import jax.numpy as jnp
 
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model import layer_stack, mapping_v2, nets
+from deeprte.model import layer_stack, mapping_v2, nets, prng
 from deeprte.model.geometry.characteristics import Characteristics
 from deeprte.model.tf.rte_features import (
     _BATCH_FEATURE_NAMES,
@@ -59,7 +59,7 @@ def apply_dropout(*, tensor, safe_key, rate, is_training, broadcast_dim=None):
 def dropout_wrapper(
     module,
     input_act,
-    mask,
+    kernel,
     safe_key,
     global_config,
     output_act=None,
@@ -71,16 +71,16 @@ def dropout_wrapper(
         output_act = input_act
 
     gc = global_config
-    residual = module(input_act, mask, is_training=is_training, **kwargs)
+    residual = module(input_act, kernel, is_training=is_training, **kwargs)
     dropout_rate = 0.0 if gc.deterministic else module.config.dropout_rate
 
-    if module.config.shared_dropout:
-        if module.config.orientation == "per_row":
-            broadcast_dim = 0
-        else:
-            broadcast_dim = 1
-    else:
-        broadcast_dim = None
+    # if module.config.shared_dropout:
+    #     if module.config.orientation == "per_row":
+    #         broadcast_dim = 0
+    #     else:
+    #         broadcast_dim = 1
+    # else:
+    broadcast_dim = None
 
     residual = apply_dropout(
         tensor=residual,
@@ -96,22 +96,21 @@ def dropout_wrapper(
 
 
 class DeepRTE(hk.Module):
-    def __init__(self, config, name="deeprte"):
+    def __init__(self, config, global_config, name="deeprte"):
         super().__init__(name)
 
         self.config = config
+        self.global_config = global_config
 
     def __call__(self, batch: FeatureDict, is_training, compute_loss, compute_metrics):
         c = self.config
         ret = {}
 
         def rte_op(batch):
-            green_fn = GreenFunction(c.green_function)
+            green_fn = GreenFunction(c.green_function, self.global_config)
             quadratures = (
-                [
-                    batch["boundary_coords"],
-                    batch["boundary"] * batch["boundary_weights"],
-                ],
+                batch["boundary_coords"],
+                batch["boundary"] * batch["boundary_weights"],
             )
             rte_sol = mapping_v2.quad(green_fn, quadratures=quadratures, argnum=1)(
                 batch["phase_coords"], batch
@@ -125,11 +124,10 @@ class DeepRTE(hk.Module):
         batch_rte_op = hk.vmap(
             mapping_v2.sharded_map(
                 rte_op,
-                shard_size=(c.sub_collocation_size if is_training else None),
-                in_axes=[collocation_axes],
-                split_rng=(not hk.running_init()),
+                shard_size=(None if is_training else c.sub_collocation_size),
+                in_axes=(collocation_axes,),
             ),
-            in_axes=[batch_axes],
+            in_axes=(batch_axes,),
             split_rng=(not hk.running_init()),
         )
         predictions = batch_rte_op(batch)
@@ -155,17 +153,18 @@ class DeepRTE(hk.Module):
 
 
 class GreenFunction(hk.Module):
-    def __init__(self, config, name="green_function"):
+    def __init__(self, config, global_config, name="green_function"):
         super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
     def __call__(self, coords_1, coords_2, batch: FeatureDict):
         c = self.config
-        width = c.scatter_model.transport_model.transport_block_mlp.widths[-1]
+        width = c.scattering_module.attenuation_module.attenuation_block_mlp.widths[-1]
 
         charc = Characteristics.from_tensor(batch["position_coords"])
 
-        att_mod = AttenuationModule(c.scatter_model.transport_model)
+        att_mod = AttenuationModule(c.scattering_module.attenuation_module)
         act = att_mod(
             coords_1=coords_1, coords_2=coords_2, att_coeff=batch["sigma"], charc=charc
         )
@@ -173,7 +172,7 @@ class GreenFunction(hk.Module):
             name="proj_weights", shape=[width], init=glorot_uniform()
         )
 
-        if c.scatter_model.res_block_depth == 0:
+        if c.scattering_module.res_block_depth == 0:
             return jnp.einsum("...i, i->...", act, proj_weights)
 
         position, _ = jnp.split(coords_1, 2, axis=-1)
@@ -192,8 +191,10 @@ class GreenFunction(hk.Module):
         kernel = (1 - batch["scattering_kernel"]) * velocity_weights
         self_kernel = (1 - batch["self_scattering_kernel"]) * velocity_weights
 
-        self_act = hk.vmap(self_att_fn)(velocity_coords)  # [N_v*, N_latent]
-        act_output, _ = ScatteringModule(
+        self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
+            velocity_coords
+        )  # [N_v*, N_latent]
+        act_output, _ = ScatteringModule(c.scattering_module, self.global_config)(
             act=act, self_act=self_act, kernel=kernel, self_kernel=self_kernel
         )
 
@@ -201,48 +202,62 @@ class GreenFunction(hk.Module):
 
 
 class ScatteringModule(hk.Module):
-    def __init__(self, config, name="scattering_module"):
+    def __init__(self, config, global_config, name="scattering_module"):
         super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
-    def __call__(self, act, self_act, kernel, self_kernel, is_training=True):
+    def __call__(
+        self, act, self_act, kernel, self_kernel, is_training=True, safe_key=None
+    ):
         c = self.config
 
+        if safe_key is None:
+            safe_key = prng.SafeKey(hk.next_rng_key())
+
         dropout_wrapper_fn = functools.partial(
-            dropout_wrapper, is_training=is_training, global_config=c
+            dropout_wrapper, is_training=is_training, global_config=self.global_config
         )
 
         def scattering_fn(x):
-            act, self_act = x
-            scattering_layer = ScatteringLayer(c.scatter_model)
+            act, self_act, safe_key = x
+
+            safe_key, *sub_keys = safe_key.split(3)
+            sub_keys = iter(sub_keys)
+
+            scattering_layer = ScatteringLayer(c)
             act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
                 output_act=act,
+                safe_key=next(sub_keys),
                 kernel=kernel,
             )
             self_act_out = dropout_wrapper_fn(
-                module=scattering_layer, input_act=self_act, kernel=self_kernel
+                module=scattering_layer,
+                input_act=self_act,
+                safe_key=next(sub_keys),
+                kernel=self_kernel,
             )
-            return (act_out, self_act_out)
+            return act_out, self_act_out, safe_key
 
-        scattering_stack = layer_stack.layer_stack(c.scatter_model.res_block_depth)(
-            scattering_fn
+        scattering_stack = layer_stack.layer_stack(c.res_block_depth)(scattering_fn)
+        act_output, self_act_output, safe_key = scattering_stack(
+            (act, self_act, safe_key)
         )
-        act_output, self_act_output = scattering_stack((act, self_act))
 
         return act_output, self_act_output
 
 
 class ScatteringLayer(hk.Module):
-    def __init__(self, config, name="scattering_layer"):
+    def __init__(self, config, global_config=None, name="scattering_layer"):
         super().__init__(name=name)
         self.config = config
 
-    def __call__(self, activations, kernel):
+    def __call__(self, activations, kernel, is_training=True):
         # shape [N_v*, N_latent]  # shape [..., N_v*]
         c = self.config
-        width = c.transport_model.transport_block_mlp.widths[-1]
+        width = c.attenuation_module.attenuation_block_mlp.widths[-1]
 
         weights = hk.get_parameter(
             name="scattering_w", shape=[width, width], init=glorot_uniform()
@@ -260,18 +275,18 @@ class ScatteringLayer(hk.Module):
 class AttenuationModule(hk.Module):
     """Attenuation operator module of the tranport equation."""
 
-    def __init__(self, config, name="attenuation_module"):
+    def __init__(self, config, global_config=None, name="attenuation_module"):
         super().__init__(name=name)
         self.config = config
 
-    def __call__(self, coords_1, coords_2, att_coeff, charc):
+    def __call__(self, coords_1, coords_2, att_coeff, charc, is_training=True):
         """
         Args:
             coords_1d: Phase space coordinates that is the concat of
                 position and velocity coordinates, shape (2d,)
             coords_2d: Phase space coordinates that is the concat of
                 position and velocity coordinates, shape (2d,)
-            att_coeff: Attenuation coefficient on a grid, shape (num_potions,d)
+            att_coeff: Attenuation coefficient on a grid, shape (num_positions,d)
                 Shapes are (num_positions, d) for x and
         Returns:
             Green's function at r, r_prime.
@@ -279,7 +294,7 @@ class AttenuationModule(hk.Module):
         c = self.config
 
         attention_module = Attention(c.coefficient_net)
-        local_coords, mask = charc.apply_to_points(coords_1)
+        local_coords, mask = charc.apply_to_point(coords_1)
 
         att = attention_module(
             query=coords_1, keys=local_coords, values=att_coeff, mask=mask
@@ -287,7 +302,9 @@ class AttenuationModule(hk.Module):
         att = jnp.exp(-att)
 
         mlp_inputs = jnp.concatenate([coords_1, coords_2, att])
-        out = nets.MLP(c.transport_block_mlp.widths, name="attenuation_mlp")(mlp_inputs)
+        out = nets.MLP(c.attenuation_block_mlp.widths, name="attenuation_mlp")(
+            mlp_inputs
+        )
         out = jnp.exp(out)
 
         return out
@@ -296,11 +313,11 @@ class AttenuationModule(hk.Module):
 class Attention(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
-    def __init__(self, config, name="attention"):
+    def __init__(self, config, global_config=None, name="attention"):
         super().__init__(name=name)
         self.config = config
 
-    def __call__(self, query, keys, values, mask):
+    def __call__(self, query, keys, values, mask, is_training=True):
         """
         Args:
             q_data: (2d,) or (N, 2d)
