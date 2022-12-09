@@ -54,7 +54,9 @@ def _apply_excluded(func, excluded, args):
 def _maybe_slice(array, i, slice_size, axis):
     if axis is PROXY:
         return array
-    return jax.lax.dynamic_slice_in_dim(array, i, slice_size=slice_size, axis=axis)
+    return jax.lax.dynamic_slice_in_dim(
+        array, i, slice_size=slice_size, axis=axis
+    )
 
 
 def _maybe_get_size(array, axis):
@@ -90,13 +92,17 @@ def vmap(
         vmap_ = partial(sharded_map, shard_size=shard_size, use_hk=use_hk)
     else:
         vmap_ = (
-            partial(hk.vmap, split_rng=(not hk.running_init())) if use_hk else jax.vmap
+            partial(hk.vmap, split_rng=(not hk.running_init()))
+            if use_hk
+            else jax.vmap
         )
 
     @functools.wraps(func)
     def wrapped(*args):
         if argnums:
-            excluded_argnums = [i for i, _ in enumerate(args) if i not in argnums]
+            excluded_argnums = [
+                i for i, _ in enumerate(args) if i not in argnums
+            ]
         else:
             excluded_argnums = excluded
         excluded_fun, args = _apply_excluded(func, excluded_argnums, args)
@@ -130,7 +136,11 @@ def sharded_map(
     Returns:
         function with smap applied.
     """
-    vmap_ = partial(hk.vmap, split_rng=(not hk.running_init())) if use_hk else jax.vmap
+    vmap_ = (
+        partial(hk.vmap, split_rng=(not hk.running_init()))
+        if use_hk
+        else jax.vmap
+    )
     vmapped_func = vmap_(func, in_axes, out_axes)
     return sharded_apply(vmapped_func, shard_size, in_axes, out_axes, use_hk)
 
@@ -184,7 +194,9 @@ def sharded_apply(
     if shard_size is None:
         return fun
 
-    @jax.util.wraps(fun, docstr=docstr)  # pylint: disable=no-value-for-parameter
+    @jax.util.wraps(
+        fun, docstr=docstr
+    )  # pylint: disable=no-value-for-parameter
     def mapped_fn(*args):
         # Expand in axes and Determine Loop range
         in_axes_ = _expand_axes(in_axes, args)
@@ -197,11 +209,15 @@ def sharded_apply(
         num_extra_shards = (in_size - 1) // shard_size
         # Fix Up if necessary
         last_shard_size = in_size % shard_size
-        last_shard_size = shard_size if last_shard_size == 0 else last_shard_size
+        last_shard_size = (
+            shard_size if last_shard_size == 0 else last_shard_size
+        )
 
         def apply_fun_to_slice(slice_start, slice_size):
             input_slice = jax.tree_util.tree_map(
-                lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis),
+                lambda array, axis: _maybe_slice(
+                    array, slice_start, slice_size, axis
+                ),
                 args,
                 in_axes_,
             )
@@ -210,8 +226,12 @@ def sharded_apply(
         remainder_shape_dtype = eval_shape_(
             partial(apply_fun_to_slice, 0, last_shard_size)
         )
-        out_dtypes = jax.tree_util.tree_map(lambda x: x.dtype, remainder_shape_dtype)
-        out_shapes = jax.tree_util.tree_map(lambda x: x.shape, remainder_shape_dtype)
+        out_dtypes = jax.tree_util.tree_map(
+            lambda x: x.dtype, remainder_shape_dtype
+        )
+        out_shapes = jax.tree_util.tree_map(
+            lambda x: x.shape, remainder_shape_dtype
+        )
         out_axes_ = _expand_axes(out_axes, remainder_shape_dtype)
 
         if num_extra_shards > 0:
@@ -225,7 +245,10 @@ def sharded_apply(
             def make_output_shape(axis, shard_shape, remainder_shape):
                 return (
                     shard_shape[:axis]
-                    + (shard_shape[axis] * num_extra_shards + remainder_shape[axis],)
+                    + (
+                        shard_shape[axis] * num_extra_shards
+                        + remainder_shape[axis],
+                    )
                     + shard_shape[axis + 1 :]
                 )
 
@@ -236,12 +259,16 @@ def sharded_apply(
         # Calls dynamic Update slice with different argument order
         # This is here since tree_multimap only works with positional arguments
         def dynamic_update_slice_in_dim(full_array, update, axis, i):
-            return jax.lax.dynamic_update_slice_in_dim(full_array, update, i, axis)
+            return jax.lax.dynamic_update_slice_in_dim(
+                full_array, update, i, axis
+            )
 
         def compute_shard(outputs, slice_start, slice_size):
             slice_out = apply_fun_to_slice(slice_start, slice_size)
             update_slice = partial(dynamic_update_slice_in_dim, i=slice_start)
-            return jax.tree_util.tree_map(update_slice, outputs, slice_out, out_axes_)
+            return jax.tree_util.tree_map(
+                update_slice, outputs, slice_out, out_axes_
+            )
 
         def scan_iteration(outputs, i):
             new_outputs = compute_shard(outputs, i, shard_size)
@@ -252,7 +279,9 @@ def sharded_apply(
         def allocate_buffer(dtype, shape):
             return jnp.zeros(shape, dtype=dtype)
 
-        outputs = jax.tree_util.tree_map(allocate_buffer, out_dtypes, out_shapes)
+        outputs = jax.tree_util.tree_map(
+            allocate_buffer, out_dtypes, out_shapes
+        )
 
         if slice_starts.shape[0] > 0:
             outputs, _ = scan_(scan_iteration, outputs, slice_starts)

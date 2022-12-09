@@ -36,7 +36,9 @@ from deeprte.model.tf.input_pipeline import (
     tf_data_to_generator,
 )
 
-OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
+OptState = tuple[
+    optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
+]
 Scalars = Mapping[str, jax.Array]
 
 
@@ -45,7 +47,9 @@ def _format_logs(prefix, results):
     # "array(4., dtype=float32)".
     logging_str = " - ".join(
         [
-            f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
+            f"{k}: {results[k]:.2%}"
+            if k[-2:] == "pe"
+            else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
@@ -154,7 +158,9 @@ class Trainer(experiment.AbstractExperiment):
         # Gradient function w.r.t. params
         grad_fn = jax.grad(self._loss, has_aux=True)
         # Compute loss and gradients.
-        scaled_grads, (loss_scalars, state) = grad_fn(params, state, rng, batch)
+        scaled_grads, (loss_scalars, state) = grad_fn(
+            params, state, rng, batch
+        )
         grads = jax.lax.psum(scaled_grads, axis_name="i")
 
         # Grab the learning rate to log before performing the step.
@@ -243,7 +249,10 @@ class Trainer(experiment.AbstractExperiment):
 
         # Get learning rate schedule.
         self._lr_schedule = optimizers.get_learning_rate_schedule(
-            total_batch_size, steps_per_epoch, total_steps, c.training.optimizer
+            total_batch_size,
+            steps_per_epoch,
+            total_steps,
+            c.training.optimizer,
         )
         # Optimizer
         self.optimizer = optimizers.make_optimizer(

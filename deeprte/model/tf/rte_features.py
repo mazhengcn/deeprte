@@ -66,10 +66,14 @@ _FEATURE_NAMES = [k for k in FEATURES.keys()]
 _COLLOCATION_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_PHASE_COORDS in FEATURES[k][1]
 ]
-_BATCH_FEATURE_NAMES = [k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]]
+_BATCH_FEATURE_NAMES = [
+    k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]
+]
 
 
-def register_feature(name: str, type_: tf.dtypes.DType, shape_: tuple[str | int]):
+def register_feature(
+    name: str, type_: tf.dtypes.DType, shape_: tuple[str | int]
+):
     """Register extra features used in custom datasets."""
     FEATURES[name] = (type_, shape_)
 

@@ -167,11 +167,9 @@ class GreenFunction(hk.Module):
 
     def __call__(self, coords_1, coords_2, batch: FeatureDict):
         c = self.config
-        width = (
-            c.scattering_module.attenuation_module.attenuation_block_mlp.widths[
-                -1
-            ]
-        )
+        width = c.scattering_module.attenuation_module.attenuation_block_mlp.widths[
+            -1
+        ]
 
         charc = Characteristics.from_tensor(batch["position_coords"])
         att_mod = AttenuationModule(c.scattering_module.attenuation_module)
