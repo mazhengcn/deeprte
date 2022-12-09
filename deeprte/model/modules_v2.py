@@ -64,7 +64,7 @@ def dropout_wrapper(
     global_config,
     output_act=None,
     is_training=True,
-    **kwargs
+    **kwargs,
 ):
     """Applies module + dropout + residual update."""
     if output_act is None:
@@ -102,7 +102,7 @@ class DeepRTE(hk.Module):
         self.config = config
         self.global_config = global_config
 
-    def __call__(self, batch: FeatureDict, is_training, compute_loss, compute_metrics):
+    def __call__(self, batch, is_training, compute_loss, compute_metrics):
         c = self.config
         ret = {}
 
@@ -112,13 +112,17 @@ class DeepRTE(hk.Module):
                 batch["boundary_coords"],
                 batch["boundary"] * batch["boundary_weights"],
             )
-            rte_sol = mapping_v2.quad(green_fn, quadratures=quadratures, argnum=1)(
-                batch["phase_coords"], batch
-            )
+            rte_sol = mapping_v2.quad(
+                green_fn,
+                quadratures=quadratures,
+                argnum=1,
+            )(batch["phase_coords"], batch)
 
             return rte_sol
 
-        collocation_axes = make_in_axes(batch.keys(), _COLLOCATION_FEATURE_NAMES)
+        collocation_axes = make_in_axes(
+            batch.keys(), _COLLOCATION_FEATURE_NAMES
+        )
         batch_axes = make_in_axes(batch.keys(), _BATCH_FEATURE_NAMES)
 
         batch_rte_op = hk.vmap(
@@ -136,7 +140,10 @@ class DeepRTE(hk.Module):
         if compute_loss:
             labels = batch["psi_label"]
             loss = mean_squared_loss_fn(predictions, labels)
-            ret["loss"] = {"mse": loss, "rmspe": jnp.sqrt(loss / jnp.mean(labels**2))}
+            ret["loss"] = {
+                "mse": loss,
+                "rmspe": jnp.sqrt(loss / jnp.mean(labels**2)),
+            }
 
         if compute_metrics:
             labels = batch["psi_label"]
@@ -160,13 +167,19 @@ class GreenFunction(hk.Module):
 
     def __call__(self, coords_1, coords_2, batch: FeatureDict):
         c = self.config
-        width = c.scattering_module.attenuation_module.attenuation_block_mlp.widths[-1]
+        width = (
+            c.scattering_module.attenuation_module.attenuation_block_mlp.widths[
+                -1
+            ]
+        )
 
         charc = Characteristics.from_tensor(batch["position_coords"])
-
         att_mod = AttenuationModule(c.scattering_module.attenuation_module)
         act = att_mod(
-            coords_1=coords_1, coords_2=coords_2, att_coeff=batch["sigma"], charc=charc
+            coords_1=coords_1,
+            coords_2=coords_2,
+            att_coeff=batch["sigma"],
+            charc=charc,
         )
         proj_weights = hk.get_parameter(
             name="proj_weights", shape=[width], init=glorot_uniform()
@@ -180,7 +193,10 @@ class GreenFunction(hk.Module):
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
             out = att_mod(
-                coords_1=coord, coords_2=coords_2, att_coeff=batch["sigma"], charc=charc
+                coords_1=coord,
+                coords_2=coords_2,
+                att_coeff=batch["sigma"],
+                charc=charc,
             )
             return out
 
@@ -194,9 +210,9 @@ class GreenFunction(hk.Module):
         self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
             velocity_coords
         )  # [N_v*, N_latent]
-        act_output, _ = ScatteringModule(c.scattering_module, self.global_config)(
-            act=act, self_act=self_act, kernel=kernel, self_kernel=self_kernel
-        )
+        act_output, _ = ScatteringModule(
+            c.scattering_module, self.global_config
+        )(act=act, self_act=self_act, kernel=kernel, self_kernel=self_kernel)
 
         return jnp.einsum("...i, i->...", act_output, proj_weights)
 
@@ -208,7 +224,7 @@ class ScatteringModule(hk.Module):
         self.global_config = global_config
 
     def __call__(
-        self, act, self_act, kernel, self_kernel, is_training=True, safe_key=None
+        self, act, self_act, kernel, self_kernel, is_training, safe_key=None
     ):
         c = self.config
 
@@ -216,7 +232,9 @@ class ScatteringModule(hk.Module):
             safe_key = prng.SafeKey(hk.next_rng_key())
 
         dropout_wrapper_fn = functools.partial(
-            dropout_wrapper, is_training=is_training, global_config=self.global_config
+            dropout_wrapper,
+            is_training=is_training,
+            global_config=self.global_config,
         )
 
         def scattering_fn(x):
@@ -241,7 +259,9 @@ class ScatteringModule(hk.Module):
             )
             return act_out, self_act_out, safe_key
 
-        scattering_stack = layer_stack.layer_stack(c.res_block_depth)(scattering_fn)
+        scattering_stack = layer_stack.layer_stack(c.res_block_depth)(
+            scattering_fn
+        )
         act_output, self_act_output, safe_key = scattering_stack(
             (act, self_act, safe_key)
         )
@@ -260,10 +280,14 @@ class ScatteringLayer(hk.Module):
         width = c.attenuation_module.attenuation_block_mlp.widths[-1]
 
         weights = hk.get_parameter(
-            name="scattering_w", shape=[width, width], init=glorot_uniform()
+            name="scattering_weights",
+            shape=[width, width],
+            init=glorot_uniform(),
         )
         bias = hk.get_parameter(
-            name="scattering_bias", shape=[width], init=hk.initializers.Constant(0.0)
+            name="scattering_bias",
+            shape=[width],
+            init=hk.initializers.Constant(0.0),
         )
 
         out = jnp.einsum("...j,jk->...k", kernel, activations)
@@ -297,14 +321,18 @@ class AttenuationModule(hk.Module):
         local_coords, mask = charc.apply_to_point(coords_1)
 
         att = attention_module(
-            query=coords_1, keys=local_coords, values=att_coeff, mask=mask
+            query=coords_1,
+            keys=local_coords,
+            values=att_coeff,
+            mask=mask,
         )
         att = jnp.exp(-att)
 
         mlp_inputs = jnp.concatenate([coords_1, coords_2, att])
-        out = nets.MLP(c.attenuation_block_mlp.widths, name="attenuation_mlp")(
-            mlp_inputs
-        )
+        out = nets.MLP(
+            c.attenuation_block_mlp.widths,
+            name="attenuation_mlp",
+        )(mlp_inputs)
         out = jnp.exp(out)
 
         return out
