@@ -8,6 +8,7 @@ import scipy.io as sio
 import tree
 
 from deeprte.data import utils
+from deeprte.data.tool import matlab
 
 FeatureDict = MutableMapping[str, np.ndarray]
 
@@ -87,21 +88,18 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
 class DataPipeline:
     def __init__(
         self,
-        data_path: str,
+        source_dir: str,
+        data_name_list: list[str],
     ):
-        self.data_path = data_path
+        self.source_dir = source_dir
+        self.data_name_list = data_name_list
         self.data = self.load_data()
 
     def load_data(
         self,
     ):
-        if not isinstance(self.data_path, pathlib.Path):
-            data_path = pathlib.Path(self.data_path)
 
-        if data_path.suffix == ".mat":
-            data = sio.loadmat(data_path)
-
-        return data
+        return matlab.mat_loader(self.source_dir, self.data_name_list)
 
     def process(
         self,
@@ -141,8 +139,8 @@ class DataPipeline:
                 if not isinstance(save_path, pathlib.Path):
                     save_path = pathlib.Path(save_path)
             else:
-                path = pathlib.Path(self.data_path)
-                save_path = path.parent / (str(path.stem) + "_test_ds.npz")
+                path = pathlib.Path(self.source_dir)
+                save_path = path / (self.data_name_list[0] + "_test_ds.npz")
             np.savez(save_path, **test_ds, **grid_feature, **shape_dict)
 
             shape_dict["num_train_and_val"] = (

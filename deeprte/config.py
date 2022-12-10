@@ -7,19 +7,20 @@ from deeprte.model.config import CONFIG_MODEL
 
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
-        "data_path": "",
-        "num_samples": 10,
+        "source_dir": "",
+        "data_name_list": [],
+        "num_samples": 1000,
         "train": {
             "batch_size": 2,
-            "collocation_sizes": 150,
+            "collocation_sizes": 500,
             "repeat": 1,
         },
         "validation": {
             "batch_size": 2,
         },
         "data_split": {
-            "num_test_samples": 2,
-            "save_path": None,
+            "num_test_samples": 200,
+            "save_path": "",
             "train_validation_split_rate": 0.8,
             "is_split_datasets": True,
         },

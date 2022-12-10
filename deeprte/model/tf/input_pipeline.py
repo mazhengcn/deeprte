@@ -34,7 +34,8 @@ AUTOTUNE = tf.data.AUTOTUNE
 
 
 def load_tf_data(
-    data_path: str,
+    source_dir: str,
+    data_name_list: list[str],
     pre_shuffle: bool = False,
     pre_shuffle_seed: int = 0,
     is_split_test_samples: bool = False,
@@ -42,7 +43,7 @@ def load_tf_data(
     save_path: Optional[str] = None,
     features_names: Optional[Sequence[str]] = None,
 ) -> TensorDict:
-    data_pipeline = DataPipeline(data_path)
+    data_pipeline = DataPipeline(source_dir, data_name_list)
     data = data_pipeline.process(
         pre_shuffle=pre_shuffle,
         pre_shuffle_seed=pre_shuffle_seed,

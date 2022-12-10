@@ -6,12 +6,12 @@ CONFIG_MODEL = ml_collections.ConfigDict(
         "global_config": {
             "deterministic": True,
             "sub_collocation_size": 128,
-            "latent_dims": 64,
+            "latent_dims": 128,
         },
         "model_structure": {
             "green_function": {
                 "scattering_module": {
-                    "res_block_depth": 1,
+                    "res_block_depth": 0,
                 },
                 "attenuation_module": {
                     "attenuation_block": {
