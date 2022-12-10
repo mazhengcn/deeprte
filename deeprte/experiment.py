@@ -442,7 +442,8 @@ class Trainer(experiment.AbstractExperiment):
         """dataset loading."""
         c = self.config.dataset
         self.tf_data = load_tf_data(
-            data_path=c.data_path,
+            source_dir=c.source_dir,
+            data_name_list=c.data_name_list,
             pre_shuffle=c.pre_shuffle,
             pre_shuffle_seed=c.pre_shuffle_seed,
             is_split_test_samples=c.data_split.is_split_datasets,
