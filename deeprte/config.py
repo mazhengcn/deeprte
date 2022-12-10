@@ -9,19 +9,19 @@ CONFIG_DATASET = ml_collections.ConfigDict(
     {
         "source_dir": "",
         "data_name_list": [],
-        "num_samples": 1000,
+        "num_samples": 2000,
         "train": {
-            "batch_size": 2,
+            "batch_size": 8,
             "collocation_sizes": 500,
             "repeat": 1,
         },
         "validation": {
-            "batch_size": 2,
+            "batch_size": 8,
         },
         "data_split": {
-            "num_test_samples": 200,
+            "num_test_samples": 400,
             "save_path": "",
-            "train_validation_split_rate": 0.8,
+            "train_validation_split_rate": 0.75,
             "is_split_datasets": True,
         },
         "pre_shuffle_seed": 42,
@@ -51,7 +51,8 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
 CONFIG_GLOBAL = ml_collections.ConfigDict(
     {
         # N means N epochs
-        "save_checkpoint_interval": 40,
+        "interval_type": "steps",
+        "save_checkpoint_interval": 5,
         "log_tensors_interval": 1,
         "log_train_data_interval": 2,
         # When True, the eval job immediately loads a checkpoint runs evaluate()
@@ -88,7 +89,9 @@ def get_config() -> ml_collections.ConfigDict:
         CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = (
             steps_from_epochs(num)
         )
-
+    CONFIG_GLOBAL.training_steps = steps_from_epochs(
+        CONFIG_TRAINING.num_epochs
+    )
     CONFIG_GLOBAL.save_checkpoint_interval = steps_from_epochs(
         CONFIG_GLOBAL.save_checkpoint_interval
     )
