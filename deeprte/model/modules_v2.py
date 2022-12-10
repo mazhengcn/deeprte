@@ -21,7 +21,7 @@ import jax
 import jax.numpy as jnp
 
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model import layer_stack, mapping_v2, nets, prng
+from deeprte.model import mapping_v2, nets
 from deeprte.model.geometry.characteristics import Characteristics
 from deeprte.model.tf.rte_features import (
     _BATCH_FEATURE_NAMES,
