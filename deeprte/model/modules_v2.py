@@ -233,9 +233,6 @@ class ScatteringModule(hk.Module):
         c = self.config
         gc = self.global_config
 
-        if safe_key is None:
-            safe_key = prng.SafeKey(hk.next_rng_key())
-
         dropout_wrapper_fn = functools.partial(
             dropout_wrapper,
             is_training=is_training,
@@ -243,33 +240,28 @@ class ScatteringModule(hk.Module):
         )
 
         def scattering_fn(x):
-            act, self_act, safe_key = x
-
-            safe_key, *sub_keys = safe_key.split(3)
-            sub_keys = iter(sub_keys)
+            act, self_act = x
 
             scattering_layer = ScatteringLayer(c, gc)
             act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
                 output_act=act,
-                safe_key=next(sub_keys),
+                safe_key=None,
                 kernel=kernel,
             )
             self_act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
-                safe_key=next(sub_keys),
+                safe_key=None,
                 kernel=self_kernel,
             )
-            return act_out, self_act_out, safe_key
+            return act_out, self_act_out
 
-        scattering_stack = layer_stack.layer_stack(c.res_block_depth)(
+        scattering_stack = hk.experimental.layer_stack(c.res_block_depth)(
             scattering_fn
         )
-        act_output, self_act_output, safe_key = scattering_stack(
-            (act, self_act, safe_key)
-        )
+        act_output, self_act_output = scattering_stack((act, self_act))
 
         return act_output, self_act_output
 
