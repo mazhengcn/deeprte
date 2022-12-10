@@ -3,6 +3,8 @@ import functools
 import ml_collections
 from jaxline import base_config
 
+from deeprte.model.config import CONFIG_MODEL
+
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
         "data_path": "",
@@ -58,24 +60,6 @@ CONFIG_GLOBAL = ml_collections.ConfigDict(
         "random_seed": 42,
         "checkpoint_dir": "",
         "restore_dir": "",
-    }
-)
-
-CONFIG_MODEL = ml_collections.ConfigDict(
-    {
-        "deterministic": True,
-        "green_function": {
-            "scattering_module": {
-                "attenuation_module": {
-                    "attenuation_block_mlp": {"widths": [128, 128, 128, 32]},
-                    "coefficient_net": {
-                        "attention_net": {"widths": [64, 1]},
-                    },
-                },
-                "res_block_depth": 1,
-            },
-            "activation": "gelu",
-        },
     }
 )
 
