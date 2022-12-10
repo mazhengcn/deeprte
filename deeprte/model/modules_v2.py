@@ -104,10 +104,11 @@ class DeepRTE(hk.Module):
 
     def __call__(self, batch, is_training, compute_loss, compute_metrics):
         c = self.config
+        gc = self.global_config
         ret = {}
 
         def rte_op(batch):
-            green_fn = GreenFunction(c.green_function, self.global_config)
+            green_fn = GreenFunction(c.green_function, gc)
             quadratures = (
                 batch["boundary_coords"],
                 batch["boundary"] * batch["boundary_weights"],
@@ -128,7 +129,7 @@ class DeepRTE(hk.Module):
         batch_rte_op = hk.vmap(
             mapping_v2.sharded_map(
                 rte_op,
-                shard_size=(None if is_training else c.sub_collocation_size),
+                shard_size=(None if is_training else gc.sub_collocation_size),
                 in_axes=(collocation_axes,),
             ),
             in_axes=(batch_axes,),
@@ -167,12 +168,11 @@ class GreenFunction(hk.Module):
 
     def __call__(self, coords_1, coords_2, batch: FeatureDict):
         c = self.config
-        width = c.scattering_module.attenuation_module.attenuation_block_mlp.widths[
-            -1
-        ]
+        gc = self.global_config
+        width = gc.latent_dims
 
         charc = Characteristics.from_tensor(batch["position_coords"])
-        att_mod = AttenuationModule(c.scattering_module.attenuation_module)
+        att_mod = AttenuationModule(c.attenuation_module, gc)
         act = att_mod(
             coords_1=coords_1,
             coords_2=coords_2,
@@ -208,9 +208,9 @@ class GreenFunction(hk.Module):
         self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
             velocity_coords
         )  # [N_v*, N_latent]
-        act_output, _ = ScatteringModule(
-            c.scattering_module, self.global_config
-        )(act=act, self_act=self_act, kernel=kernel, self_kernel=self_kernel)
+        act_output, _ = ScatteringModule(c.scattering_module, gc)(
+            act=act, self_act=self_act, kernel=kernel, self_kernel=self_kernel
+        )
 
         return jnp.einsum("...i, i->...", act_output, proj_weights)
 
@@ -222,9 +222,16 @@ class ScatteringModule(hk.Module):
         self.global_config = global_config
 
     def __call__(
-        self, act, self_act, kernel, self_kernel, is_training, safe_key=None
+        self,
+        act,
+        self_act,
+        kernel,
+        self_kernel,
+        is_training=True,
+        safe_key=None,
     ):
         c = self.config
+        gc = self.global_config
 
         if safe_key is None:
             safe_key = prng.SafeKey(hk.next_rng_key())
@@ -232,7 +239,7 @@ class ScatteringModule(hk.Module):
         dropout_wrapper_fn = functools.partial(
             dropout_wrapper,
             is_training=is_training,
-            global_config=self.global_config,
+            global_config=gc,
         )
 
         def scattering_fn(x):
@@ -241,7 +248,7 @@ class ScatteringModule(hk.Module):
             safe_key, *sub_keys = safe_key.split(3)
             sub_keys = iter(sub_keys)
 
-            scattering_layer = ScatteringLayer(c)
+            scattering_layer = ScatteringLayer(c, gc)
             act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
@@ -268,14 +275,17 @@ class ScatteringModule(hk.Module):
 
 
 class ScatteringLayer(hk.Module):
-    def __init__(self, config, global_config=None, name="scattering_layer"):
+    def __init__(self, config, global_config, name="scattering_layer"):
         super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
     def __call__(self, activations, kernel, is_training=True):
         # shape [N_v*, N_latent]  # shape [..., N_v*]
         c = self.config
-        width = c.attenuation_module.attenuation_block_mlp.widths[-1]
+        gc = self.global_config
+
+        width = gc.latent_dims
 
         weights = hk.get_parameter(
             name="scattering_weights",
@@ -297,9 +307,10 @@ class ScatteringLayer(hk.Module):
 class AttenuationModule(hk.Module):
     """Attenuation operator module of the tranport equation."""
 
-    def __init__(self, config, global_config=None, name="attenuation_module"):
+    def __init__(self, config, global_config, name="attenuation_module"):
         super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
     def __call__(self, coords_1, coords_2, att_coeff, charc, is_training=True):
         """
@@ -314,8 +325,9 @@ class AttenuationModule(hk.Module):
             Green's function at r, r_prime.
         """
         c = self.config
+        gc = self.global_config
 
-        attention_module = Attention(c.coefficient_net)
+        attention_module = Attention(c.attention, gc)
         local_coords, mask = charc.apply_to_point(coords_1)
 
         att = attention_module(
@@ -326,9 +338,14 @@ class AttenuationModule(hk.Module):
         )
         att = jnp.exp(-att)
 
+        widths = c.attenuation_block.widths
+        num_layer = c.attenuation_block.num_layer
+        out_widths = gc.latent_dims
+        layer_widths = [widths] * num_layer + [out_widths]
+
         mlp_inputs = jnp.concatenate([coords_1, coords_2, att])
         out = nets.MLP(
-            c.attenuation_block_mlp.widths,
+            layer_widths,
             name="attenuation_mlp",
         )(mlp_inputs)
         out = jnp.exp(out)
@@ -339,9 +356,10 @@ class AttenuationModule(hk.Module):
 class Attention(hk.Module):
     """Coefficient functions as inputs of Green's function."""
 
-    def __init__(self, config, global_config=None, name="attention"):
+    def __init__(self, config, global_config, name="attention"):
         super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
     def __call__(self, query, keys, values, mask, is_training=True):
         """
@@ -353,7 +371,7 @@ class Attention(hk.Module):
             (c,) or (N, c)
         """
         c = self.config
-        key_dim = c.attention_net.widths[0]
+        key_dim = c.widths
 
         q_weights = hk.get_parameter(
             "query_w", shape=(query.shape[-1], key_dim), init=glorot_uniform()

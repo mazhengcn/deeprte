@@ -470,7 +470,10 @@ class Trainer(experiment.AbstractExperiment):
         if not self.model:
 
             def _forward_fn(batch, is_training, compute_loss, compute_metrics):
-                model = DeepRTE(self.config.model, self.config.model)
+                model = DeepRTE(
+                    self.config.model.model_structure,
+                    self.config.model.global_config,
+                )
                 return model(
                     batch,
                     is_training=is_training,
