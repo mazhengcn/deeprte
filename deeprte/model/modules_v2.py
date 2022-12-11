@@ -28,6 +28,8 @@ from deeprte.model.tf.rte_features import (
     _COLLOCATION_FEATURE_NAMES,
 )
 
+# from deeprte.
+
 
 def glorot_uniform():
     return hk.initializers.VarianceScaling(
@@ -40,7 +42,7 @@ def mean_squared_loss_fn(x, y, axis=None):
 
 
 def make_in_axes(batch_keys, template):
-    return {k: 0 if k in template else None for k in batch_keys}
+    return [{k: 0 if k in template else None for k in batch_keys}]
 
 
 def apply_dropout(*, tensor, safe_key, rate, is_training, broadcast_dim=None):
@@ -129,8 +131,12 @@ class DeepRTE(hk.Module):
         batch_rte_op = hk.vmap(
             mapping_v2.sharded_map(
                 rte_op,
-                shard_size=(None if is_training else gc.sub_collocation_size),
-                in_axes=(collocation_axes,),
+                shard_size=(
+                    None
+                    if is_training or hk.running_init()
+                    else gc.sub_collocation_size
+                ),
+                in_axes=collocation_axes,
             ),
             in_axes=(batch_axes,),
             split_rng=(not hk.running_init()),
