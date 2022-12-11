@@ -150,4 +150,5 @@ class DataPipeline:
             return {**train_ds, **grid_feature, **shape_dict}
 
         else:
+            shape_dict["num_train_and_val"] = shape_dict["num_examples"]
             return {**data_feature, **grid_feature, **shape_dict}
