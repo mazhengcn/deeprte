@@ -114,14 +114,16 @@ class GreenFunction(hk.Module):
     def __call__(self, coord1, coord2, batch, is_training):
         c = self.config
         gc = self.global_config
+        c.attenuation.output_dim = c.scattering.latent_dim
 
         w_init = get_initializer_scale(gc.w_init)
+        projection = hk.Linear(
+            1, with_bias=False, w_init=w_init, name="output_projection"
+        )
 
         charc = Characteristics.from_tensor(batch["position_coords"])
-        att_mod = Attenuation(c.attenuation, gc)
-        final_projection = hk.Linear(1, with_bias=False, w_init=w_init)
-
-        act = att_mod(
+        attenuation_module = Attenuation(c.attenuation, gc)
+        act = attenuation_module(
             coord1=coord1,
             coord2=coord2,
             att_coeff=batch["sigma"],
@@ -129,14 +131,14 @@ class GreenFunction(hk.Module):
         )
 
         if c.scattering.num_layer == 0:
-            act_out = final_projection(act)
-            return jnp.squeeze(final_projection(act_out), axis=-1)
+            output = projection(act)
+            return jnp.squeeze(output, axis=-1)
 
         position, _ = jnp.split(coord1, 2, axis=-1)
 
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
-            out = att_mod(
+            out = attenuation_module(
                 coord1=coord,
                 coord2=coord2,
                 att_coeff=batch["sigma"],
@@ -161,9 +163,9 @@ class GreenFunction(hk.Module):
             self_kernel=self_kernel,
             is_training=is_training,
         )
-        act_output = final_projection(act_output)
+        output = projection(act_output)
 
-        return jnp.squeeze(act_output, axis=-1)
+        return jnp.squeeze(output, axis=-1)
 
 
 class Scattering(hk.Module):
@@ -256,6 +258,7 @@ class Attenuation(hk.Module):
         """
         c = self.config
         gc = self.global_config
+        w_init = get_initializer_scale(gc.w_init)
 
         attention_module = Attention(c.attention, gc)
         local_coords, mask = charc.apply_to_point(coord1)
@@ -266,15 +269,15 @@ class Attenuation(hk.Module):
         att = jnp.exp(-att)
 
         act = jnp.concatenate([coord1, coord2, att])
-        for i in range(c.num_layer):
+        for _ in range(c.num_layer - 1):
             act = hk.Linear(
-                c.latent_dim,
-                w_init=get_initializer_scale(gc.w_init),
-                name="attenuation_linear",
+                c.latent_dim, w_init=w_init, name="attenuation_linear"
             )(act)
-            if i < c.num_layer - 1:
-                act = jax.nn.tanh(act)
+            act = jax.nn.tanh(act)
 
+        act = hk.Linear(c.output_dim, w_init=w_init, name="output_projection")(
+            act
+        )
         act = jnp.exp(act)
 
         return act
@@ -338,10 +341,10 @@ class Attention(hk.Module):
         attn = jnp.reshape(attn, (*leading_dims, -1))  # [T', H*V]
 
         # Apply another projection to get the final embeddings.
-        final_projection = hk.Linear(
-            self.output_dim, w_init=self.w_init, name="final_projection"
+        output_projection = hk.Linear(
+            self.output_dim, w_init=self.w_init, name="output_projection"
         )
-        return final_projection(attn)  # [T', D']
+        return output_projection(attn)  # [T', D']
 
     @hk.transparent
     def _linear_projection(

@@ -26,7 +26,7 @@ CONFIG = ml_collections.ConfigDict(
         "green_function": {
             "scattering": {
                 "num_layer": 2,
-                "latent_dim": 128,
+                "latent_dim": 64,
             },
             "attenuation": {
                 "num_layer": 3,
