@@ -17,35 +17,37 @@
 from collections.abc import Callable
 from typing import Optional
 
+import jax
 import jax.numpy as jnp
 
-from deeprte.model import mapping
+from deeprte.model.mapping import sharded_map
 
 
 def quad(
-    func: Callable[..., float],
-    quad_points: tuple[jnp.ndarray, jnp.ndarray],
-    argnum=0,
+    fun: Callable[..., float],
+    quadratures: list[jax.Array] | tuple[jax.Array],
+    argnum: int = 0,
+    shard_size: int | None = None,
     has_aux: Optional[bool] = False,
-    use_hk: Optional[bool] = True,
 ) -> Callable[..., float]:
     """Compute the integral operator for a scalar function using
     quadratures."""
 
-    nodes, weights = quad_points
+    points, weights = quadratures
 
-    def integral(*args):
+    def integral_fn(*args):
         args = list(args)
-        args.insert(argnum, nodes)
-        if not has_aux:
-            values = mapping.vmap(
-                func, argnums={argnum}, out_axes=-1, use_hk=use_hk
-            )(*args)
-            return jnp.matmul(values, weights)
-        else:
-            values, aux = mapping.vmap(
-                func, argnums={argnum}, out_axes=-1, use_hk=use_hk
-            )(*args)
-            return jnp.matmul(values, weights), aux
+        in_axes_ = [None] * len(args)
+        args.insert(argnum, points)
+        in_axes_.insert(argnum, int(0))
+        out = sharded_map(
+            fun, shard_size=shard_size, in_axes=in_axes_, out_axes=-1
+        )(*args)
+        if has_aux:
+            values, aux = out
+            result = jnp.dot(values, weights)
+            return result, aux
 
-    return integral
+        return jnp.dot(out, weights)
+
+    return integral_fn
