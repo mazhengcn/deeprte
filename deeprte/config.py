@@ -55,8 +55,8 @@ CONFIG_GLOBAL = ml_collections.ConfigDict(
         "save_checkpoint_interval": 5,
         "log_tensors_interval": 1,
         "log_train_data_interval": 2,
-        # When True, the eval job immediately loads a checkpoint runs evaluate()
-        # once, then terminates.
+        # When True, the eval job immediately loads a checkpoint
+        # runs evaluate() once, then terminates.
         "one_off_evaluate": False,
         # Seed for the RNGs (default is 42).
         "random_seed": 42,
