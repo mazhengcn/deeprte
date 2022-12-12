@@ -27,7 +27,7 @@ from absl import flags, logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte.experiment import Trainer
+from deeprte.train import Trainer
 from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS

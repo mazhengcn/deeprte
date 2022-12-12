@@ -29,7 +29,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import optimizers
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model.modules import DeepRTE
+from deeprte.model import modules
 from deeprte.model.tf.input_pipeline import (
     load_tf_data,
     make_device_batch,
@@ -69,10 +69,7 @@ class Trainer(experiment.AbstractExperiment):
     }
 
     def __init__(
-        self,
-        mode: str,
-        init_rng: jax.Array,
-        config: ml_collections.ConfigDict,
+        self, mode: str, init_rng: jax.Array, config: ml_collections.ConfigDict
     ):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
@@ -473,17 +470,9 @@ class Trainer(experiment.AbstractExperiment):
         # Create solution instance.
         if not self.model:
 
-            def _forward_fn(batch, is_training, compute_loss, compute_metrics):
-                model = DeepRTE(
-                    self.config.model.model_structure,
-                    self.config.model.global_config,
-                )
-                return model(
-                    batch,
-                    is_training=is_training,
-                    compute_loss=compute_loss,
-                    compute_metrics=compute_metrics,
-                )
+            def _forward_fn(*args, **kwargs):
+                model = modules.DeepRTE(self.config.model)
+                return model(*args, **kwargs)
 
             self.model = hk.transform_with_state(_forward_fn)
         else:

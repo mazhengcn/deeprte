@@ -42,11 +42,11 @@ def get_vmap_axes(
 
 
 class DeepRTE(hk.Module):
-    def __init__(self, config, global_config, name="deeprte"):
+    def __init__(self, config, name="deeprte"):
         super().__init__(name)
 
         self.config = config
-        self.global_config = global_config
+        self.global_config = config.global_config
 
     def __call__(self, batch, is_training, compute_loss, compute_metrics):
         c = self.config
