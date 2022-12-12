@@ -4,7 +4,6 @@ import pathlib
 from typing import Mapping, MutableMapping, Optional
 
 import numpy as np
-import scipy.io as sio
 import tree
 
 from deeprte.data import utils
@@ -14,7 +13,9 @@ FeatureDict = MutableMapping[str, np.ndarray]
 
 
 def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
-    """Convert numpy data dict to unified numpy data dict for rectangle domain."""
+    """Convert numpy data dict to unified numpy data dict
+    for rectangle domain.
+    """
     # Load reference solutions and sigmas
     psi = np_data["psi_label"]  # [B, I, J, M]
     sigma_t = np_data["sigma_t"]  # [B, I, J]
@@ -61,10 +62,6 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
         np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords
     )
     features["phase_coords"] = rv
-
-    # vv_star = cartesian_product_nd(
-    #     np.expand_dims(x, axis=-1), np.expand_dims(y, axis=-1), v_coords, v_coords
-    # )
 
     rv_prime, w_prime = np_data["rv_prime"], np_data["omega_prime"]
     features["boundary_coords"] = rv_prime
@@ -149,5 +146,4 @@ class DataPipeline:
 
             return {**train_ds, **grid_feature, **shape_dict}
 
-        else:
-            return {**data_feature, **grid_feature, **shape_dict}
+        return {**data_feature, **grid_feature, **shape_dict}

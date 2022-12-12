@@ -28,6 +28,7 @@ class FeatureType(enum.Enum):
     TWO_DIM = 2
 
 
+NUM_DIM = 2
 # Placeholder values that will be replaced with their true value at runtime.
 NUM_EXAMPLES = "num batch placeholder"
 NUM_POSITION_COORDS = "num position coords placeholder"
@@ -36,10 +37,8 @@ NUM_VELOCITY_COORDS = "num velocity placeholder"
 NUM_PHASE_COORDS = "num phase placeholder"
 NUM_BOUNDARY_COORDS = "num boundary placeholder"
 
-NUM_DIM = 2
-
 FEATURES = {
-    # Static features of rte #
+    # Static features of RTE #
     "sigma": (tf.float32, [NUM_EXAMPLES, NUM_POSITION_COORDS, 2]),
     "boundary": (tf.float32, [NUM_EXAMPLES, NUM_BOUNDARY_COORDS]),
     "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
@@ -62,11 +61,11 @@ FEATURES = {
     "psi_label": (tf.float32, [NUM_EXAMPLES, NUM_PHASE_COORDS]),
 }
 
-_FEATURE_NAMES = [k for k in FEATURES.keys()]
-_COLLOCATION_FEATURE_NAMES = [
+FEATURE_NAMES = [k for k in FEATURES.keys()]
+COLLOCATION_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_PHASE_COORDS in FEATURES[k][1]
 ]
-_BATCH_FEATURE_NAMES = [
+BATCH_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]
 ]
 
@@ -91,13 +90,15 @@ def shape(
 
     Args:
       feature_name: String identifier for the feature.
-      features: A feature_name to (tf_dtype, shape) lookup; defaults to FEATURES.
+      features: A feature_name to (tf_dtype, shape) lookup;
+        defaults to FEATURES.
 
     Returns:
       List of ints representation the tensor size.
 
     Raises:
-      ValueError: If a feature is requested but no concrete placeholder value is given.
+      ValueError: If a feature is requested but no concrete
+        placeholder value is given.
     """
     features = features or FEATURES
 
