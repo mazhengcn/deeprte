@@ -12,426 +12,343 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Core modules including Green's function net and sigma net."""
+"""Core modules including Green's function with Attenuation and Scattering."""
 
+import functools
 from typing import Optional
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import ml_collections
+import numpy as np
 
-from deeprte.data.pipeline import FeatureDict
-from deeprte.model.integrate import quad
-from deeprte.model.layer_stack import layer_stack
-from deeprte.model.mapping import vmap
-from deeprte.model.networks import MLP
+from deeprte.model import integrate, mapping
+from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf.rte_features import (
-    _BATCH_FEATURE_NAMES,
-    _COLLOCATION_FEATURE_NAMES,
-    NUM_DIM,
+    BATCH_FEATURE_NAMES,
+    COLLOCATION_FEATURE_NAMES,
+)
+from deeprte.model.utils import (
+    dropout_wrapper,
+    get_initializer_scale,
+    mean_squared_loss_fn,
 )
 
 
-def dropout_wrapper(module, input_act, output_act=None, **kwargs):
-    """Applies module + dropout + residual update."""
-    if output_act is None:
-        output_act = input_act
-
-    residual = module(input_act, **kwargs)
-
-    new_act = output_act + residual
-
-    return new_act
-
-
-def glorot_uniform():
-    return hk.initializers.VarianceScaling(
-        scale=1.0, mode="fan_avg", distribution="uniform"
-    )
-
-
-def mean_squared_loss_fn(x, y, axis=None):
-    return jnp.mean(jnp.square(x - y), axis=axis)
-
-
-def make_batch_axes_dict(batch):
-    return {k: 0 if k in _BATCH_FEATURE_NAMES else None for k in batch}
-
-
-def make_collocation_axes_dict(batch):
-    return {k: 0 if k in _COLLOCATION_FEATURE_NAMES else None for k in batch}
+def get_vmap_axes(
+    dict_keys: list[str], template: list[str]
+) -> list[dict[str, jnp.ndarray]]:
+    return ({k: 0 if k in template else None for k in dict_keys},)
 
 
 class DeepRTE(hk.Module):
-    def __init__(self, config, name: Optional[str] = "DeepRTE"):
+    def __init__(self, config, global_config, name="deeprte"):
         super().__init__(name)
 
         self.config = config
-        self.batch_axes_dict = None
-        self.collocation_axes_dict = None
+        self.global_config = global_config
 
-    def __call__(
-        self,
-        batch: FeatureDict,
-        is_training: bool,
-        compute_loss: bool,
-        compute_metrics: bool,
-    ):
+    def __call__(self, batch, is_training, compute_loss, compute_metrics):
+        c = self.config
+        gc = self.global_config
         ret = {}
 
-        # rte_module = RTEModel(self.config)
-
-        def rte_module(batch: FeatureDict) -> jax.Array:
-            green_func_module = GreenFunction(
-                self.config.green_function,
+        def rte_op(batch):
+            green_fn = GreenFunction(c.green_function, gc)
+            quadratures = (
+                batch["boundary_coords"],
+                batch["boundary"] * batch["boundary_weights"],
             )
-            sol = quad(
-                green_func_module,
-                (
-                    batch["boundary_coords"],
-                    batch["boundary"] * batch["boundary_weights"],
-                ),
-                argnum=1,
-            )(batch["phase_coords"], batch)
+            rte_sol = integrate.quad(
+                green_fn, quadratures=quadratures, argnum=1
+            )(batch["phase_coords"], batch, is_training)
+            return rte_sol
 
-            return sol
+        low_memory = (
+            None
+            if is_training or hk.running_init()
+            else gc.subcollocation_size
+        )
+        collocation_axes = get_vmap_axes(
+            batch.keys(), COLLOCATION_FEATURE_NAMES
+        )
+        batch_axes = get_vmap_axes(batch.keys(), BATCH_FEATURE_NAMES)
 
-        # if is_training:
-        if not self.batch_axes_dict:
-            self.batch_axes_dict = make_batch_axes_dict(batch)
-        if not self.collocation_axes_dict:
-            self.collocation_axes_dict = make_collocation_axes_dict(batch)
+        batched_rte_op = hk.vmap(
+            mapping.sharded_map(
+                rte_op, shard_size=low_memory, in_axes=collocation_axes
+            ),
+            in_axes=batch_axes,
+            split_rng=(not hk.running_init()),
+        )
+        predictions = batched_rte_op(batch)
 
-        if is_training:
-            rte_module = hk.vmap(
-                hk.vmap(
-                    rte_module,
-                    in_axes=(self.collocation_axes_dict,),
-                    split_rng=(not hk.running_init()),
-                ),
-                in_axes=(self.batch_axes_dict,),
-                split_rng=(not hk.running_init()),
-            )
-        else:
-            rte_module = hk.vmap(
-                vmap(
-                    rte_module,
-                    shard_size=128,
-                    in_axes=(self.collocation_axes_dict,),
-                ),
-                in_axes=(self.batch_axes_dict,),
-                split_rng=(not hk.running_init()),
-            )
-
-        ret["rte_predictions"] = rte_module(batch)
-
-        if compute_metrics:
-            metrics = self.metrics(ret, batch)
-            ret["metrics"] = metrics
-
+        ret["predicted_solution"] = predictions
         if compute_loss:
-            loss = self.loss(ret, batch)
-            ret["loss"] = loss
-
-            # total_loss = loss["mse"]
-            # return ret, total_loss
+            labels = batch["psi_label"]
+            loss = mean_squared_loss_fn(predictions, labels)
+            ret["loss"] = {
+                "mse": loss,
+                "rmspe": jnp.sqrt(loss / jnp.mean(labels**2)),
+            }
+        if compute_metrics:
+            labels = batch["psi_label"]
+            # Compute relative mean squared error,
+            # this values will be summed and finally divided
+            # by num_examples.
+            mse = mean_squared_loss_fn(predictions, labels, axis=-1)
+            relative_mse = mse / jnp.mean(labels**2)
+            ret["metrics"] = {"mse": mse, "rmspe": relative_mse}
+        if compute_loss:
+            return loss, ret
 
         return ret
 
-    def loss(self, value, batch):
-        pred = value["rte_predictions"]
-        label = batch["psi_label"]
-
-        mse = mean_squared_loss_fn(pred, label)
-        rmspe = jnp.sqrt(mse / jnp.mean(label**2))
-
-        return dict(mse=mse, rmspe=rmspe)
-
-    def metrics(self, value, batch):
-        pred = value["rte_predictions"]
-        label = batch["psi_label"]
-
-        mse = mean_squared_loss_fn(pred, label, axis=-1)
-        rmspe = jnp.sqrt(mse / jnp.mean(label**2))
-
-        return dict(mse=mse, rmspe=rmspe)
-
 
 class GreenFunction(hk.Module):
-    def __init__(
-        self,
-        config,
-        name: Optional[str] = "green_function",
-    ):
+    def __init__(self, config, global_config, name="green_function"):
         super().__init__(name=name)
-
         self.config = config
+        self.global_config = global_config
 
-    def __call__(
-        self,
-        coords: jax.Array,
-        coords_prime: jax.Array,
-        batch: FeatureDict,
-    ) -> jax.Array:
-
+    def __call__(self, coord1, coord2, batch, is_training):
         c = self.config
+        gc = self.global_config
 
-        x, v = coords[:NUM_DIM], coords[NUM_DIM:]
-        x_prime, v_prime = (
-            coords_prime[:NUM_DIM],
-            coords_prime[NUM_DIM:],
-        )
-        width = c.scatter_model.transport_model.transport_block_mlp.widths[-1]
-        trans_module = TransportModule(c.scatter_model.transport_model)
+        w_init = get_initializer_scale(gc.w_init)
 
-        green_fn_output = trans_module(
-            x,
-            v,
-            x_prime,
-            v_prime,
-            batch["position_coords"],
-            batch["sigma"],
-        )
-        out_layer_weights = hk.get_parameter(
-            name="out_layer_weights",
-            shape=[
-                width,
-            ],
-            init=glorot_uniform(),
+        charc = Characteristics.from_tensor(batch["position_coords"])
+        att_mod = Attenuation(c.attenuation, gc)
+        final_projection = hk.Linear(1, with_bias=False, w_init=w_init)
+
+        act = att_mod(
+            coord1=coord1,
+            coord2=coord2,
+            att_coeff=batch["sigma"],
+            charc=charc,
         )
 
-        if c.scatter_model.res_block_depth == 0:
-            return jnp.einsum("i,i", green_fn_output, out_layer_weights)
+        if c.scattering.num_layer == 0:
+            act_out = final_projection(act)
+            return jnp.squeeze(final_projection(act_out), axis=-1)
 
-        # prepare inputs
-        res_weights_vstar = (1 - batch["self_scattering_kernel"]) * batch[
-            "velocity_weights"
-        ]
-        res_weights_v = (1 - batch["scattering_kernel"]) * batch[
-            "velocity_weights"
-        ]
+        position, _ = jnp.split(coord1, 2, axis=-1)
 
-        act_v = green_fn_output
-        act_vstar = vmap(trans_module, argnums=frozenset([1]), use_hk=True,)(
-            x,
+        def self_att_fn(velocity):
+            coord = jnp.concatenate([position, velocity], axis=-1)
+            out = att_mod(
+                coord1=coord,
+                coord2=coord2,
+                att_coeff=batch["sigma"],
+                charc=charc,
+            )
+            return out
+
+        velocity_coords, velocity_weights = (
             batch["velocity_coords"],
-            x_prime,
-            v_prime,
-            batch["position_coords"],
-            batch["sigma"],
-        )  # shape: [N_v*, N_latent]
-
-        # stack layer
-        if c.scatter_model.res_block_depth > 1:
-
-            def block(x):
-                scattering_module = ScatteringModule(c.scatter_model)
-                act_v, act_vstar = x
-
-                act_v = dropout_wrapper(
-                    module=scattering_module,
-                    input_act=act_vstar,
-                    res_weights=res_weights_v,
-                    output_act=act_v,
-                )
-
-                act_vstar = dropout_wrapper(
-                    module=scattering_module,
-                    input_act=act_vstar,
-                    res_weights=res_weights_vstar,
-                )
-
-                return act_v, act_vstar
-
-            res_stack = layer_stack(c.scatter_model.res_block_depth - 1)(block)
-
-            act_v, act_vstar = res_stack((act_v, act_vstar))
-
-        scattering_module = ScatteringModule(c.scatter_model)
-
-        green_fn_output = dropout_wrapper(
-            module=scattering_module,
-            input_act=act_vstar,
-            res_weights=res_weights_v,
-            output_act=act_v,
+            batch["velocity_weights"],
         )
+        kernel = (1 - batch["scattering_kernel"]) * velocity_weights
+        self_kernel = (1 - batch["self_scattering_kernel"]) * velocity_weights
 
-        return jnp.einsum("i,i", green_fn_output, out_layer_weights)
+        self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
+            velocity_coords
+        )
+        act_output, _ = Scattering(c.scattering, gc)(
+            act=act,
+            self_act=self_act,
+            kernel=kernel,
+            self_kernel=self_kernel,
+            is_training=is_training,
+        )
+        act_output = final_projection(act_output)
+
+        return jnp.squeeze(act_output, axis=-1)
 
 
-class ScatteringModule(hk.Module):
-    def __init__(
-        self,
-        config,
-        name: Optional[str] = "scattering_module",
-    ):
+class Scattering(hk.Module):
+    def __init__(self, config, global_config, name="scattering_module"):
         super().__init__(name=name)
-
         self.config = config
+        self.global_config = global_config
 
-    def __call__(
-        self,
-        act: jax.Array,  # shape [N_v*, N_latent]
-        res_weights: jax.Array,  # shape [..., N_v*]
-    ) -> jax.Array:
-
+    def __call__(self, act, self_act, kernel, self_kernel, is_training):
         c = self.config
+        gc = self.global_config
+        w_init = get_initializer_scale(gc.w_init)
 
-        width = c.transport_model.transport_block_mlp.widths[-1]
-        weights = hk.get_parameter(
-            name="weights", shape=[width, width], init=glorot_uniform()
-        )
-        bias = hk.get_parameter(
-            name="bias",
-            shape=[
-                width,
-            ],
-            init=glorot_uniform(),
+        dropout_wrapper_fn = functools.partial(
+            dropout_wrapper,
+            is_training=is_training,
+            safe_key=None,
+            global_config=gc,
         )
 
-        residue = jnp.einsum("...j,jk->...k", res_weights, act)
-        residue = jax.nn.tanh(
-            jnp.einsum("ik,...k->...i", weights, residue) + bias
+        def scattering_block(x):
+            act, self_act = x
+            scattering_layer = ScatteringLayer(
+                output_size=c.latent_dim, w_init=w_init
+            )
+            act_out = dropout_wrapper_fn(
+                module=scattering_layer,
+                input_act=self_act,
+                kernel=kernel,
+                output_act=act,
+            )
+            self_act_out = dropout_wrapper_fn(
+                module=scattering_layer,
+                input_act=self_act,
+                kernel=self_kernel,
+            )
+            return (act_out, self_act_out)
+
+        scattering_stack = hk.experimental.layer_stack(c.num_layer)(
+            scattering_block
         )
+        act_output, self_act_output = scattering_stack((act, self_act))
 
-        return residue
+        return act_output, self_act_output
 
 
-class TransportModule(hk.Module):
-    """Green's function transport block of solution operator."""
+class ScatteringLayer(hk.Module):
+    "A single layer describing scattering action."
 
     def __init__(
-        self,
-        config: ml_collections.ConfigDict,
-        name: Optional[str] = "transport_module",
+        self, output_size, with_bias=True, w_init=None, name="scattering_layer"
     ):
         super().__init__(name=name)
+        self.output_size = output_size
+        self.with_bias = with_bias
+        self.w_init = w_init
 
+    def __call__(self, act, kernel, is_training=None):
+        output = jnp.einsum("...V,Vd->...d", kernel, act)
+        output = hk.Linear(
+            output_size=self.output_size,
+            with_bias=self.with_bias,
+            w_init=self.w_init,
+        )(output)
+        output = jax.nn.tanh(output)
+        return output
+
+
+class Attenuation(hk.Module):
+    """Attenuation operator module of the tranport equation."""
+
+    def __init__(self, config, global_config, name="attenuation"):
+        super().__init__(name=name)
         self.config = config
+        self.global_config = global_config
 
-    def __call__(
-        self,
-        x: jax.Array,
-        v: jax.Array,  # pylint:disable=invalid-name
-        x_prime: jax.Array,
-        v_prime: jax.Array,
-        coeff_position: jax.Array,
-        coeff_values: jax.Array,
-    ) -> jax.Array:
-        """Compute Green's function with coefficient net as inputs.
+    def __call__(self, coord1, coord2, att_coeff, charc):
+        """Module that describes the attenuation part of RTE equation.
 
         Args:
-            r: Position and velocity variables, both are dimension d.
-                Shape (2d,)
-            r_prime: Dual position and velocity variables. Shape (2d,)
-            coefficient_fn: Coefficient function at as a NamedTuple (x, y)
-                where x are the positions and y are corresponding values.
-                Shapes are (num_positions, d) for x and
-                (num_positions, num_coefficients) for y.
+            coords_1d: Phase space coordinates that is the concat of
+                position and velocity coordinates; shape [2*d]
+            coords_2d: Phase space coordinates that is the concat of
+                position and velocity coordinates; shape [2*d]
+            att_coeff: Attenuation coefficient on a grid;
+                shape [num_grid_points, D_a]
+
         Returns:
             Green's function at r, r_prime.
         """
+        c = self.config
+        gc = self.global_config
 
-        c = self.config  # pylint: disable=invalid-name
+        attention_module = Attention(c.attention, gc)
+        local_coords, mask = charc.apply_to_point(coord1)
 
-        # Get nn output of coefficient net.
-        coefficients = CoefficientNet(c.coefficient_net)(
-            x,
-            v,
-            coeff_position,
-            coeff_values,
+        att = attention_module(
+            query=coord1, key=local_coords, value=att_coeff, mask=mask
         )
+        att = jnp.exp(-att)
 
-        # Green's function inputs.
-        inputs = jnp.concatenate(
-            [
-                x,
-                v,
-                x_prime,
-                v_prime,
-                coefficients,
-            ]
-        )
+        act = jnp.concatenate([coord1, coord2, att])
+        for i in range(c.num_layer):
+            act = hk.Linear(
+                c.latent_dim,
+                w_init=get_initializer_scale(gc.w_init),
+                name="attenuation_linear",
+            )(act)
+            if i < c.num_layer - 1:
+                act = jax.nn.tanh(act)
 
-        # inputs = hk.LayerNorm(axis=[-1],
-        # create_scale=True, create_offset=True)(inputs)
+        act = jnp.exp(act)
 
-        # MLP
-        outputs = MLP(
-            c.transport_block_mlp.widths,
-            activate_final=True,
-            name="transport_block_mlp",
-        )(inputs)
-
-        # Wrap with exponential function to keep it non-negative.
-        outputs = jnp.exp(outputs)
-
-        return outputs
+        return act
 
 
-class CoefficientNet(hk.Module):
-    """Coefficient functions as inputs of Green's function."""
+class Attention(hk.Module):
+    """Multihead Attention."""
 
-    def __init__(
-        self,
-        config: ml_collections.ConfigDict,
-        name: Optional[str] = "coefficient_net",
-    ):
+    def __init__(self, config, global_config, name="attention_v2"):
         super().__init__(name=name)
-
         self.config = config
+        self.global_config = global_config
 
-    def __call__(
-        self,
-        x: jax.Array,
-        v: jax.Array,
-        coeff_position: jax.Array,
-        coeff_values: jax.Array,
-    ) -> jax.Array:
-        """Compute coefficients of the equation as the inputs of
-        Green's function.
+    def __call__(self, query, key, value, mask=None):
+        """Computes (optionally masked) MHA with queries, keys & values.
 
         Args:
-            r: Spatial position with dimention d.shape is (d,).
-            coefficient_fn: Coefficient function at as a NamedTuple (x, y)
-                where x are the positions and y are corresponding values.
-                Shapes are (num_positions, d) for x and
-                (num_positions, num_coefficients) for y.
+          query: Sequence used to compute queries; shape [..., D_q].
+          key: Sequence used to compute keys; shape [T, D_k].
+          value: Sequence used to compute values; shape [T, D_v].
+          mask: Optional mask applied to attention weights; shape [H=1, T', T].
+
         Returns:
-            Coefficient information at spatial position r.
-            Shape (num_coefficients,) or ().
+          A new sequence of embeddings, consisting of a projection of the
+            attention-weighted value projections; shape [..., D'].
         """
         c = self.config
+        gc = self.global_config
 
-        coords = jnp.concatenate([x, v])
-        angles_global = v / jnp.sqrt(jnp.sum(v**2, axis=-1) + 1e-16)
-        rel_vec = x - coeff_position
-        rel_dist2 = jnp.sqrt(jnp.sum(rel_vec**2, axis=-1) + 1e-16)
+        self.num_head = c.num_head
+        self.key_dim = c.key_dim
+        self.value_dim = c.value_dim or c.key_dim
+        self.output_dim = c.output_dim or c.key_dim * c.num_head
 
-        positions_local = jnp.matmul(rel_vec, angles_global)
-        angles_local = positions_local / (rel_dist2 + 1e-8)
-        frames_local = jnp.stack((angles_local, positions_local), axis=-1)
+        self.w_init = get_initializer_scale(gc.w_init)
+        # In shape hints below, we suppress the leading dims [...] for brevity.
+        # Hence e.g. [A, B] should be read in every case as [..., A, B].
+        *leading_dims, _ = query.shape
+        projection = self._linear_projection
 
-        attn_mod = MLP(c.attention_net.widths, name="attention_net")
+        # Compute key/query/values (overload K/Q/V to
+        # denote the respective sizes).
+        query_heads = projection(query, self.key_dim, "query")  # [T', H, Q=K]
+        key_heads = projection(key, self.key_dim, "key")  # [T, H, K]
+        value_heads = projection(value, self.value_dim, "value")  # [T, H, V]
 
-        def attn_logits_fn(q, k):
-            qk = jnp.concatenate([q, k])
-            attn_logits_per_example = attn_mod(qk)
-            return attn_logits_per_example
+        # Compute attention weights.
+        attn_logits = jnp.einsum("...hd,Thd->...hT", query_heads, key_heads)
+        attn_logits = attn_logits / np.sqrt(self.key_dim).astype(key.dtype)
+        if mask is not None:
+            if mask.ndim != attn_logits.ndim:
+                raise ValueError(
+                    f"Mask dimensionality {mask.ndim} must match logits"
+                    f"dimensionality {attn_logits.ndim}."
+                )
+            attn_logits = jnp.where(mask, attn_logits, -1e30)
+        attn_weights = jax.nn.softmax(attn_logits)  # [T', H, T]
 
-        attn_logits = hk.vmap(
-            attn_logits_fn,
-            in_axes=(None, 0),
-            out_axes=-1,
-            split_rng=(not hk.running_init()),
-        )(coords, frames_local)
+        # Weight the values by the attention and flatten the head vectors.
+        attn = jnp.einsum("...hT,...Thd->...hd", attn_weights, value_heads)
+        attn = jnp.reshape(attn, (*leading_dims, -1))  # [T', H*V]
 
-        masked_attn_logits = jnp.where(positions_local > 0, attn_logits, -1e30)
+        # Apply another projection to get the final embeddings.
+        final_projection = hk.Linear(
+            self.output_dim, w_init=self.w_init, name="final_projection"
+        )
+        return final_projection(attn)  # [T', D']
 
-        attn_weights = jax.nn.softmax(masked_attn_logits)
-        attn = jnp.matmul(attn_weights, coeff_values)
-        # Take exponential w.r.t to sigma_a
-        attn = jnp.exp(-attn)
-
-        return attn
+    @hk.transparent
+    def _linear_projection(
+        self, x: jnp.ndarray, head_dim: int, name: Optional[str] = None
+    ) -> jnp.ndarray:
+        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(
+            x
+        )
+        *leading_dims, _ = x.shape
+        return y.reshape((*leading_dims, self.num_head, head_dim))
