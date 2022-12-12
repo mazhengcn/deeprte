@@ -29,7 +29,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import optimizers
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model.modules_v2 import DeepRTE
+from deeprte.model.modules import DeepRTE
 from deeprte.model.tf.input_pipeline import (
     load_tf_data,
     make_device_batch,
@@ -228,10 +228,11 @@ class Trainer(experiment.AbstractExperiment):
         # pylint: disable=invalid-name
         c = self.config
 
-        # Performs prefetching of elements from an iterable in a separate thread.
+        # Performs prefetching of elements from an iterable
+        # in a separate thread.
         train_input = jl_utils.py_prefetch(self._build_train_input)
         # This keeps two batches per-device in memory at all times, allowing
-        # h2d transfers to overlap with execution (see b/173483287 for details).
+        # h2d transfers to overlap with execution.
         self._train_input = jl_utils.double_buffer_on_gpu(train_input)
 
         # Total batch size
@@ -328,7 +329,8 @@ class Trainer(experiment.AbstractExperiment):
         t_diff = time.time() - t_0
 
         _format_logs(
-            f"(Evaluation time {t_diff:.1f}s, global_step {global_step_value})",
+            f"(Evaluation time {t_diff:.1f}s, "
+            f"global_step {global_step_value})",
             metrics,
         )
 
@@ -403,10 +405,11 @@ class Trainer(experiment.AbstractExperiment):
 
     def _initialize_evaluation(self):
         def prefetch_and_double_buffer_input():
-            # Performs prefetching of elements from an iterable in a separate thread.
+            # Performs prefetching of elements from an iterable
+            # in a separate thread.
             eval_input = jl_utils.py_prefetch(self._build_eval_input)
-            # This keeps two batches per-device in memory at all times, allowing
-            # h2d transfers to overlap with execution (see b/173483287 for details).
+            # This keeps two batches per-device in memory at all times,
+            # allowing h2d transfers to overlap with execution.
             return jl_utils.double_buffer_on_gpu(eval_input)
             # return eval_input
 
