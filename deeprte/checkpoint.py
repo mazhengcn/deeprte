@@ -50,8 +50,8 @@ def restore_state_to_in_memory_checkpointer(restore_path):
         pretrained_state = dill.load(f)
     logging.info("Restored checkpoint from %s", python_state_path)
 
-    # Assign state to a dummy experiment instance for the in-memory checkpointer,
-    # broadcasting to devices.
+    # Assign state to a dummy experiment instance for the in-memory
+    # checkpointer, broadcasting to devices.
     dummy_experiment = Trainer(
         mode="train",
         init_rng=jnp.array([0]),
@@ -131,10 +131,10 @@ def setup_signals(save_model_fn):
     """Sets up a signal for model saving."""
     # Save a model on Ctrl+C.
     def sigint_handler(unused_sig, unused_frame):
-        # Ideally, rather than saving immediately, we would then "wait" for a good
-        # time to save. In practice this reads from an in-memory checkpoint that
-        # only saves every 30 seconds or so, so chances of race conditions are very
-        # small.
+        # Ideally, rather than saving immediately, we would then "wait" for
+        # a good time to save. In practice this reads from an in-memory
+        # checkpoint that only saves every 30 seconds or so, so chances of
+        # race conditions are very small.
         save_model_fn()
         logging.info(r"Use `Ctrl+\` to save and exit.")
 
@@ -142,8 +142,8 @@ def setup_signals(save_model_fn):
     prev_sigquit_handler = signal.getsignal(signal.SIGQUIT)
 
     def sigquit_handler(unused_sig, unused_frame):
-        # Restore previous handler early, just in case something goes wrong in the
-        # next lines, so it is possible to press again and exit.
+        # Restore previous handler early, just in case something goes wrong
+        # in the next lines, so it is possible to press again and exit.
         signal.signal(signal.SIGQUIT, prev_sigquit_handler)
         save_model_fn()
         logging.info(r"Exiting on `Ctrl+\`")

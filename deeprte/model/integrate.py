@@ -31,7 +31,8 @@ def quad(
     has_aux: Optional[bool] = False,
 ) -> Callable[..., float]:
     """Compute the integral operator for a scalar function using
-    quadratures."""
+    quadratures.
+    """
 
     points, weights = quadratures
 

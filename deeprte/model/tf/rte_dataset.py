@@ -56,11 +56,13 @@ def np_to_tensor_dict(
 
     Args:
         np_example: A dict of NumPy feature arrays.
-        features: A list of strings of feature names to be returned in the  dataset.
+        features: A list of strings of feature names to be returned in the
+            dataset.
 
     Returns:
-        A dictionary of features mapping feature names to features. Only the given
-        features are returned, all other ones are filtered out.
+        A dictionary of features mapping feature names to features.
+            Only the given features are returned, all other ones are
+            filtered out.
     """
     placeholder_shape = make_features_shape(np_example)
     features_names = features_names or rte_features._FEATURE_NAMES
