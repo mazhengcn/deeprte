@@ -14,10 +14,21 @@
 
 """Model config."""
 
+import copy
+
 import ml_collections
+
+
+def model_config() -> ml_collections.ConfigDict:
+    cfg = copy.deepcopy(CONFIG)
+    cg = cfg.green_function
+    cg.attenuation.output_dim = cg.scattering.latent_dim
+    return cfg
+
 
 CONFIG = ml_collections.ConfigDict(
     {
+        "data": {},
         "global_config": {
             "deterministic": True,
             "subcollocation_size": 128,
