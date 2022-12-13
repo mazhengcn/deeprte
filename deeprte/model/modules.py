@@ -114,7 +114,6 @@ class GreenFunction(hk.Module):
     def __call__(self, coord1, coord2, batch, is_training):
         c = self.config
         gc = self.global_config
-        c.attenuation.output_dim = c.scattering.latent_dim
 
         w_init = get_initializer_scale(gc.w_init)
         projection = hk.Linear(
