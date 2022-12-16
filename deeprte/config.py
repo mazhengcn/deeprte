@@ -3,7 +3,7 @@ import functools
 import ml_collections
 from jaxline import base_config
 
-from deeprte.model.config import CONFIG_MODEL
+from deeprte.model.config import CONFIG
 
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
@@ -107,7 +107,7 @@ def get_config() -> ml_collections.ConfigDict:
             config=dict(
                 dataset=CONFIG_DATASET,
                 training=CONFIG_TRAINING,
-                model=CONFIG_MODEL,
+                model=CONFIG,
             )
         )
     )
