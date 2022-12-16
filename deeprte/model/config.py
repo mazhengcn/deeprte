@@ -42,6 +42,7 @@ CONFIG = ml_collections.ConfigDict(
             "attenuation": {
                 "num_layer": 4,
                 "latent_dim": 128,
+                "output_dim": None,
                 "attention": {
                     "num_head": 4,
                     "key_dim": 64,
