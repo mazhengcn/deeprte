@@ -26,17 +26,18 @@ Array = np.ndarray | jax.Array
 Float = float | np.float32
 
 
-_concat = (
-    lambda *arrs: jnp.concatenate(arrs, axis=-1)
-    if isinstance(arrs[0], jnp.ndarray)
-    else np.concatenate(arrs, axis=-1)
-)
+def _concat(*arrs):
+    if isinstance(arrs[0], np.ndarray):
+        return np.concatenate(arrs, axis=-1)
 
-_cartesian_product = (
-    lambda *arrs: jax_cartesian_product(*arrs)
-    if isinstance(arrs[0], jnp.ndarray)
-    else cartesian_product(*arrs)
-)
+    return jnp.concatenate(arrs, axis=-1)
+
+
+def _cartesian_product(*arrs):
+    if isinstance(arrs[0], np.ndarray):
+        return cartesian_product(arrs)
+
+    return jax_cartesian_product(*arrs)
 
 
 class PhaseSpace(NamedTuple):
@@ -110,5 +111,5 @@ class PhaseSpace(NamedTuple):
         return self.__str__()
 
 
-DensityFunction = Callable[[PhaseSpace], jnp.ndarray]
-GreenFunction = Callable[[PhaseSpace, PhaseSpace], jnp.ndarray]
+DensityFunction = Callable[[PhaseSpace], jax.Array]
+GreenFunction = Callable[[PhaseSpace, PhaseSpace], jax.Array]

@@ -35,9 +35,7 @@ from deeprte.model.utils import (
 )
 
 
-def get_vmap_axes(
-    dict_keys: list[str], template: list[str]
-) -> list[dict[str, jnp.ndarray]]:
+def get_vmap_axes(dict_keys: list[str], template: list[str]):
     return ({k: 0 if k in template else None for k in dict_keys},)
 
 
@@ -48,7 +46,9 @@ class DeepRTE(hk.Module):
         self.config = config
         self.global_config = config.global_config
 
-    def __call__(self, batch, is_training, compute_loss, compute_metrics):
+    def __call__(
+        self, batch, is_training, compute_loss=False, compute_metrics=False
+    ):
         c = self.config
         gc = self.global_config
         ret = {}
@@ -130,7 +130,7 @@ class GreenFunction(hk.Module):
         )
 
         if c.scattering.num_layer == 0:
-            output = projection(act)
+            output = jnp.exp(projection(act))
             return jnp.squeeze(output, axis=-1)
 
         position, _ = jnp.split(coord1, 2, axis=-1)
@@ -162,8 +162,7 @@ class GreenFunction(hk.Module):
             self_kernel=self_kernel,
             is_training=is_training,
         )
-        output = projection(act_output)
-
+        output = jnp.exp(projection(act_output))
         return jnp.squeeze(output, axis=-1)
 
 
@@ -274,10 +273,11 @@ class Attenuation(hk.Module):
             )(act)
             act = jax.nn.tanh(act)
 
-        act = hk.Linear(c.output_dim, w_init=w_init, name="output_projection")(
-            act
+        act = jax.nn.tanh(
+            hk.Linear(c.output_dim, w_init=w_init, name="output_projection")(
+                act
+            )
         )
-        act = jnp.exp(act)
 
         return act
 
@@ -347,8 +347,8 @@ class Attention(hk.Module):
 
     @hk.transparent
     def _linear_projection(
-        self, x: jnp.ndarray, head_dim: int, name: Optional[str] = None
-    ) -> jnp.ndarray:
+        self, x: jax.Array, head_dim: int, name: Optional[str] = None
+    ) -> jax.Array:
         y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(
             x
         )
