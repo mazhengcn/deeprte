@@ -25,7 +25,7 @@ from deeprte.model.mapping import sharded_map
 
 def quad(
     fun: Callable[..., float],
-    quadratures: list[jax.Array] | tuple[jax.Array],
+    quadratures: tuple[jax.Array, jax.Array],
     argnum: int = 0,
     shard_size: int | None = None,
     has_aux: Optional[bool] = False,

@@ -32,7 +32,7 @@ def make_collocation_axis():
     axis_dict = {
         k: rte_features.FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS)
         - len(rte_features.FEATURES[k][1])
-        for k in rte_features._COLLOCATION_FEATURE_NAMES
+        for k in rte_features.COLLOCATION_FEATURE_NAMES
     }
     return axis_dict
 
@@ -65,7 +65,7 @@ def np_to_tensor_dict(
             filtered out.
     """
     placeholder_shape = make_features_shape(np_example)
-    features_names = features_names or rte_features._FEATURE_NAMES
+    features_names = features_names or rte_features.FEATURE_NAMES
     features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
         k: tf.constant(v)
@@ -137,7 +137,7 @@ def make_features_shape(
 def divide_batch_feat(features):
     batched_feat, unbatched_feat = {}, {}
     for k, v in features.items():
-        if k in rte_features._BATCH_FEATURE_NAMES:
+        if k in rte_features.BATCH_FEATURE_NAMES:
             batched_feat.update({k: v})
         else:
             unbatched_feat.update({k: v})
