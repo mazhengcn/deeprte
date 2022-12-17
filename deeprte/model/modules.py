@@ -131,7 +131,8 @@ class GreenFunction(hk.Module):
 
         if c.scattering.num_layer == 0:
             output = jnp.exp(projection(act))
-            return jnp.squeeze(output, axis=-1)
+            output = jnp.squeeze(output, axis=-1)
+            return output
 
         position, _ = jnp.split(coord1, 2, axis=-1)
 
@@ -155,15 +156,17 @@ class GreenFunction(hk.Module):
         self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
             velocity_coords
         )
-        act_output, _ = Scattering(c.scattering, gc)(
+        output, _ = Scattering(c.scattering, gc)(
             act=act,
             self_act=self_act,
             kernel=kernel,
             self_kernel=self_kernel,
             is_training=is_training,
         )
-        output = jnp.exp(projection(act_output))
-        return jnp.squeeze(output, axis=-1)
+        output = jnp.exp(projection(output))
+        output = jnp.squeeze(output, axis=-1)
+
+        return output
 
 
 class Scattering(hk.Module):
@@ -229,6 +232,7 @@ class ScatteringLayer(hk.Module):
             w_init=self.w_init,
         )(output)
         output = jax.nn.tanh(output)
+
         return output
 
 
