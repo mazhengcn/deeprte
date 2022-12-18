@@ -36,18 +36,19 @@ CONFIG = ml_collections.ConfigDict(
         },
         "green_function": {
             "scattering": {
-                "num_layer": 0,
-                "latent_dim": 128,
+                "num_layer": 2,
+                "latent_dim": 32,
             },
             "attenuation": {
                 "num_layer": 4,
                 "latent_dim": 128,
-                "output_dim": None,
+                "output_dim": 32,
                 "attention": {
-                    "num_head": 4,
-                    "key_dim": 64,
+                    "num_head": 2,
+                    "key_dim": 32,
                     "value_dim": None,
                     "output_dim": 2,
+                    "key_chunk_size": 128,
                 },
             },
         },
