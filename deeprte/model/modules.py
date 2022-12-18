@@ -21,6 +21,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax import lax
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
@@ -32,6 +33,7 @@ from deeprte.model.utils import (
     dropout_wrapper,
     get_initializer_scale,
     mean_squared_loss_fn,
+    query_chunk_attention,
 )
 
 
@@ -285,7 +287,7 @@ class Attenuation(hk.Module):
 class Attention(hk.Module):
     """Multihead Attention."""
 
-    def __init__(self, config, global_config, name="attention_v2"):
+    def __init__(self, config, global_config, name="attention"):
         super().__init__(name=name)
         self.config = config
         self.global_config = global_config
@@ -337,6 +339,75 @@ class Attention(hk.Module):
 
         # Weight the values by the attention and flatten the head vectors.
         attn = jnp.einsum("...hT,...Thd->...hd", attn_weights, value_heads)
+        attn = jnp.reshape(attn, (*leading_dims, -1))  # [T', H*V]
+
+        # Apply another projection to get the final embeddings.
+        output_projection = hk.Linear(
+            self.output_dim, w_init=self.w_init, name="output_projection"
+        )
+        return output_projection(attn)  # [T', D']
+
+    @hk.transparent
+    def _linear_projection(
+        self, x: jax.Array, head_dim: int, name: Optional[str] = None
+    ) -> jax.Array:
+        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(
+            x
+        )
+        *leading_dims, _ = x.shape
+        return y.reshape((*leading_dims, self.num_head, head_dim))
+
+
+class Attention_v2(hk.Module):
+    """Multihead Attention."""
+
+    def __init__(self, config, global_config, name="attention"):
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
+
+    def __call__(self, query, key, value, mask=None):
+        """Computes (optionally masked) MHA with queries, keys & values.
+
+        Args:
+          query: Sequence used to compute queries; shape [..., D_q].
+          key: Sequence used to compute keys; shape [T, D_k].
+          value: Sequence used to compute values; shape [T, D_v].
+          mask: Optional mask applied to attention weights; shape [H=1, T', T].
+
+        Returns:
+          A new sequence of embeddings, consisting of a projection of the
+            attention-weighted value projections; shape [..., D'].
+        """
+        c = self.config
+        gc = self.global_config
+
+        self.num_head = c.num_head
+        self.key_dim = c.key_dim
+        self.value_dim = c.value_dim or c.key_dim
+        self.output_dim = c.output_dim or c.key_dim * c.num_head
+
+        self.w_init = get_initializer_scale(gc.w_init)
+        # In shape hints below, we suppress the leading dims [...] for brevity.
+        # Hence e.g. [A, B] should be read in every case as [..., A, B].
+        *leading_dims, _ = query.shape
+        projection = self._linear_projection
+
+        # Compute key/query/values (overload K/Q/V to
+        # denote the respective sizes).
+        query_heads = projection(query, self.key_dim, "query")  # [T', H, Q=K]
+        key_heads = projection(key, self.key_dim, "key")  # [T, H, K]
+        value_heads = projection(value, self.value_dim, "value")  # [T, H, V]
+
+        attn = query_chunk_attention(
+            query_heads,
+            key_heads,
+            value_heads,
+            mask,
+            key_chunk_size=None if hk.running_init() else c.key_chunk_size,
+            precision=lax.Precision.HIGHEST,
+            dtype=jnp.float32,
+        )
         attn = jnp.reshape(attn, (*leading_dims, -1))  # [T', H*V]
 
         # Apply another projection to get the final embeddings.
