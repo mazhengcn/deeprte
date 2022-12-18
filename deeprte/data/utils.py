@@ -64,3 +64,8 @@ def jax_cartesian_product(arrays):
         concat_fn = jax.vmap(concat_fn, in_axes=(in_axes,))
 
     return concat_fn(arrays)
+
+
+def normalization(data):
+    _range = np.max(data) - np.min(data)
+    return (data - np.min(data)) / _range
