@@ -13,11 +13,13 @@
 # limitations under the License.
 
 "Utilities functions."
+import functools
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax import lax
 
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
 TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
@@ -95,3 +97,82 @@ def get_initializer_scale(initializer_name, input_shape=()):
         w_init = hk.initializers.TruncatedNormal(mean=0.0, stddev=stddev)
 
     return w_init
+
+
+def query_chunk_attention(
+    query,
+    key,
+    value,
+    mask=None,
+    key_chunk_size=None,
+    precision=lax.Precision.HIGHEST,
+    dtype=jnp.float32,
+):
+    num_kv, num_heads, k_features = key.shape
+    # *leading_dims, num_heads, q_features = query.shape
+    v_features = value.shape[-1]
+    if key_chunk_size:
+        key_chunk_size = min(key_chunk_size, num_kv)
+    else:
+        key_chunk_size = num_kv
+    query = query / jnp.sqrt(k_features).astype(dtype)
+    # print(key_chunk_size)
+
+    @functools.partial(jax.checkpoint, prevent_cse=False)
+    def summarize_chunk(query, key, value, mask):
+        attn_weights = jnp.einsum(
+            "...hd,khd->...hk", query, key, precision=precision
+        ).astype(dtype)
+        if mask is not None:
+            attn_weights = jnp.where(mask, attn_weights, -1e30)
+        max_score = jnp.max(attn_weights, axis=-1, keepdims=True)
+        max_score = jax.lax.stop_gradient(max_score)
+        exp_weights = jnp.exp(attn_weights - max_score)
+        exp_values = jnp.einsum(
+            "vhf,...hv->...hf", value, exp_weights, precision=precision
+        ).astype(dtype)
+        return (
+            exp_values,
+            exp_weights.sum(axis=-1),
+            max_score.reshape((num_heads,)),
+        )
+
+    def chunk_scanner(chunk_idx):
+        key_chunk = lax.dynamic_slice(
+            key,
+            (chunk_idx, 0, 0),
+            slice_sizes=(key_chunk_size, num_heads, k_features),
+        )
+        value_chunk = lax.dynamic_slice(
+            value,
+            (chunk_idx, 0, 0),
+            slice_sizes=(key_chunk_size, num_heads, v_features),
+        )
+        # print(chunk_idx)
+        if mask is not None:
+            mask_chunk = lax.dynamic_slice(
+                mask,
+                (
+                    0,
+                    chunk_idx,
+                ),
+                slice_sizes=(
+                    1,
+                    key_chunk_size,
+                ),
+            )
+        else:
+            mask_chunk = None
+        return summarize_chunk(query, key_chunk, value_chunk, mask_chunk)
+
+    chunk_values, chunk_weights, chunk_max = lax.map(
+        chunk_scanner, xs=jnp.arange(0, num_kv, key_chunk_size)
+    )
+    global_max = jnp.max(chunk_max, axis=0, keepdims=True)
+    max_diffs = jnp.exp(chunk_max - global_max)
+    chunk_values *= jnp.expand_dims(max_diffs, axis=-1)
+    chunk_weights *= max_diffs
+
+    all_values = chunk_values.sum(axis=0)
+    all_weights = jnp.expand_dims(chunk_weights, -1).sum(axis=0)
+    return all_values / all_weights

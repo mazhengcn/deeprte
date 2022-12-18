@@ -104,12 +104,18 @@ class DataPipeline:
         pre_shuffle_seed: int = 0,
         is_split_test_samples: bool = False,
         num_test_samples: Optional[int] = None,
+        normalization: Optional[bool] = True,
         save_path: Optional[str] = None,
     ) -> FeatureDict:
 
         data_feature = make_data_features(self.data)
         grid_feature = make_grid_features(self.data)
         shape_dict = make_shape_dict(self.data)
+
+        if normalization:
+            data_feature["psi_label"] = utils.normalization(
+                data_feature["psi_label"],
+            )
 
         if pre_shuffle:
             rng = np.random.default_rng(seed=pre_shuffle_seed)
