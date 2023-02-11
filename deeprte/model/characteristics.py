@@ -21,7 +21,7 @@ import jax.numpy as jnp
 class Characteristics:
     """Characteristic container class."""
 
-    def __init__(self, grid: jax.Array, name="characteristics"):
+    def __init__(self, grid: jax.Array, name: str = "characteristics"):
         self.name = name
         self.grid = grid
 

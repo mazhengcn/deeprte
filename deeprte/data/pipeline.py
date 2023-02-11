@@ -83,11 +83,7 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
 
 
 class DataPipeline:
-    def __init__(
-        self,
-        source_dir: str,
-        data_name_list: list[str],
-    ):
+    def __init__(self, source_dir: str, data_name_list: list[str]):
         self.source_dir = source_dir
         self.data_name_list = data_name_list
         self.data = self.load_data()
