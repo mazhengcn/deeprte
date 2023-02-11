@@ -42,15 +42,15 @@ for n = 1:N_itr
     x_b = xr - c_ind(3) * hx;
     x_t = c_ind(4) * hx + xl;
 
-    func_psiL = @(x, y)(exp(- (y - y_l).^2/2 / variance_x(1)) * exp(- (x - xl).^2/2 / variance_x(1)));
-    func_psiL_v = @(x)(exp(- (x - x(list_v_index(1, n))).^2/2 / variance_v(1)));
+    func_psiL = @(x, y)(exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
+    func_psiL_v = @(x)(exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
     % func_psiL_v = @(x)(exp(- (x - x(v_index(1))).^2/2 / variance_v(1)));
-    func_psiR = @(x, y)(exp(- (y - y_r).^2/2 / variance_x(2)) * exp(- (x - xr).^2/2 / variance_x(2)));
-    func_psiR_v = @(x)(exp(- (x - x(list_v_index(2, n))).^2/2 / variance_v(2)));
-    func_psiB = @(x, y)(exp(- (y - yl).^2/2 / variance_x(3)) * exp(- (x - x_b).^2/2 / variance_x(3)));
-    func_psiB_v = @(x)(exp(- (x - x(list_v_index(3, n))).^2/2 / variance_v(3)));
-    func_psiT = @(x, y)(exp(- (y - yr).^2/2 / variance_x(4)) * exp(- (x - x_t).^2/2 / variance_x(4)));
-    func_psiT_v = @(x)(exp(- (x - x(list_v_index(4, n))).^2/2 / variance_v(4)));
+    func_psiR = @(x, y)(exp(- (y - y_r) .^ 2/2 / variance_x(2)) * exp(- (x - xr) .^ 2/2 / variance_x(2)));
+    func_psiR_v = @(x)(exp(- (x - x(list_v_index(2, n))) .^ 2/2 / variance_v(2)));
+    func_psiB = @(x, y)(exp(- (y - yl) .^ 2/2 / variance_x(3)) * exp(- (x - x_b) .^ 2/2 / variance_x(3)));
+    func_psiB_v = @(x)(exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
+    func_psiT = @(x, y)(exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
+    func_psiT_v = @(x)(exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
 
     sum_x_L = sum(func_psiL(xl, yl + hy:hy:yr - hy)) + sum(func_psiL(xr, yl + hy:hy:yr - hy)) + sum(func_psiL(hx:hx:xr, yl)) + sum(func_psiL(xl:hx:xr, yr));
     sum_x_R = sum(func_psiR(xl, yl + hy:hy:yr - hy)) + sum(func_psiR(xr, yl + hy:hy:yr - hy)) + sum(func_psiR(xl:hx:xr, yl)) + sum(func_psiR(xl:hx:xr, yr));
@@ -62,14 +62,14 @@ for n = 1:N_itr
     sum_v_B = sqrt(sum(func_psiB_v(ct(0 * M + 1:2 * M)) .* func_psiB_v(st(0 * M + 1:2 * M))));
     sum_v_T = sqrt(sum(func_psiT_v(ct(2 * M + 1:4 * M)) .* func_psiT_v(st(2 * M + 1:4 * M))));
 
-    func_psiL = @(x, y)(1 / sum_x_L * exp(- (y - y_l).^2/2 / variance_x(1)) * exp(- (x - xl).^2/2 / variance_x(1)));
-    func_psiL_v = @(x)(1 / sum_v_L * exp(- (x - x(list_v_index(1, n))).^2/2 / variance_v(1)));
-    func_psiR = @(x, y)(1 / sum_x_R * exp(- (y - y_r).^2/2 / variance_x(2)) * exp(- (x - xr).^2/2 / variance_x(2)));
-    func_psiR_v = @(x)(1 / sum_v_R * exp(- (x - x(list_v_index(2, n))).^2/2 / variance_v(2)));
-    func_psiB = @(x, y)(1 / sum_x_B * exp(- (y - yl).^2/2 / variance_x(3)) * exp(- (x - x_b).^2/2 / variance_x(3)));
-    func_psiB_v = @(x)(1 / sum_v_B * exp(- (x - x(list_v_index(3, n))).^2/2 / variance_v(3)));
-    func_psiT = @(x, y)(1 / sum_x_T * exp(- (y - yr).^2/2 / variance_x(4)) * exp(- (x - x_t).^2/2 / variance_x(4)));
-    func_psiT_v = @(x)(1 / sum_v_T * exp(- (x - x(list_v_index(4, n))).^2/2 / variance_v(4)));
+    func_psiL = @(x, y)(1 / sum_x_L * exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
+    func_psiL_v = @(x)(1 / sum_v_L * exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
+    func_psiR = @(x, y)(1 / sum_x_R * exp(- (y - y_r) .^ 2/2 / variance_x(2)) * exp(- (x - xr) .^ 2/2 / variance_x(2)));
+    func_psiR_v = @(x)(1 / sum_v_R * exp(- (x - x(list_v_index(2, n))) .^ 2/2 / variance_v(2)));
+    func_psiB = @(x, y)(1 / sum_x_B * exp(- (y - yl) .^ 2/2 / variance_x(3)) * exp(- (x - x_b) .^ 2/2 / variance_x(3)));
+    func_psiB_v = @(x)(1 / sum_v_B * exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
+    func_psiT = @(x, y)(1 / sum_x_T * exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
+    func_psiT_v = @(x)(1 / sum_v_T * exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
 
     func_list_x = {func_psiL, func_psiR, func_psiB, func_psiT};
     func_list_v = {func_psiL_v, func_psiR_v, func_psiB_v, func_psiT_v};
