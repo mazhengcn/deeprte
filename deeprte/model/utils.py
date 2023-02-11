@@ -151,15 +151,7 @@ def query_chunk_attention(
         # print(chunk_idx)
         if mask is not None:
             mask_chunk = lax.dynamic_slice(
-                mask,
-                (
-                    0,
-                    chunk_idx,
-                ),
-                slice_sizes=(
-                    1,
-                    key_chunk_size,
-                ),
+                mask, (0, chunk_idx), slice_sizes=(1, key_chunk_size)
             )
         else:
             mask_chunk = None
