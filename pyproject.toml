@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deeprte"
-version = "0.0.1-alpha"
+version = "0.0.1"
 description = "Source code for solving radiative transfer equation using deep neural network"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{email = "mazhengcn@outlook.com"},{name = "Zheng Ma"}]
-license = {text = "Apache License, Version 2.0"}
+authors = [{ email = "mazhengcn@outlook.com" }, { name = "Zheng Ma" }]
+license = { text = "Apache License, Version 2.0" }
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
@@ -18,18 +18,18 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Mathematics",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [ 
+dependencies = [
     "absl-py>=1.0.0",
-    "dm-haiku>=0.0.6",
+    "dm-haiku>=0.0.8",
     "jax>=0.3.25",
     "ml-collections>=0.1.1",
     "numpy>=1.22.3",
     "optax>=0.1.2",
     "tensorflow-cpu>=2.10.0",
     "tensorflow-datasets>=4.7.0",
-    "jaxline@git+https://github.com/mazhengcn/jaxline.git"
+    "jaxline>=0.0.6"
 ]
 
 [project.urls]
