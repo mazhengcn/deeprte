@@ -3,7 +3,7 @@ import functools
 import ml_collections
 from jaxline import base_config
 
-from deeprte.model.config import CONFIG
+from deeprte.model.config import model_config
 
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
@@ -11,9 +11,8 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "data_name_list": [],
         "num_samples": 2000,
         "train": {
-            "batch_size": 8,
+            "batch_size": 4,
             "collocation_sizes": 100,
-            "bc_collocation_sizes": 50,
             "repeat": 1,
         },
         "validation": {
@@ -26,7 +25,7 @@ CONFIG_DATASET = ml_collections.ConfigDict(
             "is_split_datasets": True,
         },
         "pre_shuffle_seed": 42,
-        "buffer_size": 5_000,
+        "buffer_size": 5000,
         "threadpool_size": 48,
         "max_intra_op_parallelism": 1,
         "pre_shuffle": True,
@@ -34,13 +33,13 @@ CONFIG_DATASET = ml_collections.ConfigDict(
 )
 CONFIG_TRAINING = ml_collections.ConfigDict(
     {
-        "num_epochs": 6000,
+        "num_epochs": 1000,
         "optimizer": {
             "base_lr": 1e-3,
             "scale_by_batch": False,
             "schedule_type": "exponential",
             "decay_kwargs": {
-                "transition_steps": 800,
+                "transition_steps": 100,
                 "decay_rate": 0.96,
             },
             "optimizer": "adam",
@@ -48,76 +47,6 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
         },
     }
 )
-
-CONFIG_GLOBAL = ml_collections.ConfigDict(
-    {
-        # N means N epochs
-        "interval_type": "steps",
-        "save_checkpoint_interval": 50,
-        "log_tensors_interval": 1,
-        "log_train_data_interval": 2,
-        # When True, the eval job immediately loads a checkpoint
-        # runs evaluate() once, then terminates.
-        "one_off_evaluate": False,
-        # Seed for the RNGs (default is 42).
-        "random_seed": 42,
-        "checkpoint_dir": "",
-        "restore_dir": "",
-    }
-)
-
-
-def get_steps_from_epochs(num_epochs, batch_size, n_train_examples, repeat=1):
-    """Get global steps from given epoch."""
-    # print(n_train_examples.type)
-    return max(int(repeat * num_epochs * n_train_examples // batch_size), 1)
-
-
-def get_config() -> ml_collections.ConfigDict:
-    jl_config = base_config.get_base_config()
-
-    make_split_num(CONFIG_DATASET)
-
-    steps_from_epochs = functools.partial(
-        get_steps_from_epochs,
-        n_train_examples=CONFIG_DATASET.data_split.num_train_samples,
-        batch_size=CONFIG_DATASET.train.batch_size,
-        repeat=CONFIG_DATASET.train.repeat,
-    )
-
-    if "transition_steps" in CONFIG_TRAINING.optimizer.decay_kwargs:
-        num = CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps
-        CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = (
-            steps_from_epochs(num)
-        )
-    CONFIG_GLOBAL.training_steps = steps_from_epochs(
-        CONFIG_TRAINING.num_epochs
-    )
-    CONFIG_GLOBAL.save_checkpoint_interval = steps_from_epochs(
-        CONFIG_GLOBAL.save_checkpoint_interval
-    )
-    CONFIG_GLOBAL.log_tensors_interval = steps_from_epochs(
-        CONFIG_GLOBAL.log_tensors_interval
-    )
-    CONFIG_GLOBAL.log_train_data_interval = steps_from_epochs(
-        CONFIG_GLOBAL.log_train_data_interval
-    )
-
-    expr_config = ml_collections.config_dict.ConfigDict(
-        dict(
-            config=dict(
-                dataset=CONFIG_DATASET,
-                training=CONFIG_TRAINING,
-                model=CONFIG,
-            )
-        )
-    )
-
-    jl_config.experiment_kwargs = expr_config
-
-    jl_config.update(**CONFIG_GLOBAL)
-
-    return jl_config
 
 
 def make_split_num(
@@ -133,3 +62,64 @@ def make_split_num(
 
     split_config["num_train_samples"] = num_train
     split_config["num_val_samples"] = num_val
+
+
+def get_steps_from_epochs(num_epochs, batch_size, n_train_examples, repeat=1):
+    """Get global steps from given epoch."""
+    # print(n_train_examples.type)
+    return max(int(repeat * num_epochs * n_train_examples // batch_size), 1)
+
+
+def get_config() -> ml_collections.ConfigDict:
+    config = base_config.get_base_config()
+
+    make_split_num(CONFIG_DATASET)
+
+    steps_from_epochs = functools.partial(
+        get_steps_from_epochs,
+        n_train_examples=CONFIG_DATASET.data_split.num_train_samples,
+        batch_size=CONFIG_DATASET.train.batch_size,
+        repeat=CONFIG_DATASET.train.repeat,
+    )
+
+    if "transition_steps" in CONFIG_TRAINING.optimizer.decay_kwargs:
+        num = CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps
+        CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = (
+            steps_from_epochs(num)
+        )
+    config.training_steps = steps_from_epochs(CONFIG_TRAINING.num_epochs)
+
+    config.save_checkpoint_interval = steps_from_epochs(
+        config.save_checkpoint_interval
+    )
+    config.log_tensors_interval = steps_from_epochs(
+        config.log_tensors_interval
+    )
+    config.log_train_data_interval = steps_from_epochs(
+        config.log_train_data_interval
+    )
+
+    expr_config = ml_collections.config_dict.ConfigDict(
+        dict(
+            config=dict(
+                dataset=CONFIG_DATASET,
+                training=CONFIG_TRAINING,
+                model=model_config(),
+            )
+        )
+    )
+    config.experiment_kwargs = expr_config
+
+    config.interval_type = "steps"
+    config.save_checkpoint_interval = steps_from_epochs(10)
+    config.log_tensors_interval = steps_from_epochs(1)
+    config.log_train_data_interval = steps_from_epochs(1)
+    # When True, the eval job immediately loads a checkpoint
+    # runs evaluate() once, then terminates.
+    config.one_off_evaluate = False
+    # Seed for the RNGs (default is 42).
+    config.random_seed = 42
+    config.checkpoint_dir = ""
+    config.restore_dir = ""
+
+    return config

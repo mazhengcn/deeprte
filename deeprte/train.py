@@ -21,7 +21,6 @@ from collections.abc import Generator, Mapping
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import ml_collections
 import optax
 from absl import logging
 from jaxline import experiment
@@ -68,9 +67,7 @@ class Trainer(experiment.AbstractExperiment):
         "_opt_state": "opt_state",
     }
 
-    def __init__(
-        self, mode: str, init_rng: jax.Array, config: ml_collections.ConfigDict
-    ):
+    def __init__(self, mode, init_rng, config):
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
 
@@ -86,21 +83,21 @@ class Trainer(experiment.AbstractExperiment):
         self._state = None
         self._opt_state = None
 
-        # Initialize model functions
-        self.model = None
-        self._construct_model()
-
         # Initialize train and eval functions
         self._train_input = None
         self._eval_input = None
-        self.eval_fn = None
-        self.optimizer = None
         self._lr_schedule = None
-        self.update_fn = None
 
         # Track what has started
         self._training = False
         self._evaluating = False
+
+        # Initialize model functions
+        def _forward_fn(*args, **kwargs):
+            model = modules.DeepRTE(self.config.model)
+            return model(*args, **kwargs)
+
+        self.model = hk.transform_with_state(_forward_fn)
 
         self._process_data()
 
@@ -111,13 +108,7 @@ class Trainer(experiment.AbstractExperiment):
     #  \__|_|  \__,_|_|_| |_|
     #
 
-    def step(
-        self,
-        global_step: jax.Array,
-        rng: jax.Array,
-        *unused_args,
-        **unused_kwargs,
-    ) -> Scalars:
+    def step(self, global_step, rng, *unused_args, **unused_kwargs):
         """See base class."""
         if not self._training:
             self._initialize_training()
@@ -126,38 +117,33 @@ class Trainer(experiment.AbstractExperiment):
         batch = next(self._train_input)
 
         # Update parameters
-        self._params, self._state, self._opt_state, scalars = self.update_fn(
-            self._params,
-            self._state,
-            self._opt_state,
-            global_step,
-            rng,
-            batch,
+        outputs = self.update_fn(
+            self._params, self._state, self._opt_state, global_step, rng, batch
         )
+        self._params = outputs["params"]
+        self._state = outputs["state"]
+        self._opt_state = outputs["opt_state"]
 
         # We only return the loss scalars on the first devict for logging
-        scalars = jl_utils.get_first(scalars)
+        scalars = jl_utils.get_first(outputs["scalars"])
 
         return scalars
 
-    def _update_fn(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        opt_state: OptState,
-        global_step: jax.Array,
-        rng: jax.Array,
-        batch: FeatureDict,
-    ) -> tuple[hk.Params, hk.State, optax.OptState, Scalars]:
+    def _update_fn(self, params, state, opt_state, global_step, rng, batch):
         # Logging dict.
         scalars = {}
 
+        def loss(params):
+            (loss, scalars), out_state = self.model.apply(
+                params, state, rng, batch, is_training=True, compute_loss=True
+            )
+            scaled_loss = loss / jax.local_device_count()
+            return scaled_loss, (scalars["loss"], out_state)
+
         # Gradient function w.r.t. params
-        grad_fn = jax.grad(self._loss, has_aux=True)
+        grad_fn = jax.grad(loss, has_aux=True)
         # Compute loss and gradients.
-        scaled_grads, (loss_scalars, state) = grad_fn(
-            params, state, rng, batch
-        )
+        scaled_grads, (loss_scalars, new_state) = grad_fn(params)
         grads = jax.lax.psum(scaled_grads, axis_name="i")
 
         # Grab the learning rate to log before performing the step.
@@ -172,42 +158,17 @@ class Trainer(experiment.AbstractExperiment):
         loss_scalars = {f"train_{k}": v for k, v in loss_scalars.items()}
         scalars.update(loss_scalars)
         scalars = jax.lax.pmean(scalars, axis_name="i")
-
-        return params, state, opt_state, scalars
-
-    def _loss(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jax.Array,
-        batch: FeatureDict,
-    ) -> tuple[jax.Array, tuple[Scalars, hk.State]]:
-        # Get solution_op function
-        rte_model_fn = functools.partial(
-            self.model.apply,
-            params,
-            state,
-            rng,
-            is_training=True,
-            compute_loss=True,
-            compute_metrics=False,
-        )
-        # Return loss and loss_scalars dict for logging.
-        (loss, ret), state = rte_model_fn(batch)
-        # Divided by device count since we have summed across all devices
-
-        loss_scalars = ret["loss"]
-        scaled_loss = loss / jax.local_device_count()
-
-        return scaled_loss, (loss_scalars, state)
+        return {
+            "params": params,
+            "state": new_state,
+            "opt_state": opt_state,
+            "scalars": scalars,
+        }
 
     def _build_train_input(self) -> Generator[FeatureDict, None, None]:
         """Build train input as generator/iterator."""
         c = self.config.dataset
-        batch_sizes = make_device_batch(
-            c.train.batch_size,
-            jax.device_count(),
-        )
+        batch_sizes = make_device_batch(c.train.batch_size, jax.device_count())
         train_ds = tf_data_to_generator(
             tf_data=self.tf_data,
             is_training=True,
@@ -224,7 +185,6 @@ class Trainer(experiment.AbstractExperiment):
 
     def _initialize_training(self):
         # Less verbose
-        # pylint: disable=invalid-name
         c = self.config
 
         # Performs prefetching of elements from an iterable
@@ -239,7 +199,6 @@ class Trainer(experiment.AbstractExperiment):
         # NOTE: Since we may have repeat number for the same batch
         # with different collocation points, stpes_per_epoch should be
         # multiplied by repeat.
-
         steps_per_epoch = (
             c.dataset.data_split.num_train_samples
             / c.dataset.train.batch_size
@@ -256,8 +215,7 @@ class Trainer(experiment.AbstractExperiment):
         )
         # Optimizer
         self.optimizer = optimizers.make_optimizer(
-            c.training.optimizer,
-            self._lr_schedule,
+            c.training.optimizer, self._lr_schedule
         )
 
         # Initialize net if no params available.
@@ -266,12 +224,7 @@ class Trainer(experiment.AbstractExperiment):
 
             # Pmap initial functions
             # init_net = jax.pmap(lambda *a: self.solution.init(*a))
-            init_net = functools.partial(
-                self.model.init,
-                is_training=True,
-                compute_loss=False,
-                compute_metrics=False,
-            )
+            init_net = functools.partial(self.model.init, is_training=True)
             init_net = jax.pmap(init_net)
             init_opt = jax.pmap(self.optimizer.init)
 
@@ -287,8 +240,7 @@ class Trainer(experiment.AbstractExperiment):
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
             logging.info(
-                "Net parameters: %d",
-                num_params // jax.local_device_count(),
+                "Net parameters: %d", num_params // jax.local_device_count()
             )
 
         # NOTE: We "donate" the `params, state, opt_state` arguments which
@@ -335,9 +287,7 @@ class Trainer(experiment.AbstractExperiment):
 
         return metrics
 
-    def _eval_epoch(
-        self, params: hk.Params, state: hk.State, rng: jax.Array
-    ) -> Scalars:
+    def _eval_epoch(self, params: hk.Params, state: hk.State, rng: jax.Array):
         """Evaluates an epoch."""
         num_examples = 0.0
         summed_metrics = None
@@ -365,42 +315,22 @@ class Trainer(experiment.AbstractExperiment):
         # Eval metrics dict
         metrics = {}
         # Take sqrt if it is squared
-        for k, v in mean_metrics.items():  # pylint: disable=invalid-name
+        for k, v in mean_metrics.items():
             metrics["eval_" + k] = (
                 jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
             )
 
         return metrics
 
-    def _eval_fn(
-        self,
-        params: hk.Params,
-        state: hk.State,
-        rng: jax.Array,
-        batch: FeatureDict,
-    ) -> Scalars:
+    def _eval_fn(self, params, state, rng, batch):
         """Evaluates a batch."""
-        metrics = {}
-
-        eval_func = functools.partial(
-            self.model.apply,
-            params,
-            state,
-            rng,
-            is_training=False,
-            compute_loss=False,
-            compute_metrics=True,
+        outputs, state = self.model.apply(
+            params, state, rng, batch, is_training=False, compute_metrics=True
         )
-
-        # metrics.update(self.model.metrics(eval_func, batch))
-
-        ret, state = eval_func(batch)
-        # Divided by device count since we have summed across all devices
-        metrics.update(ret["metrics"])
 
         # NOTE: Returned values will be summed and finally divided
         # by num_samples.
-        return jax.lax.psum(metrics, axis_name="i")
+        return jax.lax.psum(outputs["metrics"], axis_name="i")
 
     def _initialize_evaluation(self):
         def prefetch_and_double_buffer_input():
@@ -424,8 +354,7 @@ class Trainer(experiment.AbstractExperiment):
     def _build_eval_input(self) -> Generator[FeatureDict, None, None]:
         c = self.config.dataset
         batch_sizes = make_device_batch(
-            c.validation.batch_size,
-            jax.device_count(),
+            c.validation.batch_size, jax.device_count()
         )
         val_ds = tf_data_to_generator(
             tf_data=self.tf_data,
@@ -438,9 +367,7 @@ class Trainer(experiment.AbstractExperiment):
         )
         return val_ds
 
-    def _process_data(
-        self,
-    ):
+    def _process_data(self):
         """dataset loading."""
         c = self.config.dataset
         self.tf_data, normalization_dict = load_tf_data(
@@ -470,15 +397,3 @@ class Trainer(experiment.AbstractExperiment):
         dummy_inputs = next(ds)
 
         return dummy_inputs
-
-    def _construct_model(self):
-        # Create solution instance.
-        if not self.model:
-
-            def _forward_fn(*args, **kwargs):
-                model = modules.DeepRTE(self.config.model)
-                return model(*args, **kwargs)
-
-            self.model = hk.transform_with_state(_forward_fn)
-        else:
-            raise ValueError("Model instance is already initialized.")
