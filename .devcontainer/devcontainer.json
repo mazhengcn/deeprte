@@ -1,17 +1,16 @@
 {
-    "image": "python:3.10-slim",
+    "name": "DeepRTE",
+    "image": "docker.io/python:3.10-slim",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true,
-            "username": "none",
-            "nonFreePackages": true
+            "installZsh": false,
+            "username": "none"
         },
         "ghcr.io/devcontainers/features/nvidia-cuda:1": {
             "installCudnn": true
         },
-        "ghcr.io/mazhengcn/devcontainer-features/jax:1": {
-            "jaxlibBackend": "cuda",
-            "installNNlibs": false
+        "ghcr.io/mazhengcn/features/jax:1": {
+            "jaxlibBackend": "cuda"
         }
     },
     "runArgs": [
