@@ -1,5 +1,6 @@
 # Project related files
 # .vscode/
+data/
 slurm/
 ckpts/
 rte_data/

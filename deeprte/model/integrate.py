@@ -24,16 +24,15 @@ from deeprte.model.mapping import sharded_map
 
 
 def quad(
-    fun: Callable[..., float],
+    fun: Callable,
     quadratures: tuple[jax.Array, jax.Array],
     argnum: int = 0,
     shard_size: int | None = None,
     has_aux: Optional[bool] = False,
-) -> Callable[..., float]:
+) -> Callable:
     """Compute the integral operator for a scalar function using
     quadratures.
     """
-
     points, weights = quadratures
 
     def integral_fn(*args):
