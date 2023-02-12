@@ -19,6 +19,15 @@
     ],
     "customizations": {
         "vscode": {
+            "settings": {
+                "[python]": {
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": true
+                    },
+                    "editor.defaultFormatter": "ms-python.black-formatter",
+                    "editor.formatOnType": true
+                }
+            }
             "extensions": [
                 "ms-python.vscode-python",
                 "ms-python.flake8",
