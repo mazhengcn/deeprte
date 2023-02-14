@@ -14,6 +14,7 @@
 
 """Core modules including Green's function with Attenuation and Scattering."""
 
+import dataclasses
 import functools
 from typing import Optional
 
@@ -22,6 +23,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import lax
+from ml_collections import ConfigDict
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
@@ -41,7 +43,14 @@ def get_vmap_axes(dict_keys: list[str], template: list[str]):
     return ({k: 0 if k in template else None for k in dict_keys},)
 
 
+@dataclasses.dataclass
 class DeepRTE(hk.Module):
+    """Deep RTE model."""
+
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "deeprte"
+
     def __init__(self, config, name="deeprte"):
         super().__init__(name)
 
@@ -107,11 +116,13 @@ class DeepRTE(hk.Module):
         return ret
 
 
+@dataclasses.dataclass
 class GreenFunction(hk.Module):
-    def __init__(self, config, global_config, name="green_function"):
-        super().__init__(name=name)
-        self.config = config
-        self.global_config = global_config
+    """Green's function module."""
+
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "green_function"
 
     def __call__(self, coord1, coord2, batch, is_training):
         c = self.config
@@ -171,11 +182,13 @@ class GreenFunction(hk.Module):
         return output
 
 
+@dataclasses.dataclass
 class Scattering(hk.Module):
-    def __init__(self, config, global_config, name="scattering_module"):
-        super().__init__(name=name)
-        self.config = config
-        self.global_config = global_config
+    """Scattering module."""
+
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "scattering_module"
 
     def __call__(self, act, self_act, kernel, self_kernel, is_training):
         c = self.config
@@ -215,16 +228,14 @@ class Scattering(hk.Module):
         return act_output, self_act_output
 
 
+@dataclasses.dataclass
 class ScatteringLayer(hk.Module):
     "A single layer describing scattering action."
 
-    def __init__(
-        self, output_size, with_bias=True, w_init=None, name="scattering_layer"
-    ):
-        super().__init__(name=name)
-        self.output_size = output_size
-        self.with_bias = with_bias
-        self.w_init = w_init
+    output_size: int
+    with_bias: bool = True
+    w_init: int | None = None
+    name: Optional[str] = "scattering_layer"
 
     def __call__(self, act, kernel, is_training=None):
         output = jnp.einsum("...V,Vd->...d", kernel, act)
@@ -238,13 +249,13 @@ class ScatteringLayer(hk.Module):
         return output
 
 
+@dataclasses.dataclass
 class Attenuation(hk.Module):
     """Attenuation operator module of the tranport equation."""
 
-    def __init__(self, config, global_config, name="attenuation"):
-        super().__init__(name=name)
-        self.config = config
-        self.global_config = global_config
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "attenuation"
 
     def __call__(self, coord1, coord2, att_coeff, charc):
         """Module that describes the attenuation part of RTE equation.
@@ -290,6 +301,10 @@ class Attenuation(hk.Module):
 
 class Attention(hk.Module):
     """Multihead Attention."""
+
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "attention"
 
     def __init__(self, config, global_config, name="attention"):
         super().__init__(name=name)
@@ -362,13 +377,13 @@ class Attention(hk.Module):
         return y.reshape((*leading_dims, self.num_head, head_dim))
 
 
+@dataclasses.dataclass
 class Attention_v2(hk.Module):
     """Multihead Attention."""
 
-    def __init__(self, config, global_config, name="attention"):
-        super().__init__(name=name)
-        self.config = config
-        self.global_config = global_config
+    config: ConfigDict
+    global_config: ConfigDict
+    name: Optional[str] = "attention"
 
     def __call__(self, query, key, value, mask=None):
         """Computes (optionally masked) MHA with queries, keys & values.
