@@ -3,14 +3,11 @@
     "image": "ghcr.io/mazhengcn/jax:py311-cu118",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true,
+            "installZsh": false,
+            "installOhMyZsh": false,
             "username": "none"
         }
     },
-    "runArgs": [
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
     "customizations": {
         "vscode": {
             "extensions": [
@@ -26,6 +23,10 @@
             "target": "${containerWorkspaceFolder}/rte_data",
             "type": "volume"
         }
+    ],
+    "runArgs": [
+        "--gpus=all",
+        "--shm-size=1g"
     ],
     "postCreateCommand": "python -m pip install -e ."
 }
