@@ -15,7 +15,8 @@
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
                 "ms-python.flake8",
-                "ms-python.isort"
+                "ms-python.isort",
+                "Iterative.dvc"
             ]
         }
     },
