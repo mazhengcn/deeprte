@@ -6,7 +6,8 @@
             "installZsh": false,
             "installOhMyZsh": false,
             "username": "none"
-        }
+        },
+        "ghcr.io/iterative/features/dvc:1": {}
     },
     "customizations": {
         "vscode": {
