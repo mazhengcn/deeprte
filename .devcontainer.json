@@ -11,9 +11,11 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-python.vscode-python",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.black-formatter",
                 "ms-python.flake8",
-                "ms-python.black-formatter"
+                "ms-python.isort"
             ]
         }
     },
@@ -28,5 +30,5 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "python -m pip install -e ."
+    "postCreateCommand": "pip install -e ."
 }
