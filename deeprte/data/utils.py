@@ -67,5 +67,6 @@ def jax_cartesian_product(arrays):
 
 
 def normalization(data):
-    _range = np.max(data) - np.min(data)
-    return (data - np.min(data)) / _range
+    _min = np.min(data)
+    _range = np.max(data) - _min
+    return (data - np.min(data)) / _range, _min, _range

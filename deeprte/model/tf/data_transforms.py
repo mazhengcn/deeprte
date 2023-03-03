@@ -59,6 +59,38 @@ def sample_phase_points(
     return features
 
 
+def sample_points(
+    features,
+    collocation_features: Mapping[str, int],
+    collocation_sizes: int,
+    total_sizes: int,
+    generator: Generator,
+):
+    """Sample phase points randomly and take collocation points.
+
+    Args:
+        featrues: batch to sample.
+        collocation_sizes: number of collocation points.
+        seed: random seed.
+
+    Returns:
+        sampled data.
+    """
+
+    idx = generator.uniform(
+        (collocation_sizes,),
+        minval=0,
+        maxval=total_sizes,
+        dtype=tf.int64,
+    )
+    ret = features.copy()
+    for k, axis in collocation_features.items():
+        if k in features:
+            ret[k] = tf.gather(features[k], idx, axis=axis)
+
+    return ret
+
+
 @curry1
 def select_feat(feature, feature_name_list):
     return {k: v for k, v in feature.items() if k in feature_name_list}
@@ -97,17 +129,64 @@ def construct_batch(
     unbatched_feat,
     collocation_features: Mapping[str, int],
     collocation_sizes: int,
+    bc_collocation_sizes: int,
     total_grid_sizes: int,
     generator: Generator,
     is_training: bool,
 ):
     batched_feat.update(unbatched_feat)
+    bounadry_feat, total_bc_sizes = split_boundary_points(batched_feat)
     if is_training:
-        batched_feat = sample_phase_points(
+        batched_feat = sample_points(
             batched_feat,
             collocation_features=collocation_features,
             collocation_sizes=collocation_sizes,
-            total_grid_sizes=total_grid_sizes,
+            total_sizes=total_grid_sizes,
             generator=generator,
         )
-    return batched_feat
+        bounadry_feat = sample_points(
+            bounadry_feat,
+            collocation_features=collocation_features,
+            collocation_sizes=bc_collocation_sizes,
+            total_sizes=total_bc_sizes,
+            generator=generator,
+        )
+    batch = {"bounday_batch": bounadry_feat, "inner_batch": batched_feat}
+    return batch
+
+
+def split_boundary_points(
+    feat_dict,
+):
+    boundary_feat = feat_dict.copy()
+    NUM_BOUNDARY_COORDS = boundary_feat["boundary"].shape[-1]
+
+    boundary_feat["phase_coords"] = boundary_feat["boundary_coords"]
+    # boundary_feat["scattering_kernel"] = boundary_feat["scattering_kernel"][
+    #     :, :NUM_BOUNDARY_COORDS, :
+    # ]
+    boundary_feat["psi_label"] = boundary_feat["boundary"]
+
+    return boundary_feat, NUM_BOUNDARY_COORDS
+
+
+# @curry1
+# def construct_batch(
+#     batched_feat,
+#     unbatched_feat,
+#     collocation_features: Mapping[str, int],
+#     collocation_sizes: int,
+#     total_grid_sizes: int,
+#     generator: Generator,
+#     is_training: bool,
+# ):
+#     batched_feat.update(unbatched_feat)
+#     if is_training:
+#         batched_feat = sample_phase_points(
+#             batched_feat,
+#             collocation_features=collocation_features,
+#             collocation_sizes=collocation_sizes,
+#             total_grid_sizes=total_grid_sizes,
+#             generator=generator,
+#         )
+#     return batched_feat

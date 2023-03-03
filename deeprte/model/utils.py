@@ -105,7 +105,7 @@ def query_chunk_attention(
     value,
     mask=None,
     key_chunk_size=None,
-    precision=lax.Precision.HIGHEST,
+    precision=lax.Precision.DEFAULT,
     dtype=jnp.float32,
 ):
     num_kv, num_heads, k_features = key.shape

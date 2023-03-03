@@ -21,7 +21,6 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax import lax
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
@@ -95,9 +94,7 @@ class DeepRTE(hk.Module):
             }
         if compute_metrics:
             labels = batch["psi_label"]
-            # Compute relative mean squared error,
-            # this values will be summed and finally divided
-            # by num_examples.
+
             mse = mean_squared_loss_fn(predictions, labels, axis=-1)
             relative_mse = mse / jnp.mean(labels**2)
             ret["metrics"] = {"mse": mse, "rmspe": relative_mse}
@@ -291,7 +288,7 @@ class Attenuation(hk.Module):
 class Attention(hk.Module):
     """Multihead Attention."""
 
-    def __init__(self, config, global_config, name="attention"):
+    def __init__(self, config, global_config, name="attention_v2"):
         super().__init__(name=name)
         self.config = config
         self.global_config = global_config
@@ -409,7 +406,7 @@ class Attention_v2(hk.Module):
             value_heads,
             mask,
             key_chunk_size=None if hk.running_init() else c.key_chunk_size,
-            precision=lax.Precision.HIGHEST,
+            precision=None,
             dtype=jnp.float32,
         )
         attn = jnp.reshape(attn, (*leading_dims, -1))  # [T', H*V]

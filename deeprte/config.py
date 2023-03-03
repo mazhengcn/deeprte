@@ -11,12 +11,13 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "data_name_list": [],
         "num_samples": 2000,
         "train": {
-            "batch_size": 8,
-            "collocation_sizes": 500,
+            "batch_size": 4,
+            "collocation_sizes": 100,
+            "bc_collocation_sizes": 50,
             "repeat": 1,
         },
         "validation": {
-            "batch_size": 8,
+            "batch_size": 4,
         },
         "data_split": {
             "num_test_samples": 400,
@@ -33,7 +34,8 @@ CONFIG_DATASET = ml_collections.ConfigDict(
 )
 CONFIG_TRAINING = ml_collections.ConfigDict(
     {
-        "num_epochs": 5000,
+        "num_epochs": 4000,
+        "loss_weight": 5,
         "optimizer": {
             "base_lr": 1e-3,
             "scale_by_batch": True,
@@ -52,7 +54,7 @@ CONFIG_GLOBAL = ml_collections.ConfigDict(
     {
         # N means N epochs
         "interval_type": "steps",
-        "save_checkpoint_interval": 5,
+        "save_checkpoint_interval": 50,
         "log_tensors_interval": 1,
         "log_train_data_interval": 2,
         # When True, the eval job immediately loads a checkpoint
