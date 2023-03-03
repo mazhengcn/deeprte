@@ -192,10 +192,20 @@ class Trainer(experiment.AbstractExperiment):
             compute_loss=True,
             compute_metrics=False,
         )
+        bounday_batch = batch["bounday_batch"]
+        inner_batch = batch["inner_batch"]
         # Return loss and loss_scalars dict for logging.
-        (loss, ret), state = rte_model_fn(batch)
+        (loss_b, ret_b), state = rte_model_fn(bounday_batch)
+        (loss_i, ret_i), state = rte_model_fn(inner_batch)
         # Divided by device count since we have summed across all devices
-        loss_scalars = ret["loss"]
+        def weighted_loss_fc(loss_b, loss_i):
+            return loss_i + self.config.training.loss_weight * loss_b
+
+        loss = weighted_loss_fc(loss_b, loss_i)
+        loss_scalars = {
+            k: weighted_loss_fc(ret_b["loss"][k], ret_i["loss"][k])
+            for k in ret_b["loss"].keys()
+        }
         scaled_loss = loss / jax.local_device_count()
 
         return scaled_loss, (loss_scalars, state)
@@ -213,6 +223,7 @@ class Trainer(experiment.AbstractExperiment):
             batch_sizes=batch_sizes,
             split_rate=c.data_split.train_validation_split_rate,
             collocation_sizes=c.train.collocation_sizes,
+            bc_collocation_sizes=c.train.bc_collocation_sizes,
             repeat=c.train.repeat,
             buffer_size=c.buffer_size,
             threadpool_size=c.threadpool_size,
@@ -441,7 +452,7 @@ class Trainer(experiment.AbstractExperiment):
     ):
         """dataset loading."""
         c = self.config.dataset
-        self.tf_data = load_tf_data(
+        self.tf_data, normalization_dict = load_tf_data(
             source_dir=c.source_dir,
             data_name_list=c.data_name_list,
             pre_shuffle=c.pre_shuffle,
@@ -450,6 +461,8 @@ class Trainer(experiment.AbstractExperiment):
             num_test_samples=c.data_split.num_test_samples,
             save_path=c.data_split.save_path,
         )
+        with self.config.unlocked() as c:
+            c.model.data.normalization_dict = normalization_dict
 
     def _build_dummy_input(self) -> tuple[jax.Array]:
         """Load dummy data for initializing network parameters."""
@@ -459,10 +472,11 @@ class Trainer(experiment.AbstractExperiment):
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
             collocation_sizes=1,
+            bc_collocation_sizes=1,
             repeat=1,
         )
 
-        dummy_inputs = next(ds)
+        dummy_inputs = next(ds)["inner_batch"]
 
         return dummy_inputs
 

@@ -41,6 +41,7 @@ def load_tf_data(
     is_split_test_samples: bool = False,
     num_test_samples: Optional[int] = None,
     save_path: Optional[str] = None,
+    normalization: Optional[bool] = True,
     features_names: Optional[Sequence[str]] = None,
 ) -> TensorDict:
     data_pipeline = DataPipeline(source_dir, data_name_list)
@@ -49,10 +50,14 @@ def load_tf_data(
         pre_shuffle_seed=pre_shuffle_seed,
         is_split_test_samples=is_split_test_samples,
         num_test_samples=num_test_samples,
+        normalization=normalization,
         save_path=save_path,
     )
     tf_data = np_to_tensor_dict(np_example=data, features_names=features_names)
-    return tf_data
+    normalization_dict = {}
+    if normalization:
+        normalization_dict = data["normalization_dict"]
+    return tf_data, normalization_dict
 
 
 def tf_data_to_generator(
@@ -61,6 +66,7 @@ def tf_data_to_generator(
     batch_sizes: Sequence[int],
     split_rate: Optional[int] = None,
     collocation_sizes: Optional[int] = None,
+    bc_collocation_sizes: Optional[int] = None,
     repeat: int | None = 1,
     buffer_size: int = 5_000,
     threadpool_size: int = 48,
@@ -81,6 +87,7 @@ def tf_data_to_generator(
         is_training=is_training,
         batch_sizes=batch_sizes,
         collocation_sizes=collocation_sizes,
+        bc_collocation_sizes=bc_collocation_sizes,
         repeat=repeat,
         buffer_size=buffer_size,
         threadpool_size=threadpool_size,
@@ -117,6 +124,7 @@ def process_features(
     # total_collocation_size or
     # [residual_size, boundary_size, quadrature_size]
     collocation_sizes: Optional[int] = None,
+    bc_collocation_sizes: Optional[int] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
     seed: int = jax.process_index(),
@@ -167,6 +175,7 @@ def process_features(
         data_transforms.construct_batch(
             unbatched_feat=unbatched_feat,
             collocation_sizes=collocation_sizes,
+            bc_collocation_sizes=bc_collocation_sizes,
             collocation_features=make_collocation_axis(),
             total_grid_sizes=total_grid_sizes,
             generator=g,

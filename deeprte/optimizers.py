@@ -16,7 +16,7 @@
 
 import optax
 
-BASE_BATCH_SIZE = 10
+BASE_BATCH_SIZE = 8
 
 
 def _get_batch_scaled_lr(total_batch_size, lr, scale_by_batch=True):

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import scipy.io as sio
+import tree
 
 BATCH_FEAT_LIST = [
     "sigma_a",
@@ -40,5 +41,6 @@ def mat_loader(
     # for k in unused_keys
     for k in unused_keys:
         del data[k]
-
+    # print(mat_dict.keys())
+    data = tree.map_structure(lambda x: np.array(x, dtype=np.float32), data)
     return data

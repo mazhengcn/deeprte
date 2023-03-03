@@ -104,18 +104,13 @@ class DataPipeline:
         pre_shuffle_seed: int = 0,
         is_split_test_samples: bool = False,
         num_test_samples: Optional[int] = None,
-        normalization: Optional[bool] = True,
+        normalization: Optional[bool] = False,
         save_path: Optional[str] = None,
     ) -> FeatureDict:
 
         data_feature = make_data_features(self.data)
         grid_feature = make_grid_features(self.data)
         shape_dict = make_shape_dict(self.data)
-
-        if normalization:
-            data_feature["psi_label"] = utils.normalization(
-                data_feature["psi_label"],
-            )
 
         if pre_shuffle:
             rng = np.random.default_rng(seed=pre_shuffle_seed)
@@ -133,7 +128,7 @@ class DataPipeline:
                 lambda x: x[:num_test_samples],
                 data_feature,
             )
-            train_ds = tree.map_structure(
+            data_feature = tree.map_structure(
                 lambda x: x[num_test_samples:],
                 data_feature,
             )
@@ -150,8 +145,34 @@ class DataPipeline:
                 shape_dict["num_examples"] - num_test_samples
             )
 
-            return {**train_ds, **grid_feature, **shape_dict}
-
         else:
             shape_dict["num_train_and_val"] = shape_dict["num_examples"]
-            return {**data_feature, **grid_feature, **shape_dict}
+
+        if normalization:
+            (
+                data_feature["psi_label"],
+                psi_min,
+                psi_range,
+            ) = utils.normalization(
+                data_feature["psi_label"],
+            )
+            (
+                data_feature["boundary"],
+                boundary_min,
+                boundary_range,
+            ) = utils.normalization(
+                data_feature["boundary"],
+            )
+            normalization_dict = {}
+            normalization_dict["psi_min"] = psi_min
+            normalization_dict["psi_range"] = psi_range
+            normalization_dict["boundary_min"] = boundary_min
+            normalization_dict["boundary_range"] = boundary_range
+            return {
+                "normalization_dict": normalization_dict,
+                **data_feature,
+                **grid_feature,
+                **shape_dict,
+            }
+
+        return {**data_feature, **grid_feature, **shape_dict}

@@ -28,7 +28,7 @@ def model_config() -> ml_collections.ConfigDict:
 
 CONFIG = ml_collections.ConfigDict(
     {
-        "data": {},
+        "data": {"is_normalization": True},
         "global_config": {
             "deterministic": True,
             "subcollocation_size": 128,
@@ -37,12 +37,12 @@ CONFIG = ml_collections.ConfigDict(
         "green_function": {
             "scattering": {
                 "num_layer": 2,
-                "latent_dim": 32,
+                "latent_dim": 16,
             },
             "attenuation": {
                 "num_layer": 4,
                 "latent_dim": 128,
-                "output_dim": 32,
+                "output_dim": 16,
                 "attention": {
                     "num_head": 2,
                     "key_dim": 32,
