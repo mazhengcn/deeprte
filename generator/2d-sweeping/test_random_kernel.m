@@ -9,16 +9,17 @@ I = 40;
 J = I; hx = (xr - xl) / I; hy = (yr - yl) / J; % IxJ: the number of cells, hxxhy: size of cell
 [omega, ct, st, M, theta, ~] = qnwlege2(N);
 
-N_itr = 500;
+N_itr = 10;
 list_psiL = zeros(2 * M, J + 1, N_itr); list_psiR = list_psiL;
 list_psiB = zeros(2 * M, I + 1, N_itr); list_psiT = list_psiB;
 %% 生成随机系数并构建入射函数
 list_b = (rand(N_itr, 2) - 0.5) * 0.02;
 list_a = (rand(N_itr, 2) - 0.5) * 2;
+list_g = floor(rand(1, N_itr) * 20) * 0.0125;
 list_v_index = randi(2 * M, 4, N_itr);
 
-g = 0.75; %anisotropic coefficient
-K = P2generator(N, g); %Kernel matrix
+% g = 0.75; %anisotropic coefficient
+% K = P2generator(N, g); %Kernel matrix
 
 %% Omega_C内的散射截面，源项
 f_varepsilon = cell(N_itr, 1); f_sigma_T = f_varepsilon; f_sigma_a = f_varepsilon; f_q = f_varepsilon;
@@ -29,8 +30,14 @@ list_Phi = zeros(I + 1, J + 1, N_itr);
 list_sigma_a = zeros(I + 1, J + 1, N_itr);
 list_sigma_T = zeros(I + 1, J + 1, N_itr);
 
+scattering_kernel = zeros(N_itr, 4 * M, 4 * M);
+
 %% cross sections, external source term and boundary conditions
 for n = 1:N_itr
+
+    g = list_g(n); %anisotropic coefficient
+    K = P2generator(N, g); %Kernel matrix
+    scattering_kernel(n, :, :) = K;
     variance_x = 0.02 * rand([1, 4]) + 0.005;
     variance_v = 0.01 * rand([1, 4]) + 0.005;
     c_ind = randi([2, 40], 1, 4);
@@ -42,34 +49,34 @@ for n = 1:N_itr
     x_b = xr - c_ind(3) * hx;
     x_t = c_ind(4) * hx + xl;
 
-    func_psiL = @(x, y)(exp(- (y - y_l).^2/2 / variance_x(1)) * exp(- (x - xl).^2/2 / variance_x(1)));
-    func_psiL_v = @(x)(exp(- (x - x(list_v_index(1, n))).^2/2 / variance_v(1)));
+    func_psiL = @(x, y)(exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
+    func_psiL_v = @(x)(exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
     % func_psiL_v = @(x)(exp(- (x - x(v_index(1))).^2/2 / variance_v(1)));
-    func_psiR = @(x, y)(exp(- (y - y_r).^2/2 / variance_x(2)) * exp(- (x - xr).^2/2 / variance_x(2)));
-    func_psiR_v = @(x)(exp(- (x - x(list_v_index(2, n))).^2/2 / variance_v(2)));
-    func_psiB = @(x, y)(exp(- (y - yl).^2/2 / variance_x(3)) * exp(- (x - x_b).^2/2 / variance_x(3)));
-    func_psiB_v = @(x)(exp(- (x - x(list_v_index(3, n))).^2/2 / variance_v(3)));
-    func_psiT = @(x, y)(exp(- (y - yr).^2/2 / variance_x(4)) * exp(- (x - x_t).^2/2 / variance_x(4)));
-    func_psiT_v = @(x)(exp(- (x - x(list_v_index(4, n))).^2/2 / variance_v(4)));
+    func_psiR = @(x, y)(exp(- (y - y_r) .^ 2/2 / variance_x(2)) * exp(- (x - xr) .^ 2/2 / variance_x(2)));
+    func_psiR_v = @(x)(exp(- (x - x(list_v_index(2, n))) .^ 2/2 / variance_v(2)));
+    func_psiB = @(x, y)(exp(- (y - yl) .^ 2/2 / variance_x(3)) * exp(- (x - x_b) .^ 2/2 / variance_x(3)));
+    func_psiB_v = @(x)(exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
+    func_psiT = @(x, y)(exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
+    func_psiT_v = @(x)(exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
 
     sum_x_L = sum(func_psiL(xl, yl + hy:hy:yr - hy)) + sum(func_psiL(xr, yl + hy:hy:yr - hy)) + sum(func_psiL(hx:hx:xr, yl)) + sum(func_psiL(xl:hx:xr, yr));
     sum_x_R = sum(func_psiR(xl, yl + hy:hy:yr - hy)) + sum(func_psiR(xr, yl + hy:hy:yr - hy)) + sum(func_psiR(xl:hx:xr, yl)) + sum(func_psiR(xl:hx:xr, yr));
     sum_x_B = sum(func_psiB(xl, yl + hy:hy:yr - hy)) + sum(func_psiB(xr, yl + hy:hy:yr - hy)) + sum(func_psiB(xl:hx:xr, yl)) + sum(func_psiB(xl:hx:xr, yr));
     sum_x_T = sum(func_psiT(xl, yl + hy:hy:yr - hy)) + sum(func_psiT(xr, yl + hy:hy:yr - hy)) + sum(func_psiT(xl:hx:xr, yl)) + sum(func_psiT(xl:hx:xr, yr));
 
-    sum_v_L = sqrt(sum(func_psiL_v([ct(3 * M + 1:4 * M); ct(1:M)]) .* func_psiL_v([st(3 * M + 1:4 * M); st(1:M)])));
-    sum_v_R = sqrt(sum(func_psiR_v(ct(1 * M + 1:3 * M)) .* func_psiR_v(st(1 * M + 1:3 * M))));
-    sum_v_B = sqrt(sum(func_psiB_v(ct(0 * M + 1:2 * M)) .* func_psiB_v(st(0 * M + 1:2 * M))));
-    sum_v_T = sqrt(sum(func_psiT_v(ct(2 * M + 1:4 * M)) .* func_psiT_v(st(2 * M + 1:4 * M))));
+    sum_v_L = sqrt(sum(func_psiL_v(ct) .* func_psiL_v(st)));
+    sum_v_R = sqrt(sum(func_psiR_v(ct) .* func_psiR_v(st)));
+    sum_v_B = sqrt(sum(func_psiB_v(ct) .* func_psiB_v(st)));
+    sum_v_T = sqrt(sum(func_psiT_v(ct) .* func_psiT_v(st)));
 
-    func_psiL = @(x, y)(1 / sum_x_L * exp(- (y - y_l).^2/2 / variance_x(1)) * exp(- (x - xl).^2/2 / variance_x(1)));
-    func_psiL_v = @(x)(1 / sum_v_L * exp(- (x - x(list_v_index(1, n))).^2/2 / variance_v(1)));
-    func_psiR = @(x, y)(1 / sum_x_R * exp(- (y - y_r).^2/2 / variance_x(2)) * exp(- (x - xr).^2/2 / variance_x(2)));
-    func_psiR_v = @(x)(1 / sum_v_R * exp(- (x - x(list_v_index(2, n))).^2/2 / variance_v(2)));
-    func_psiB = @(x, y)(1 / sum_x_B * exp(- (y - yl).^2/2 / variance_x(3)) * exp(- (x - x_b).^2/2 / variance_x(3)));
-    func_psiB_v = @(x)(1 / sum_v_B * exp(- (x - x(list_v_index(3, n))).^2/2 / variance_v(3)));
-    func_psiT = @(x, y)(1 / sum_x_T * exp(- (y - yr).^2/2 / variance_x(4)) * exp(- (x - x_t).^2/2 / variance_x(4)));
-    func_psiT_v = @(x)(1 / sum_v_T * exp(- (x - x(list_v_index(4, n))).^2/2 / variance_v(4)));
+    func_psiL = @(x, y)(5 / sum_x_L * exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
+    func_psiL_v = @(x)(1 / sum_v_L * exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
+    func_psiR = @(x, y)(5 / sum_x_R * exp(- (y - y_r) .^ 2/2 / variance_x(2)) * exp(- (x - xr) .^ 2/2 / variance_x(2)));
+    func_psiR_v = @(x)(1 / sum_v_R * exp(- (x - x(list_v_index(2, n))) .^ 2/2 / variance_v(2)));
+    func_psiB = @(x, y)(5 / sum_x_B * exp(- (y - yl) .^ 2/2 / variance_x(3)) * exp(- (x - x_b) .^ 2/2 / variance_x(3)));
+    func_psiB_v = @(x)(1 / sum_v_B * exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
+    func_psiT = @(x, y)(5 / sum_x_T * exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
+    func_psiT_v = @(x)(1 / sum_v_T * exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
 
     func_list_x = {func_psiL, func_psiR, func_psiB, func_psiT};
     func_list_v = {func_psiL_v, func_psiR_v, func_psiB_v, func_psiT_v};
@@ -82,8 +89,8 @@ for n = 1:N_itr
     end
 
     f_varepsilon{n} = @(x, y)1 .* (x <= xr) .* (y <= yr);
-    f_sigma_T{n} = @(x, y)(10 * (x <= xr) .* (y <= yr) - (5 - list_a(n, 1)) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
-    f_sigma_a{n} = @(x, y)(5 * (x <= xr) .* (y <= yr) - (3 - list_a(n, 2)) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
+    f_sigma_T{n} = @(x, y)(10 * (x <= xr) .* (y <= yr) - (5) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
+    f_sigma_a{n} = @(x, y)(5 * (x <= xr) .* (y <= yr) - (3) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
     f_q{n} = @(x, y)(0) .* (x <= xr) .* (y <= yr);
 
     psiL = list_psiL(:, 2:40, n);
@@ -121,9 +128,9 @@ rv(:, :, :, 4) = vy;
 psi_bc = cat(2, psiL, psiR, psiB, psiT);
 omega = squeeze(omega);
 % psil
-[x, y, vx_l] = ndgrid(xl, yl:hy:yr, ct(ct > 0));
-[x, y, vy_l] = ndgrid(xl, yl:hy:yr, st(ct > 0));
-[x, y, omega_l] = ndgrid(xl, yl:hy:yr, omega(ct > 0));
+[x, y, vx_l] = ndgrid(xl, yl:hy:yr, [ct(3 * M + 1:4 * M); ct(1:M)]);
+[x, y, vy_l] = ndgrid(xl, yl:hy:yr, [st(3 * M + 1:4 * M); st(1:M)]);
+[x, y, omega_l] = ndgrid(xl, yl:hy:yr, [omega(3 * M + 1:4 * M); omega(1:M)]);
 rv_l = zeros(J + 1, 2 * M, 4);
 rv_l(:, :, 1) = squeeze(x);
 rv_l(:, :, 2) = squeeze(y);
@@ -175,4 +182,4 @@ x = squeeze(xl:hx:xr);
 y = squeeze(yl:hy:yr);
 w_angle = omega;
 
-save train_scattering_kernel_1.mat psi_label phi rv psi_bc rv_prime omega_prime sigma_a sigma_t r ct st omega x y w_angle
+save test_random_kernel_0311.mat psi_label phi psi_bc rv_prime omega_prime sigma_a sigma_t ct st x y w_angle scattering_kernel
