@@ -21,15 +21,16 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "absl-py>=1.0.0",
-    "dm-haiku>=0.0.8",
-    "jax>=0.3.25",
-    "jaxline>=0.0.6",
-    "ml-collections>=0.1.1",
-    "numpy>=1.22.3",
-    "optax>=0.1.2",
-    "tensorflow-cpu==2.12.0rc0",
-    "tensorflow-datasets>=4.7.0",
+    "absl-py",
+    "dill",
+    "dm-haiku",
+    "jax>=0.4.5",
+    "jaxline",
+    "ml-collections",
+    "numpy",
+    "optax",
+    "tensorflow-cpu==2.12.0rc1",
+    "tensorflow-datasets"
 ]
 
 [project.urls]
@@ -46,4 +47,4 @@ extend-ignore = ["E203"]
 
 [tool.black]
 line-length = 79
-target-version = ["py38", "py39", "py310", "py311"]
+target-version = ["py311"]

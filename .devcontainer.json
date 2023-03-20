@@ -1,23 +1,32 @@
 {
-    "name": "DeepRTE",
-    "image": "ghcr.io/mazhengcn/jax:py311-cu118",
+    "name": "DeepRTE Dev Container",
+    "build": {
+        "context": "./docker/",
+        "dockerfile": "./docker/Dockerfile"
+    },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": false,
-            "installOhMyZsh": false,
+            "installZsh": true,
+            "installOhMyZsh": true,
+            "configureZshAsDefaultShell": true,
+            "upgradePackages": true,
             "username": "none"
         },
-        "ghcr.io/iterative/features/dvc:1": {}
+        "ghcr.io/mazhengcn/devcontainer-features/starship:1": {}
     },
     "customizations": {
         "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
+            },
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
                 "ms-python.flake8",
                 "ms-python.isort",
-                "Iterative.dvc"
+                "bungcip.better-toml",
+                "aaron-bond.better-comments"
             ]
         }
     },
@@ -29,8 +38,10 @@
         }
     ],
     "runArgs": [
-        "--gpus=all",
-        "--shm-size=1g"
+        "--gpus",
+        "device=1",
+        "--shm-size",
+        "8g"
     ],
-    "postCreateCommand": "pip install -e ."
+    "postCreateCommand": "python -m pip install -e ."
 }
