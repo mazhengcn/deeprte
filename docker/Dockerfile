@@ -22,15 +22,15 @@ RUN python -m venv ${VENV_PATH}
 ENV PATH=${VENV_PATH}/bin:$PATH
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
-    absl-py>=1.0.0 \
+    absl-py \
     jax[cuda11_cudnn86]==${JAX_VERSION} \
     jaxline@git+https://github.com/mazhengcn/jaxline \
-    dm-haiku>=0.0.8 \
-    ml-collections>=0.1.1 \
-    numpy>=1.22.3 \
-    optax>=0.1.2 \
+    dm-haiku \
+    ml-collections \
+    numpy \
+    optax \
     tensorflow-cpu==2.12.0rc1 \
-    tensorflow-datasets>=4.7.0
+    tensorflow-datasets
 
 FROM python:${PYTHON_VERSION}-slim
 ARG PYTHON_VERSION
