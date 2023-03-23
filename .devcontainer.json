@@ -38,10 +38,9 @@
         }
     ],
     "runArgs": [
-        "--gpus",
-        "all",
-        "--ipc",
-        "host"
+        "--name=deeprte",
+        "--gpus=all",
+        "--ipc=host"
     ],
     "postCreateCommand": "pip install -e ."
 }
