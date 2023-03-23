@@ -60,6 +60,7 @@ class DeepRTE(hk.Module):
                 batch["boundary_coords"],
                 batch["boundary"] * batch["boundary_weights"],
             )
+            # batch["green_func"] = green_fn()
             rte_sol = integrate.quad(
                 green_fn, quadratures=quadratures, argnum=1
             )(batch["phase_coords"], batch, is_training)
@@ -85,13 +86,41 @@ class DeepRTE(hk.Module):
         predictions = batched_rte_op(batch)
 
         ret["predicted_solution"] = predictions
+
         if compute_loss:
-            labels = batch["psi_label"]
-            loss = mean_squared_loss_fn(predictions, labels)
+            inner_labels = batch["psi_label"]
+            inner_loss = mean_squared_loss_fn(predictions, inner_labels)
+
+            batch["phase_coords"] = batch["sampled_boundary_coords"]
+            batch["psi_label"] = batch["sampled_boundary"]
+            batch["scattering_kernel"] = batch[
+                "sampled_boundary_scattering_kernel"
+            ]
+
+            bc_predictions = batched_rte_op(batch)
+            bc_labels = batch["psi_label"]
+            bc_loss = mean_squared_loss_fn(bc_predictions, bc_labels)
+
+            w = gc.loss_weights
+            total_loss = inner_loss + w * bc_loss
+
             ret["loss"] = {
-                "mse": loss,
-                "rmspe": jnp.sqrt(loss / jnp.mean(labels**2)),
+                "inner_mse": inner_loss,
+                "inner_rmspe": jnp.sqrt(
+                    inner_loss / jnp.mean(inner_labels**2)
+                ),
+                "bc_mse": bc_loss,
+                "bc_rmspe": jnp.sqrt(bc_loss / jnp.mean(bc_labels**2)),
+                "total_loss": total_loss,
             }
+            # labels = inner_labels
+            # total_loss = inner_loss
+
+            # ret["loss"] = {
+            #     "mse": total_loss,
+            #     "rmspe": jnp.sqrt(total_loss / jnp.mean(labels**2)),
+            # }
+
         if compute_metrics:
             labels = batch["psi_label"]
 
@@ -99,9 +128,11 @@ class DeepRTE(hk.Module):
             relative_mse = mse / jnp.mean(labels**2)
             ret["metrics"] = {"mse": mse, "rmspe": relative_mse}
         if compute_loss:
-            return loss, ret
+            return total_loss, ret
 
         return ret
+
+    # def loss(self, model, labels):
 
 
 class GreenFunction(hk.Module):

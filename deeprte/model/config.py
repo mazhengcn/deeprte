@@ -33,6 +33,7 @@ CONFIG = ml_collections.ConfigDict(
             "deterministic": True,
             "subcollocation_size": 128,
             "w_init": "glorot_uniform",
+            "loss_weights": 0.0,
         },
         "green_function": {
             "scattering": {

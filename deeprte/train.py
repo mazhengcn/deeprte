@@ -192,20 +192,11 @@ class Trainer(experiment.AbstractExperiment):
             compute_loss=True,
             compute_metrics=False,
         )
-        bounday_batch = batch["bounday_batch"]
-        inner_batch = batch["inner_batch"]
         # Return loss and loss_scalars dict for logging.
-        (loss_b, ret_b), state = rte_model_fn(bounday_batch)
-        (loss_i, ret_i), state = rte_model_fn(inner_batch)
+        (loss, ret), state = rte_model_fn(batch)
         # Divided by device count since we have summed across all devices
-        def weighted_loss_fc(loss_b, loss_i):
-            return loss_i + self.config.training.loss_weight * loss_b
 
-        loss = weighted_loss_fc(loss_b, loss_i)
-        loss_scalars = {
-            k: weighted_loss_fc(ret_b["loss"][k], ret_i["loss"][k])
-            for k in ret_b["loss"].keys()
-        }
+        loss_scalars = ret["loss"]
         scaled_loss = loss / jax.local_device_count()
 
         return scaled_loss, (loss_scalars, state)
@@ -222,8 +213,8 @@ class Trainer(experiment.AbstractExperiment):
             is_training=True,
             batch_sizes=batch_sizes,
             split_rate=c.data_split.train_validation_split_rate,
-            collocation_sizes=c.train.collocation_sizes,
-            bc_collocation_sizes=c.train.bc_collocation_sizes,
+            collocation_size=c.train.collocation_sizes,
+            bc_collocation_size=c.train.bc_collocation_sizes,
             repeat=c.train.repeat,
             buffer_size=c.buffer_size,
             threadpool_size=c.threadpool_size,
@@ -471,12 +462,12 @@ class Trainer(experiment.AbstractExperiment):
             tf_data=self.tf_data,
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
-            collocation_sizes=1,
-            bc_collocation_sizes=1,
+            collocation_size=1,
+            bc_collocation_size=1,
             repeat=1,
         )
 
-        dummy_inputs = next(ds)["inner_batch"]
+        dummy_inputs = next(ds)
 
         return dummy_inputs
 

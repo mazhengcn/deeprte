@@ -26,6 +26,7 @@ from deeprte.model.tf import data_transforms
 from deeprte.model.tf.rte_dataset import (
     TensorDict,
     divide_batch_feat,
+    make_boudary_sample_axis,
     make_collocation_axis,
     np_to_tensor_dict,
 )
@@ -65,8 +66,8 @@ def tf_data_to_generator(
     is_training: bool,
     batch_sizes: Sequence[int],
     split_rate: Optional[int] = None,
-    collocation_sizes: Optional[int] = None,
-    bc_collocation_sizes: Optional[int] = None,
+    collocation_size: Optional[int] = None,
+    bc_collocation_size: Optional[int] = None,
     repeat: int | None = 1,
     buffer_size: int = 5_000,
     threadpool_size: int = 48,
@@ -86,8 +87,8 @@ def tf_data_to_generator(
         split_ds,
         is_training=is_training,
         batch_sizes=batch_sizes,
-        collocation_sizes=collocation_sizes,
-        bc_collocation_sizes=bc_collocation_sizes,
+        collocation_size=collocation_size,
+        bc_collocation_size=bc_collocation_size,
         repeat=repeat,
         buffer_size=buffer_size,
         threadpool_size=threadpool_size,
@@ -123,8 +124,8 @@ def process_features(
     # collocation_sizes should be:
     # total_collocation_size or
     # [residual_size, boundary_size, quadrature_size]
-    collocation_sizes: Optional[int] = None,
-    bc_collocation_sizes: Optional[int] = None,
+    collocation_size: Optional[int] = None,
+    bc_collocation_size: Optional[int] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
     seed: int = jax.process_index(),
@@ -140,14 +141,16 @@ def process_features(
     ds = tf.data.Dataset.from_tensor_slices(batched_feat)
 
     if is_training:
-        if not collocation_sizes or not repeat:
+        if not collocation_size or not repeat:
+
             raise ValueError(
-                "`collocation_sizes` and `repeat` should not be None"
+                "`collocation_size` and `repeat` should not be None"
                 "when `is_training=True`"
             )
-    total_grid_sizes = tf.cast(
+    total_grid_size = tf.cast(
         tf.shape(unbatched_feat["phase_coords"])[-2], dtype=tf.int64
     )
+
     options = tf.data.Options()
     options.threading.max_intra_op_parallelism = max_intra_op_parallelism
     options.threading.private_threadpool_size = threadpool_size
@@ -156,7 +159,7 @@ def process_features(
     if is_training:
         options.deterministic = False
 
-        assert collocation_sizes <= total_grid_sizes
+        assert collocation_size <= total_grid_size
 
     if is_training:
         if jax.process_count() > 1:
@@ -171,15 +174,34 @@ def process_features(
     ds = ds.batch(batch_sizes[-1], drop_remainder=True)
     # construct the inputs structure
     g = tf.random.Generator.from_seed(seed=seed)
+
+    if bc_collocation_size:
+        collocation_sizes = (bc_collocation_size, collocation_size)
+        collocation_features = (
+            make_boudary_sample_axis(),
+            make_collocation_axis(),
+        )
+        total_boundary_size = tf.cast(
+            tf.shape(unbatched_feat["boundary_coords"])[-2], dtype=tf.int64
+        )
+        total_grid_sizes = (total_boundary_size, total_grid_size)
+        is_replacing = (False, True)
+
+    else:
+        collocation_sizes = (collocation_size,)
+        collocation_features = (make_collocation_axis(),)
+        total_grid_sizes = (total_grid_size,)
+        is_replacing = (True,)
+
     ds = ds.map(
         data_transforms.construct_batch(
             unbatched_feat=unbatched_feat,
             collocation_sizes=collocation_sizes,
-            bc_collocation_sizes=bc_collocation_sizes,
-            collocation_features=make_collocation_axis(),
+            collocation_features=collocation_features,
             total_grid_sizes=total_grid_sizes,
             generator=g,
             is_training=is_training,
+            is_replacing=is_replacing,
         )
     )
     # batch device dim

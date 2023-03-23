@@ -37,6 +37,15 @@ def make_collocation_axis():
     return axis_dict
 
 
+def make_boudary_sample_axis():
+    axis_dict = {
+        k: rte_features.FEATURES[k][1].index(rte_features.NUM_BOUNDARY_COORDS)
+        - len(rte_features.FEATURES[k][1])
+        for k in rte_features.BOUNDARY_FEATURE_NAMES
+    }
+    return axis_dict
+
+
 def _make_features_metadata(
     feature_names: Sequence[str],
 ) -> rte_features.FeaturesMetadata:
