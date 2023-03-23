@@ -48,6 +48,10 @@ FEATURES = {
         tf.float32,
         [NUM_EXAMPLES, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS],
     ),
+    "boundary_scattering_kernel": (
+        tf.float32,
+        [NUM_EXAMPLES, NUM_BOUNDARY_COORDS, NUM_VELOCITY_COORDS],
+    ),
     "self_scattering_kernel": (
         tf.float32,
         [NUM_EXAMPLES, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
@@ -64,6 +68,11 @@ FEATURES = {
 FEATURE_NAMES = [k for k in FEATURES.keys()]
 COLLOCATION_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_PHASE_COORDS in FEATURES[k][1]
+]
+BOUNDARY_FEATURE_NAMES = [
+    "boundary_coords",
+    "boundary",
+    "boundary_scattering_kernel",
 ]
 BATCH_FEATURE_NAMES = [
     k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]

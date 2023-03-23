@@ -15,6 +15,57 @@ BATCH_FEAT_LIST = [
 ]
 
 
+def interpolate(data):
+    list_omega = [
+        data["omega_prime"][41 * i : 41 * (i + 1), :] for i in range(4)
+    ]
+    list_omega = [(omega[1:] + omega[:-1]) / 2 for omega in list_omega]
+    data["omega_prime"] = np.concatenate(list_omega, axis=0) / 40
+
+    phi = data["phi"]
+    phi = (phi[:, :-1, :] + phi[:, 1:, :]) / 2
+    data["phi"] = (phi[:, :, :-1] + phi[:, :, 1:]) / 2
+
+    list_psi_bc = [
+        data["psi_bc"][:, 41 * i : 41 * (i + 1), :] for i in range(4)
+    ]
+    list_psi_bc = [
+        (psi_bc[:, 1:, :] + psi_bc[:, :-1, :]) / 2 for psi_bc in list_psi_bc
+    ]
+    data["psi_bc"] = np.concatenate(list_psi_bc, axis=-2)
+
+    psi = data["psi_label"]
+    psi = (psi[:, :-1, :, :] + psi[:, 1:, :, :]) / 2
+    data["psi_label"] = (psi[:, :, :-1, :] + psi[:, :, 1:, :]) / 2
+
+    list_rv_prime = [
+        data["rv_prime"][41 * i : 41 * (i + 1), :, :] for i in range(4)
+    ]
+    list_rv_prime = [
+        (rv_prime[1:, :, :] + rv_prime[:-1, :, :]) / 2
+        for rv_prime in list_rv_prime
+    ]
+    data["rv_prime"] = np.concatenate(list_rv_prime, axis=0)
+
+    sigma_a = data["sigma_a"]
+    sigma_a = (sigma_a[:, :-1, :] + sigma_a[:, 1:, :]) / 2
+    data["sigma_a"] = (sigma_a[:, :, :-1] + sigma_a[:, :, 1:]) / 2
+
+    sigma_t = data["sigma_t"]
+    sigma_t = (sigma_t[:, :-1, :] + sigma_t[:, 1:, :]) / 2
+    data["sigma_t"] = (sigma_t[:, :, :-1] + sigma_t[:, :, 1:]) / 2
+
+    x = np.squeeze(data["x"])
+    x = (x[1:] + x[:-1]) / 2
+    data["x"] = x
+
+    y = np.squeeze(data["y"])
+    y = (y[1:] + y[:-1]) / 2
+    data["y"] = y
+
+    return data
+
+
 def mat_loader(
     source_dir: str, data_name_list: list[str], seed: int = 12345
 ) -> dict[str, np.ndarray]:
@@ -43,4 +94,6 @@ def mat_loader(
         del data[k]
     # print(mat_dict.keys())
     data = tree.map_structure(lambda x: np.array(x, dtype=np.float32), data)
+
+    data = interpolate(data)
     return data

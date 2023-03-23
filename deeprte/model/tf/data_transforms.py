@@ -14,7 +14,8 @@
 
 """Data transform for DeepRTE."""
 
-from collections.abc import Generator, Mapping, Sequence
+# from collections.abc import Generator, Mapping, Sequence
+from typing import Generator, Mapping, Optional, Sequence
 
 import tensorflow as tf
 
@@ -65,6 +66,7 @@ def sample_points(
     collocation_sizes: int,
     total_sizes: int,
     generator: Generator,
+    is_replacing: bool,
 ):
     """Sample phase points randomly and take collocation points.
 
@@ -86,7 +88,11 @@ def sample_points(
     ret = features.copy()
     for k, axis in collocation_features.items():
         if k in features:
-            ret[k] = tf.gather(features[k], idx, axis=axis)
+            if is_replacing:
+                ret[k] = tf.gather(features[k], idx, axis=axis)
+            else:
+                key = "sampled_" + k
+                ret[key] = tf.gather(features[k], idx, axis=axis)
 
     return ret
 
@@ -123,52 +129,36 @@ def repeat_batch(
     return ds
 
 
-@curry1
-def construct_batch(
-    batched_feat,
-    unbatched_feat,
-    collocation_features: Mapping[str, int],
-    collocation_sizes: int,
-    bc_collocation_sizes: int,
-    total_grid_sizes: int,
-    generator: Generator,
-    is_training: bool,
-):
-    batched_feat.update(unbatched_feat)
-    bounadry_feat, total_bc_sizes = split_boundary_points(batched_feat)
-    if is_training:
-        batched_feat = sample_points(
-            batched_feat,
-            collocation_features=collocation_features,
-            collocation_sizes=collocation_sizes,
-            total_sizes=total_grid_sizes,
-            generator=generator,
-        )
-        bounadry_feat = sample_points(
-            bounadry_feat,
-            collocation_features=collocation_features,
-            collocation_sizes=bc_collocation_sizes,
-            total_sizes=total_bc_sizes,
-            generator=generator,
-        )
-    batch = {"bounday_batch": bounadry_feat, "inner_batch": batched_feat}
-    return batch
-
-
-def split_boundary_points(
-    feat_dict,
-):
-    boundary_feat = feat_dict.copy()
-    NUM_BOUNDARY_COORDS = boundary_feat["boundary"].shape[-1]
-
-    boundary_feat["phase_coords"] = boundary_feat["boundary_coords"]
-    # boundary_feat["scattering_kernel"] = boundary_feat["scattering_kernel"][
-    #     :, :NUM_BOUNDARY_COORDS, :
-    # ]
-    boundary_feat["psi_label"] = boundary_feat["boundary"]
-
-    return boundary_feat, NUM_BOUNDARY_COORDS
-
+# @curry1
+# def construct_batch(
+#     batched_feat,
+#     unbatched_feat,
+#     collocation_features: Mapping[str, int],
+#     collocation_sizes: int,
+#     bc_collocation_sizes: int,
+#     total_grid_sizes: int,
+#     generator: Generator,
+#     is_training: bool,
+# ):
+#     batched_feat.update(unbatched_feat)
+#     bounadry_feat, total_bc_sizes = split_boundary_points(batched_feat)
+#     if is_training:
+#         batched_feat = sample_points(
+#             batched_feat,
+#             collocation_features=collocation_features,
+#             collocation_sizes=collocation_sizes,
+#             total_sizes=total_grid_sizes,
+#             generator=generator,
+#         )
+#         bounadry_feat = sample_points(
+#             bounadry_feat,
+#             collocation_features=collocation_features,
+#             collocation_sizes=bc_collocation_sizes,
+#             total_sizes=total_bc_sizes,
+#             generator=generator,
+#         )
+#     batch = {"bounday_batch": bounadry_feat, "inner_batch": batched_feat}
+#     return batch
 
 # @curry1
 # def construct_batch(
@@ -182,11 +172,51 @@ def split_boundary_points(
 # ):
 #     batched_feat.update(unbatched_feat)
 #     if is_training:
-#         batched_feat = sample_phase_points(
+#         batched_feat = sample_points(
 #             batched_feat,
 #             collocation_features=collocation_features,
 #             collocation_sizes=collocation_sizes,
-#             total_grid_sizes=total_grid_sizes,
+#             total_sizes=total_grid_sizes,
 #             generator=generator,
 #         )
 #     return batched_feat
+
+
+# def split_boundary_points(
+#     feat_dict,
+# ):
+#     boundary_feat = feat_dict.copy()
+#     NUM_BOUNDARY_COORDS = boundary_feat["boundary"].shape[-1]
+
+#     boundary_feat["phase_coords"] = boundary_feat["boundary_coords"]
+#     # boundary_feat["scattering_kernel"] = boundary_feat["scattering_kernel"][
+#     #     :, :NUM_BOUNDARY_COORDS, :
+#     # ]
+#     boundary_feat["psi_label"] = boundary_feat["boundary"]
+
+#     return boundary_feat, NUM_BOUNDARY_COORDS
+
+
+@curry1
+def construct_batch(
+    batched_feat,
+    unbatched_feat,
+    collocation_features: Sequence[Mapping[str, int]],
+    collocation_sizes: Sequence[int],
+    total_grid_sizes: Sequence[int],
+    generator: Generator,
+    is_training: bool,
+    is_replacing: Optional[Sequence[bool]] = None,
+):
+    batched_feat.update(unbatched_feat)
+    if is_training:
+        for i, col in enumerate(collocation_features):
+            batched_feat = sample_points(
+                batched_feat,
+                collocation_features=col,
+                collocation_sizes=collocation_sizes[i],
+                total_sizes=total_grid_sizes[i],
+                generator=generator,
+                is_replacing=is_replacing[i] if is_replacing else True,
+            )
+    return batched_feat
