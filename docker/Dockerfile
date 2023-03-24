@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     ml-collections \
     numpy \
     optax \
-    tensorflow-cpu==2.12.0rc1 \
+    tensorflow-cpu \
     tensorflow-datasets
 
 FROM python:${PYTHON_VERSION}-slim
