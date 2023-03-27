@@ -70,7 +70,7 @@ COPY --from=lib \
 COPY --from=lib /usr/local/cuda/bin/ptxas /usr/local/cuda/bin/ptxas
 
 ENV PATH=${VENV_PATH}/bin:/usr/local/cuda/bin:$PATH
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gpu:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ENV LC_ALL=C.UTF-8
 # nvidia-container-runtime
 ENV NVIDIA_VISIBLE_DEVICES all
