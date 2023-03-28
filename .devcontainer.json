@@ -20,15 +20,21 @@
                 "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
             },
             "extensions": [
-                "ms-python.python",
-                "ms-python.vscode-pylance",
+                "aaron-bond.better-comments",
+                "bungcip.better-toml",
+                "GitHub.copilot",
                 "ms-python.black-formatter",
                 "ms-python.flake8",
                 "ms-python.isort",
-                "bungcip.better-toml",
-                "aaron-bond.better-comments"
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter",
+                "yzhang.markdown-all-in-one"
             ]
         }
+    },
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
     },
     "mounts": [
         {
