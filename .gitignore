@@ -1,5 +1,4 @@
 # Project related files
-# .vscode/
 data/
 slurm/
 ckpts/
