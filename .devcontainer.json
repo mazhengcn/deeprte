@@ -39,7 +39,7 @@
     "mounts": [
         {
             "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/rte_data",
+            "target": "${containerWorkspaceFolder}/data",
             "type": "volume"
         }
     ],
