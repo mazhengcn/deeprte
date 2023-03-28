@@ -39,7 +39,7 @@
     ],
     "runArgs": [
         "--gpus=all",
-        "--ipc=host"
+        "--shm-size=8gb"
     ],
-    "postCreateCommand": "pip install -e ."
+    "postCreateCommand": "python -m pip install -e ."
 }
