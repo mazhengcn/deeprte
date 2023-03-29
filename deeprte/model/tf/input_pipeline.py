@@ -175,17 +175,14 @@ def process_features(
     # construct the inputs structure
     g = tf.random.Generator.from_seed(seed=seed)
 
-    def cat_batch(
-        batched_feat,
-    ):
-        batched_feat.update(unbatched_feat)
-        return batched_feat
-
-    ds = ds.map(cat_batch)
+    ds = ds.map(
+        data_transforms.cat_feat(unbatched_feat),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
 
     ds = ds.batch(batch_sizes[0], drop_remainder=True)
 
-    print(ds.element_spec)
+    # print(ds.element_spec)
 
     if bc_collocation_size:
         collocation_sizes = (bc_collocation_size, collocation_size)
@@ -208,12 +205,10 @@ def process_features(
     if is_training:
         ds = ds.map(
             data_transforms.construct_batch(
-                # unbatched_feat=unbatched_feat,
                 collocation_sizes=collocation_sizes,
                 collocation_features=collocation_features,
                 total_grid_sizes=total_grid_sizes,
                 generator=g,
-                # is_training=is_training,
                 is_replacing=is_replacing,
             )
         )
