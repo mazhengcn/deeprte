@@ -132,16 +132,12 @@ def repeat_batch(
 @curry1
 def construct_batch(
     batched_feat,
-    # unbatched_feat,
     collocation_features: Sequence[Mapping[str, int]],
     collocation_sizes: Sequence[int],
     total_grid_sizes: Sequence[int],
     generator: Generator,
-    # is_training: bool,
     is_replacing: Optional[Sequence[bool]] = None,
 ):
-    # batched_feat.update(unbatched_feat)
-    # if is_training:
     for i, col in enumerate(collocation_features):
         batched_feat = sample_points(
             batched_feat,
@@ -152,3 +148,9 @@ def construct_batch(
             is_replacing=is_replacing[i] if is_replacing else True,
         )
     return batched_feat
+
+
+@curry1
+def cat_feat(feat1, feat2):
+    feat1.update(feat2)
+    return feat1
