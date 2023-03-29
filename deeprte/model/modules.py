@@ -26,16 +26,10 @@ from ml_collections import ConfigDict
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.tf.rte_features import (
-    BATCH_FEATURE_NAMES,
-    COLLOCATION_FEATURE_NAMES,
-)
-from deeprte.model.utils import (
-    dropout_wrapper,
-    get_initializer_scale,
-    mean_squared_loss_fn,
-    query_chunk_attention,
-)
+from deeprte.model.tf.rte_features import (BATCH_FEATURE_NAMES,
+                                           COLLOCATION_FEATURE_NAMES)
+from deeprte.model.utils import (dropout_wrapper, get_initializer_scale,
+                                 mean_squared_loss_fn, query_chunk_attention)
 
 
 def get_vmap_axes(dict_keys: list[str], template: list[str]):
