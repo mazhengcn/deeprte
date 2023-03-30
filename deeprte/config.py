@@ -12,7 +12,8 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "num_samples": 2000,
         "train": {
             "batch_size": 4,
-            "collocation_sizes": 100,
+            "collocation_sizes": 120,
+            "bc_collocation_sizes": 30,
             "repeat": 1,
         },
         "validation": {

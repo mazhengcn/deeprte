@@ -41,14 +41,13 @@ class DeepRTE(hk.Module):
     """Deep RTE model."""
 
     config: ConfigDict
-    global_config: ConfigDict
     name: Optional[str] = "deeprte"
 
     def __call__(
         self, batch, is_training, compute_loss=False, compute_metrics=False
     ):
         c = self.config
-        gc = self.global_config
+        gc = self.config.global_config
         ret = {}
 
         def rte_op(batch):
