@@ -98,8 +98,9 @@ class DeepRTE(hk.Module):
             bc_labels = batch["psi_label"]
             bc_loss = mean_squared_loss_fn(bc_predictions, bc_labels)
 
+            bc_w = gc.bc_loss_weights
             w = gc.loss_weights
-            total_loss = inner_loss + w * bc_loss
+            total_loss = w * inner_loss + bc_w * bc_loss
 
             ret["loss"] = {
                 "inner_mse": inner_loss,
