@@ -14,13 +14,12 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="0,1,2,3"
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-SOURCE_DIR=${1:-"./rte_data/matlab/train-scattering-kernel/"}
-DATA_NAME_LIST=${2:-"train_scattering_kernel_1.mat,train_scattering_kernel_2.mat,train_scattering_kernel_3.mat,train_scattering_kernel_4.mat"}
-# TEST_DATA_SAVE_PATH=${3:-"./rte_data/test/train_scattering_kernel_${TIMESTAMP%+*}"}
-TEST_DATA_SAVE_PATH=${3:-"./rte_data/test/train_scattering_kernel.npz"}
+SOURCE_DIR=${1:-"./data/train-scattering-kernel-0309/"}
+DATA_NAME_LIST=${2:-"train_random_kernel_1.mat,train_random_kernel_2.mat,train_random_kernel_3.mat,train_random_kernel_4.mat"}
+TEST_DATA_SAVE_PATH=${3:-"./data/test_data/train_random_kernel.npz"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
 	--source_dir="${SOURCE_DIR}" \
