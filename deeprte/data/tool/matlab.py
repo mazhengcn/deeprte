@@ -76,12 +76,13 @@ def mat_loader(
         data_path = dir_path / filename
         mat_dict = sio.loadmat(data_path)
         if "scattering_kernel" not in mat_dict.keys():
-            rng = np.random.default_rng(seed)
-            num_sample = mat_dict["sigma_a"].shape[0]
-            num_vec = mat_dict["ct"].shape[0]
-            mat_dict["scattering_kernel"] = rng.uniform(
-                0, 1, (num_sample, num_vec, num_vec)
-            )
+            print("Expact Scattering Kernel.")
+            # rng = np.random.default_rng(seed)
+            # num_sample = mat_dict["sigma_a"].shape[0]
+            # num_vec = mat_dict["ct"].shape[0]
+            # mat_dict["scattering_kernel"] = rng.uniform(
+            #     0, 1, (num_sample, num_vec, num_vec)
+            # )
         data_list.append(mat_dict)
     data = data_list[0]
 
