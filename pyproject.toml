@@ -26,7 +26,7 @@ dependencies = [
     "dill",
     "dm-haiku",
     "jax>=0.4.1",
-    "jaxline",
+    "jaxline@git+https://github.com/mazhengcn/jaxline",
     "ml-collections",
     "numpy",
     "optax",
