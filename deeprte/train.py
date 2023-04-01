@@ -28,7 +28,7 @@ from jaxline import utils as jl_utils
 
 from deeprte import optimizers
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model import modules
+from deeprte.model import modules, utils
 from deeprte.model.tf.input_pipeline import (
     load_tf_data,
     make_device_batch,
@@ -83,6 +83,13 @@ class Trainer(experiment.AbstractExperiment):
         self._state = None
         self._opt_state = None
 
+        # Initialize model functions
+        def _forward_fn(*args, **kwargs):
+            model = modules.DeepRTE(self.config.model)
+            return model(*args, **kwargs)
+
+        self.model = hk.transform_with_state(_forward_fn)
+
         # Initialize train and eval functions
         self._train_input = None
         self._eval_input = None
@@ -91,13 +98,6 @@ class Trainer(experiment.AbstractExperiment):
         # Track what has started
         self._training = False
         self._evaluating = False
-
-        # Initialize model functions
-        def _forward_fn(*args, **kwargs):
-            model = modules.DeepRTE(self.config.model)
-            return model(*args, **kwargs)
-
-        self.model = hk.transform_with_state(_forward_fn)
 
         self._process_data()
 
@@ -129,21 +129,39 @@ class Trainer(experiment.AbstractExperiment):
 
         return scalars
 
-    def _update_fn(self, params, state, opt_state, global_step, rng, batch):
+    def _update_fn(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        opt_state: OptState,
+        global_step: jax.Array,
+        rng: jax.Array,
+        batch: Mapping[str, jax.Array],
+    ):
         # Logging dict.
         scalars = {}
 
-        def loss(params):
-            (loss, scalars), out_state = self.model.apply(
-                params, state, rng, batch, is_training=True, compute_loss=True
+        def loss(params, batch):
+            (total_loss, ret), out_state = self.model.apply(
+                params,
+                state,
+                rng,
+                batch,
+                is_training=True,
+                compute_loss=True,
+                compute_metrics=False,
             )
-            scaled_loss = loss / jax.local_device_count()
-            return scaled_loss, (scalars["loss"], out_state)
+            loss_scalars = ret["loss"]
+            scaled_loss = total_loss / jax.local_device_count()
+            return scaled_loss, (loss_scalars, out_state)
 
         # Gradient function w.r.t. params
-        grad_fn = jax.grad(loss, has_aux=True)
+        # grad_fn = jax.grad(loss, has_aux=True)
+        scaled_grads, (loss_scalars, new_state) = utils.accumulate_gradient(
+            jax.grad(loss, has_aux=True), params, batch, accum_steps=1
+        )
         # Compute loss and gradients.
-        scaled_grads, (loss_scalars, new_state) = grad_fn(params)
+        # scaled_grads, (loss_scalars, new_state) = grad_fn(params, batch)
         grads = jax.lax.psum(scaled_grads, axis_name="i")
 
         # Grab the learning rate to log before performing the step.
@@ -247,7 +265,9 @@ class Trainer(experiment.AbstractExperiment):
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
         # start with `params, state, opt_state`).
-        self.update_fn = jax.pmap(self._update_fn, axis_name="i")
+        self.update_fn = jax.pmap(
+            self._update_fn, axis_name="i", donate_argnums=(0, 1, 2)
+        )
 
         # Set training state to True after initialization
         self._training = True
