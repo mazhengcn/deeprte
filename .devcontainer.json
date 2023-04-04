@@ -1,9 +1,11 @@
 {
+    // Container name
     "name": "DeepRTE Dev Container",
+    // Dockerfile to build the container
     "build": {
-        "context": "./docker/",
         "dockerfile": "./docker/Dockerfile"
     },
+    // Features to install
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
             "installZsh": true,
@@ -14,6 +16,7 @@
         },
         "ghcr.io/mazhengcn/devcontainer-features/starship:1": {}
     },
+    // Extensions to install and vscode settings to apply
     "customizations": {
         "vscode": {
             "settings": {
@@ -33,9 +36,11 @@
             ]
         }
     },
+    // Make sure the correct timezone is set
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
     },
+    // Mount the data folder
     "mounts": [
         {
             "source": "rte_data",
@@ -43,10 +48,12 @@
             "type": "volume"
         }
     ],
+    // Run arguments
     "runArgs": [
         "--name=deeprte",
         "--gpus=all",
         "--shm-size=8gb"
     ],
-    "postCreateCommand": "python -m pip install -e ."
+    // Command to run after the container is created
+    "postCreateCommand": "python -m pip install -e '.[dev]'"
 }

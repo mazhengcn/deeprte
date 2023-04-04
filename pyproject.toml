@@ -34,6 +34,9 @@ dependencies = [
     "tensorflow-datasets"
 ]
 
+[project.optional-dependencies]
+dev = ["black", "flake8", "isort"]
+
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
 
