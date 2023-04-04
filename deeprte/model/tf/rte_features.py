@@ -30,12 +30,11 @@ class FeatureType(enum.Enum):
 
 NUM_DIM = 2
 # Placeholder values that will be replaced with their true value at runtime.
-NUM_EXAMPLES = "num batch placeholder"
-NUM_POSITION_COORDS = "num position coords placeholder"
-NUM_VELOCITY_COORDS = "num velocity placeholder"
-# NUM_BOUNDARY_VELOCITY = "num boundary velocity placeholder"
-NUM_PHASE_COORDS = "num phase placeholder"
-NUM_BOUNDARY_COORDS = "num boundary placeholder"
+NUM_EXAMPLES = "num example placeholder"
+NUM_POSITION_COORDS = "num position coordinates placeholder"
+NUM_VELOCITY_COORDS = "num velocity coordinates placeholder"
+NUM_PHASE_COORDS = "num phase coordinates placeholder"
+NUM_BOUNDARY_COORDS = "num boundary coordinates placeholder"
 
 FEATURES = {
     # Static features of RTE #
@@ -66,17 +65,14 @@ FEATURES = {
 }
 
 FEATURE_NAMES = [k for k in FEATURES.keys()]
+FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
+FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
+
+BATCH_FEATURE_NAMES = [k for k in FEATURES if NUM_EXAMPLES in FEATURES[k][1]]
 COLLOCATION_FEATURE_NAMES = [
-    k for k in FEATURES.keys() if NUM_PHASE_COORDS in FEATURES[k][1]
+    k for k in FEATURES if NUM_PHASE_COORDS in FEATURES[k][1]
 ]
-BOUNDARY_FEATURE_NAMES = [
-    "boundary_coords",
-    "boundary",
-    "boundary_scattering_kernel",
-]
-BATCH_FEATURE_NAMES = [
-    k for k in FEATURES.keys() if NUM_EXAMPLES in FEATURES[k][1]
-]
+BOUNDARY_FEATURE_NAMES = [k for k in FEATURES if "boundary" in k]
 
 
 def register_feature(
@@ -84,6 +80,8 @@ def register_feature(
 ):
     """Register extra features used in custom datasets."""
     FEATURES[name] = (type_, shape_)
+    FEATURE_TYPES[name] = type_
+    FEATURE_SIZES[name] = shape_
 
 
 def shape(

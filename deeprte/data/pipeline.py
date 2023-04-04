@@ -1,10 +1,9 @@
 """Convert Matlab dataset to numpy dataset."""
 
-import pathlib
-from typing import Mapping, MutableMapping, Optional
+from collections.abc import Mapping, MutableMapping
+from typing import Optional
 
 import numpy as np
-import tree
 
 from deeprte.data import utils
 from deeprte.data.tool import matlab
@@ -91,11 +90,16 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
 
 
 def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
+    num_x = np.shape(np.squeeze(np_data["x"]))[0]
+    num_y = np.shape(np.squeeze(np_data["y"]))[0]
+    num_v = np.shape(np.squeeze(np_data["ct"]))[0]
+
     shape_dict = {}
-    shape_dict["num_x"] = np.shape(np.squeeze(np_data["x"]))[0]
-    shape_dict["num_y"] = np.shape(np.squeeze(np_data["y"]))[0]
-    shape_dict["num_v"] = np.shape(np.squeeze(np_data["ct"]))[0]
     shape_dict["num_examples"] = np.shape(np_data["psi_label"])[0]
+    shape_dict["num_position_coords"] = num_x * num_y
+    shape_dict["num_velocity_coords"] = num_v
+    shape_dict["num_phase_coords"] = num_x * num_y * num_v
+    shape_dict["num_boundary_coords"] = (num_x + num_y) * num_v
 
     return shape_dict
 
@@ -106,87 +110,38 @@ class DataPipeline:
         self.data_name_list = data_name_list
         self.data = self.load_data()
 
-    def load_data(
-        self,
-    ):
-
+    def load_data(self):
         return matlab.mat_loader(self.source_dir, self.data_name_list)
 
-    def process(
-        self,
-        pre_shuffle: bool = False,
-        pre_shuffle_seed: int = 0,
-        is_split_test_samples: bool = False,
-        num_test_samples: Optional[int] = None,
-        normalization: Optional[bool] = False,
-        save_path: Optional[str] = None,
-    ) -> FeatureDict:
+    def process(self, normalization: Optional[bool] = False) -> FeatureDict:
 
         data_feature = make_data_features(self.data)
         grid_feature = make_grid_features(self.data)
         shape_dict = make_shape_dict(self.data)
-
-        if pre_shuffle:
-            rng = np.random.default_rng(seed=pre_shuffle_seed)
-            indices = np.arange(shape_dict["num_examples"])
-
-            _ = rng.shuffle(indices)
-
-            data_feature = tree.map_structure(
-                lambda x: np.take(x, indices, axis=0), data_feature
-            )
-
-        if is_split_test_samples:
-
-            test_ds = tree.map_structure(
-                lambda x: x[:num_test_samples],
-                data_feature,
-            )
-            data_feature = tree.map_structure(
-                lambda x: x[num_test_samples:],
-                data_feature,
-            )
-
-            if save_path:
-                if not isinstance(save_path, pathlib.Path):
-                    save_path = pathlib.Path(save_path)
-            else:
-                path = pathlib.Path(self.source_dir)
-                save_path = path / (self.data_name_list[0] + "_test_ds.npz")
-            np.savez(save_path, **test_ds, **grid_feature, **shape_dict)
-
-            shape_dict["num_train_and_val"] = (
-                shape_dict["num_examples"] - num_test_samples
-            )
-
-        else:
-            shape_dict["num_train_and_val"] = shape_dict["num_examples"]
 
         if normalization:
             (
                 data_feature["psi_label"],
                 psi_min,
                 psi_range,
-            ) = utils.normalization(
-                data_feature["psi_label"],
-            )
+            ) = utils.normalize(data_feature["psi_label"])
             (
                 data_feature["boundary"],
                 boundary_min,
                 boundary_range,
-            ) = utils.normalization(
-                data_feature["boundary"],
-            )
+            ) = utils.normalize(data_feature["boundary"])
+
             normalization_dict = {}
             normalization_dict["psi_min"] = psi_min
             normalization_dict["psi_range"] = psi_range
             normalization_dict["boundary_min"] = boundary_min
             normalization_dict["boundary_range"] = boundary_range
+
             return {
-                "normalization_dict": normalization_dict,
                 **data_feature,
                 **grid_feature,
-                **shape_dict,
+                "shapes": shape_dict,
+                "normalization_dict": normalization_dict,
             }
 
-        return {**data_feature, **grid_feature, **shape_dict}
+        return {**data_feature, **grid_feature, "shapes": shape_dict}
