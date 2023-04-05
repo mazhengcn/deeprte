@@ -14,11 +14,10 @@
 # limitations under the License.
 set -e
 
-SOURCE_DIR=${1:-"./data/rte_data/matlab/eval-data/scattering-kernel/fixed-kernel/"}
-DATAFILES=${2:-"test_bc1.mat, test_sin_xv.mat"}
-SAVE_PATH=${3:-"./data/train/scattering-kernel/test_fixed_kernel.mat"}
+SOURCE_DIR=${1:-"./data/raw_data/train-scattering-kernel-0309"}
+TARGET_DIR=${2:-"./data/tfds"}
 
-python deeprte/data_convert.py \
-	--source_dir="${SOURCE_DIR}" \
-	--datafiles="${DATAFILES}" \
-	--save_path="${SAVE_PATH}"
+tfds build deeprte/datasets/rte \
+	--data_dir="${TARGET_DIR}" \
+	--manual_dir="${SOURCE_DIR}" \
+	--register_checksums
