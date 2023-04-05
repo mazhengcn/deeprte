@@ -27,9 +27,9 @@ def _split_features(features):
 class Builder(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for rte_dataset dataset."""
 
-    VERSION = tfds.core.Version("1.0.4")
+    VERSION = tfds.core.Version("1.0.0")
     RELEASE_NOTES = {
-        "1.0.4": "Initial release.",
+        "1.0.0": "Initial release.",
     }
     MANUAL_DOWNLOAD_INSTRUCTIONS = """
         test

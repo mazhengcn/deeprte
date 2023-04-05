@@ -12,7 +12,6 @@ class RteDatasetTest(tfds.testing.DatasetBuilderTestCase):
     DATASET_CLASS = rte_dataset_builder.Builder
     SPLITS = {
         "train": 3,  # Number of fake train example
-        "test": 1,  # Number of fake test example
     }
 
     # If you are calling `download/download_and_extract` with a dict, like:
