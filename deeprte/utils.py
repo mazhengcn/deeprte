@@ -15,7 +15,49 @@
 
 import collections.abc
 
+import jax
 import numpy as np
+
+
+def accumulate_gradient(grad_fn, params, batch, accum_steps):
+    """Accumulate gradient over multiple steps to save on memory."""
+    batch_size = batch["psi_label"].shape[0]
+    print(batch_size)
+
+    if accum_steps and accum_steps > 1:
+        assert (
+            batch_size % accum_steps == 0
+        ), f"Bad accum_steps {accum_steps} for batch size {batch_size}"
+        step_size = batch_size // accum_steps
+
+        def dynamic_slice_feat(feat_dict, i, step_size):
+            def slice_fn(x):
+                return jax.lax.dynamic_slice(
+                    x, (i,) + (0,) * (x.ndim - 1), (step_size,) + x.shape[1:]
+                )
+
+            return jax.tree_map(slice_fn, feat_dict)
+
+        # loss, (scalars, state) = ret
+        l_and_state = grad_fn(params, dynamic_slice_feat(batch, 0, step_size))
+
+        def acc_grad_and_loss(i, l_and_state):
+            sliced_batch = dynamic_slice_feat(batch, i * step_size, step_size)
+            grads_i, (scalars_i, state_i) = grad_fn(params, sliced_batch)
+            grads, (scalars, state) = l_and_state
+            return jax.tree_map(lambda x, y: x + y, grads, grads_i), (
+                jax.tree_map(lambda x, y: x + y, scalars, scalars_i),
+                state_i,
+            )
+
+        grads, (scalars, state) = jax.lax.fori_loop(
+            1, accum_steps, acc_grad_and_loss, l_and_state
+        )
+        return jax.tree_map(
+            lambda x: x / accum_steps, (grads, (scalars, state))
+        )
+    else:
+        return grad_fn(params, batch)
 
 
 def to_flat_dict(d, parent_key="", sep="//"):

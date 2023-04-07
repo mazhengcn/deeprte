@@ -26,14 +26,10 @@ from absl import logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte import optimizers
+from deeprte import optimizers, utils
 from deeprte.data.pipeline import FeatureDict
-from deeprte.model import modules, utils
-from deeprte.model.tf.input_pipeline import (
-    load_tf_data,
-    make_device_batch,
-    tf_data_to_generator,
-)
+from deeprte.model import modules
+from deeprte.model.tf import input_pipeline
 
 OptState = tuple[
     optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
@@ -53,6 +49,20 @@ def _format_logs(prefix, results):
         ]
     )
     logging.info("%s - %s", prefix, logging_str)
+
+
+def make_device_batch(
+    global_batch_size: int,
+    num_devices: int,
+):
+    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
+    # Raise error if not divisible
+    if ragged:
+        raise ValueError(
+            f"Global batch size {global_batch_size} must be divisible by "
+            f"number of devices {num_devices}"
+        )
+    return [num_devices, per_device_batch_size]
 
 
 class Trainer(experiment.AbstractExperiment):
@@ -99,8 +109,6 @@ class Trainer(experiment.AbstractExperiment):
         self._training = False
         self._evaluating = False
 
-        self._process_data()
-
     #  _             _
     # | |_ _ __ __ _(_)_ __
     # | __| '__/ _` | | '_ \
@@ -111,6 +119,7 @@ class Trainer(experiment.AbstractExperiment):
     def step(self, global_step, rng, *unused_args, **unused_kwargs):
         """See base class."""
         if not self._training:
+            print("Hello")
             self._initialize_training()
 
         # Get next batch
@@ -156,9 +165,9 @@ class Trainer(experiment.AbstractExperiment):
             return scaled_loss, (loss_scalars, out_state)
 
         # Gradient function w.r.t. params
-        # grad_fn = jax.grad(loss, has_aux=True)
-        scaled_grads, (loss_scalars, new_state) = utils.accumulate_gradient(
-            jax.grad(loss, has_aux=True), params, batch, accum_steps=1
+        grad_fn = jax.grad(loss, has_aux=True)
+        scaled_grads, (loss_scalars, new_state) = self.accum_grads(
+            grad_fn, params, batch
         )
         # Compute loss and gradients.
         # scaled_grads, (loss_scalars, new_state) = grad_fn(params, batch)
@@ -187,19 +196,14 @@ class Trainer(experiment.AbstractExperiment):
         """Build train input as generator/iterator."""
         c = self.config.dataset
         batch_sizes = make_device_batch(c.train.batch_size, jax.device_count())
-        train_ds = tf_data_to_generator(
-            tf_data=self.tf_data,
+        return input_pipeline.load(
+            split=input_pipeline.Split.TRAIN,
+            split_ratio=c.split_ratio,
             is_training=True,
             batch_sizes=batch_sizes,
-            split_rate=c.data_split.train_validation_split_rate,
-            collocation_size=c.train.collocation_sizes,
-            bc_collocation_size=c.train.bc_collocation_sizes,
+            collocation_sizes=c.train.collocation_sizes,
             repeat=c.train.repeat,
-            buffer_size=c.buffer_size,
-            threadpool_size=c.threadpool_size,
-            max_intra_op_parallelism=c.max_intra_op_parallelism,
         )
-        return train_ds
 
     def _initialize_training(self):
         # Less verbose
@@ -223,6 +227,10 @@ class Trainer(experiment.AbstractExperiment):
             * c.dataset.train.repeat
         )
         total_steps = c.training.num_epochs * steps_per_epoch
+
+        self.accum_grads = functools.partial(
+            utils.accumulate_gradient, accum_steps=1
+        )
 
         # Get learning rate schedule.
         self._lr_schedule = optimizers.get_learning_rate_schedule(
@@ -260,7 +268,7 @@ class Trainer(experiment.AbstractExperiment):
             logging.info(
                 "Net parameters: %d", num_params // jax.local_device_count()
             )
-
+        print("hello2")
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
@@ -376,44 +384,22 @@ class Trainer(experiment.AbstractExperiment):
         batch_sizes = make_device_batch(
             c.validation.batch_size, jax.device_count()
         )
-        val_ds = tf_data_to_generator(
-            tf_data=self.tf_data,
+        return input_pipeline.load(
+            split=input_pipeline.Split.VALID,
+            split_ratio=c.split_ratio,
             is_training=False,
             batch_sizes=batch_sizes,
-            split_rate=c.data_split.train_validation_split_rate,
-            buffer_size=c.buffer_size,
-            threadpool_size=c.threadpool_size,
-            max_intra_op_parallelism=c.max_intra_op_parallelism,
         )
-        return val_ds
-
-    def _process_data(self):
-        """dataset loading."""
-        c = self.config.dataset
-        self.tf_data, normalization_dict = load_tf_data(
-            source_dir=c.source_dir,
-            data_name_list=c.data_name_list,
-            pre_shuffle=c.pre_shuffle,
-            pre_shuffle_seed=c.pre_shuffle_seed,
-            is_split_test_samples=c.data_split.is_split_datasets,
-            num_test_samples=c.data_split.num_test_samples,
-            save_path=c.data_split.save_path,
-        )
-        with self.config.unlocked() as c:
-            c.model.data.normalization_dict = normalization_dict
 
     def _build_dummy_input(self) -> tuple[jax.Array]:
         """Load dummy data for initializing network parameters."""
 
-        ds = tf_data_to_generator(
-            tf_data=self.tf_data,
+        dummy_ds = input_pipeline.load(
+            split=input_pipeline.Split.TRAIN,
+            split_ratio=self.config.dataset.split_ratio,
             is_training=True,
             batch_sizes=[jax.local_device_count(), 1],
-            collocation_size=1,
-            bc_collocation_size=1,
-            repeat=1,
+            collocation_sizes=[1],
         )
 
-        dummy_inputs = next(ds)
-
-        return dummy_inputs
+        return next(dummy_ds)

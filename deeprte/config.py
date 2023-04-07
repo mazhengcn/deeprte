@@ -7,24 +7,22 @@ from deeprte.model.config import model_config
 
 CONFIG_DATASET = ml_collections.ConfigDict(
     {
-        "source_dir": "",
-        "data_name_list": [],
-        "num_samples": 2000,
+        "tfds_dir": "",
         "train": {
             "batch_size": 4,
-            "collocation_sizes": 120,
-            "bc_collocation_sizes": 30,
+            "collocation_sizes": [120, 30],
             "repeat": 1,
         },
         "validation": {
-            "batch_size": 8,
+            "batch_size": 1,
         },
         "data_split": {
+            "num_train_samples": 1600,
             "num_test_samples": 400,
             "save_path": "",
-            "train_validation_split_rate": 0.75,
             "is_split_datasets": True,
         },
+        "split_ratio": 0.8,
         "pre_shuffle_seed": 42,
         "buffer_size": 5000,
         "threadpool_size": 48,
@@ -34,7 +32,8 @@ CONFIG_DATASET = ml_collections.ConfigDict(
 )
 CONFIG_TRAINING = ml_collections.ConfigDict(
     {
-        "num_epochs": 1000,
+        "num_epochs": 5000,
+        "accum_grads_steps": 1,
         "optimizer": {
             "base_lr": 1e-3,
             "scale_by_batch": False,
@@ -50,21 +49,6 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
 )
 
 
-def make_split_num(
-    config: ml_collections.config_dict,
-):
-    split_config = config.data_split
-    num_test = split_config.num_test_samples
-    num_train_and_val = config.num_samples - num_test
-    num_train = int(
-        num_train_and_val * split_config.train_validation_split_rate
-    )
-    num_val = num_train_and_val - num_train
-
-    split_config["num_train_samples"] = num_train
-    split_config["num_val_samples"] = num_val
-
-
 def get_steps_from_epochs(num_epochs, batch_size, n_train_examples, repeat=1):
     """Get global steps from given epoch."""
     # print(n_train_examples.type)
@@ -73,8 +57,6 @@ def get_steps_from_epochs(num_epochs, batch_size, n_train_examples, repeat=1):
 
 def get_config() -> ml_collections.ConfigDict:
     config = base_config.get_base_config()
-
-    make_split_num(CONFIG_DATASET)
 
     steps_from_epochs = functools.partial(
         get_steps_from_epochs,

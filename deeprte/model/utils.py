@@ -21,8 +21,6 @@ import jax.numpy as jnp
 import numpy as np
 from jax import lax
 
-from deeprte.model.tf import rte_features
-
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
 TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
     0.87962566103423978, dtype=np.float32
@@ -99,75 +97,6 @@ def get_initializer_scale(initializer_name, input_shape=()):
         w_init = hk.initializers.TruncatedNormal(mean=0.0, stddev=stddev)
 
     return w_init
-
-
-BATCH_FEATURES = rte_features.BATCH_FEATURE_NAMES + [
-    "sampled_boundary",
-    "sampled_boundary_scattering_kernel",
-]
-
-
-def split_features(features):
-    """Split features into batched and unbatched."""
-    batched_feat = {}
-    unbatched_feat = {}
-    for k, v in features.items():
-        if k in BATCH_FEATURES:
-            batched_feat.update({k: v})
-        else:
-            unbatched_feat.update({k: v})
-
-    return batched_feat, unbatched_feat
-
-
-def accumulate_gradient(grad_fn, params, batch, accum_steps):
-    """Accumulate gradient over multiple steps to save on memory."""
-    batched_feat, unbatched_feat = split_features(batch)
-    batch_size = batched_feat["psi_label"].shape[0]
-    print(batch_size)
-    if accum_steps and accum_steps > 1:
-        assert (
-            batch_size % accum_steps == 0
-        ), f"Bad accum_steps {accum_steps} for batch size {batch_size}"
-        step_size = batch_size // accum_steps
-
-        def dynamic_slice_feat(feat_dict, i, step_size):
-            def slice_fn(x):
-                return jax.lax.dynamic_slice(
-                    x, (i,) + (0,) * (x.ndim - 1), (step_size,) + x.shape[1:]
-                )
-
-            return jax.tree_map(slice_fn, feat_dict)
-
-        # loss, (scalars, state) = ret
-        l_and_state = grad_fn(
-            params,
-            {
-                **dynamic_slice_feat(batched_feat, 0, step_size),
-                **unbatched_feat,
-            },
-        )
-
-        def acc_grad_and_loss(i, l_and_state):
-            sliced_batch = {
-                **dynamic_slice_feat(batched_feat, i * step_size, step_size),
-                **unbatched_feat,
-            }
-            grads_i, (scalars_i, state_i) = grad_fn(params, sliced_batch)
-            grads, (scalars, state) = l_and_state
-            return jax.tree_map(lambda x, y: x + y, grads, grads_i), (
-                jax.tree_map(lambda x, y: x + y, scalars, scalars_i),
-                state_i,
-            )
-
-        grads, (scalars, state) = jax.lax.fori_loop(
-            1, accum_steps, acc_grad_and_loss, l_and_state
-        )
-        return jax.tree_map(
-            lambda x: x / accum_steps, (grads, (scalars, state))
-        )
-    else:
-        return grad_fn(params, batch)
 
 
 def query_chunk_attention(

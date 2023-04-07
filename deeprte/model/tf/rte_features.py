@@ -23,10 +23,9 @@ FeaturesMetadata = dict[str, tuple[tf.dtypes.DType, Sequence[str | int]]]
 
 
 class FeatureType(enum.Enum):
-    ZERO_DIM = 0  # Shape [x]
-    ONE_DIM = 1  # Shape [num_res, x]
-    TWO_DIM = 2  # Shape [num_res, num_res, x]
-    MSA = 3  # Shape [msa_length, num_res, x]
+    ZERO_DIM = 0
+    ONE_DIM = 1
+    TWO_DIM = 2
 
 
 NUM_DIM = 2
@@ -62,7 +61,6 @@ FEATURE_NAMES = [k for k in FEATURES.keys()]
 FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
 FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
 
-# BATCH_FEATURE_NAMES = [k for k in FEATURES if NUM_EXAMPLES in FEATURES[k][1]]
 PHASE_FEATURE_NAMES = [
     k for k in FEATURES if NUM_PHASE_COORDS in FEATURES[k][1]
 ]

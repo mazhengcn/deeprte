@@ -58,9 +58,7 @@ def repeat_batch(
 
 @curry1
 def sample_collocation_coords(
-    batch,
-    collocation_sizes: list[int],
-    generator: Generator,
+    batch, collocation_sizes: list[int], generator: Generator
 ):
     """Sample phase points randomly and take collocation points.
 
