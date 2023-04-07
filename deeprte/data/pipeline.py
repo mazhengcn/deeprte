@@ -119,6 +119,12 @@ class DataPipeline:
         grid_feature = make_grid_features(self.data)
         shape_dict = make_shape_dict(self.data)
 
+        raw_data = {
+            "functions": data_feature,
+            "grid": grid_feature,
+            "shape": shape_dict,
+        }
+
         if normalization:
             (
                 data_feature["psi_label"],
@@ -137,11 +143,6 @@ class DataPipeline:
             normalization_dict["boundary_min"] = boundary_min
             normalization_dict["boundary_range"] = boundary_range
 
-            return {
-                **data_feature,
-                **grid_feature,
-                "shapes": shape_dict,
-                "normalization_dict": normalization_dict,
-            }
+            raw_data.update({"normalization": normalization_dict})
 
-        return {**data_feature, **grid_feature, "shapes": shape_dict}
+        return raw_data
