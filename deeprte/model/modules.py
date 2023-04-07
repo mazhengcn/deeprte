@@ -26,10 +26,7 @@ from ml_collections import ConfigDict
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.tf.rte_features import (
-    BATCH_FEATURE_NAMES,
-    COLLOCATION_FEATURE_NAMES,
-)
+from deeprte.model.tf.rte_features import PHASE_FEATURE_NAMES
 from deeprte.model.utils import (
     dropout_wrapper,
     get_initializer_scale,
@@ -72,63 +69,54 @@ class DeepRTE(hk.Module):
             if is_training or hk.running_init()
             else gc.subcollocation_size
         )
-        collocation_axes = get_vmap_axes(
-            batch.keys(), COLLOCATION_FEATURE_NAMES
-        )
-        batch_axes = get_vmap_axes(batch.keys(), BATCH_FEATURE_NAMES)
+        collocation_axes = get_vmap_axes(batch.keys(), PHASE_FEATURE_NAMES)
 
         batched_rte_op = hk.vmap(
             mapping.sharded_map(
                 rte_op, shard_size=low_memory, in_axes=collocation_axes
             ),
-            in_axes=batch_axes,
             split_rng=(not hk.running_init()),
         )
         predictions = batched_rte_op(batch)
-
-        ret["predicted_solution"] = predictions
+        ret.update({"predicted_psi": predictions})
 
         if compute_loss:
-            inner_labels = batch["psi_label"]
-            inner_loss = mean_squared_loss_fn(predictions, inner_labels)
-
-            batch["phase_coords"] = batch["sampled_boundary_coords"]
-            batch["psi_label"] = batch["sampled_boundary"]
-            batch["scattering_kernel"] = batch[
-                "sampled_boundary_scattering_kernel"
-            ]
-
-            bc_predictions = batched_rte_op(batch)
-            bc_labels = batch["psi_label"]
-            bc_loss = mean_squared_loss_fn(bc_predictions, bc_labels)
-
-            bc_w = gc.bc_loss_weights
-            w = gc.loss_weights
-            total_loss = w * inner_loss + bc_w * bc_loss
-
+            interior_labels = batch["psi_label"]
+            interior_loss = mean_squared_loss_fn(predictions, interior_labels)
+            total_loss = gc.loss_weights * interior_loss
             ret["loss"] = {
-                "inner_mse": inner_loss,
-                "inner_rmspe": jnp.sqrt(
-                    inner_loss / jnp.mean(inner_labels**2)
+                "interior_mse": interior_loss,
+                "interior_rmspe": jnp.sqrt(
+                    interior_loss / jnp.mean(interior_labels**2)
                 ),
-                "bc_mse": bc_loss,
-                "bc_rmspe": jnp.sqrt(bc_loss / jnp.mean(bc_labels**2)),
-                "total_loss": total_loss,
             }
-            # labels = inner_labels
-            # total_loss = inner_loss
-
-            # ret["loss"] = {
-            #     "mse": total_loss,
-            #     "rmspe": jnp.sqrt(total_loss / jnp.mean(labels**2)),
-            # }
+            if "sampled_boundary_coords" in batch.keys():
+                batch["phase_coords"] = batch["sampled_boundary_coords"]
+                batch["scattering_kernel"] = batch[
+                    "sampled_boundary_scattering_kernel"
+                ]
+                boundary_labels = batch["sampled_boundary"]
+                boundary_predictions = batched_rte_op(batch)
+                boundary_loss = mean_squared_loss_fn(
+                    boundary_predictions, boundary_labels
+                )
+                total_loss += gc.bc_loss_weights * boundary_loss
+                ret["loss"].update(
+                    {
+                        "boundary_mse": boundary_loss,
+                        "boundary_rmspe": jnp.sqrt(
+                            boundary_loss / jnp.mean(boundary_labels**2)
+                        ),
+                    }
+                )
+            ret["loss"].update({"total": total_loss})
 
         if compute_metrics:
             labels = batch["psi_label"]
-
             mse = mean_squared_loss_fn(predictions, labels, axis=-1)
             relative_mse = mse / jnp.mean(labels**2)
-            ret["metrics"] = {"mse": mse, "rmspe": relative_mse}
+            ret.update({"metrics": {"mse": mse, "rmspe": relative_mse}})
+
         if compute_loss:
             return total_loss, ret
 

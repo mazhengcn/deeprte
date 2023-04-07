@@ -13,269 +13,89 @@
 # limitations under the License.
 
 import copy
-from typing import Generator, Optional, Sequence
+import enum
+from collections.abc import Generator, Sequence
+from typing import Optional
 
-import jax
 import ml_collections
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from deeprte.data.pipeline import DataPipeline, FeatureDict
+from deeprte.data.pipeline import FeatureDict
 from deeprte.model.tf import data_transforms
-from deeprte.model.tf.rte_dataset import (
-    TensorDict,
-    divide_batch_feat,
-    make_boudary_sample_axis,
-    make_collocation_axis,
-    np_to_tensor_dict,
-)
-
-AUTOTUNE = tf.data.AUTOTUNE
 
 
-def load_tf_data(
-    source_dir: str,
-    data_name_list: list[str],
-    pre_shuffle: bool = False,
-    pre_shuffle_seed: int = 0,
-    is_split_test_samples: bool = False,
-    num_test_samples: Optional[int] = None,
-    save_path: Optional[str] = None,
-    normalization: Optional[bool] = True,
-    features_names: Optional[Sequence[str]] = None,
-) -> TensorDict:
-    data_pipeline = DataPipeline(source_dir, data_name_list)
-    data = data_pipeline.process(
-        pre_shuffle=pre_shuffle,
-        pre_shuffle_seed=pre_shuffle_seed,
-        is_split_test_samples=is_split_test_samples,
-        num_test_samples=num_test_samples,
-        normalization=normalization,
-        save_path=save_path,
-    )
-    tf_data = np_to_tensor_dict(np_example=data, features_names=features_names)
-    normalization_dict = {}
-    if normalization:
-        normalization_dict = data["normalization_dict"]
-    return tf_data, normalization_dict
+class Split(enum.Enum):
+    TRAIN = 1
+    TRAIN_AND_VALID = 2
+    VALID = 3
+    TEST = 4
 
 
-def tf_data_to_generator(
-    tf_data: TensorDict,
-    is_training: bool,
-    batch_sizes: Sequence[int],
-    split_rate: Optional[int] = None,
-    collocation_size: Optional[int] = None,
-    bc_collocation_size: Optional[int] = None,
-    repeat: int | None = 1,
-    buffer_size: int = 5_000,
-    threadpool_size: int = 48,
-    max_intra_op_parallelism: int = 1,
-) -> Generator[FeatureDict, None, None]:
-
-    if split_rate:
-        split_ds = split_feat(
-            features=tf_data,
-            split_rate=split_rate,
-            is_training=is_training,
-        )
+def _to_tfds_split(split: Split, ratio: float = 0.8):
+    if split in (Split.TRAIN, Split.TRAIN_AND_VALID):
+        return f"train[:{ratio:.0%}]"
+    elif split in (Split.VALID, Split.TEST):
+        return f"train[{ratio:.0%}:]"
     else:
-        split_ds = tf_data
-
-    ds = process_features(
-        split_ds,
-        is_training=is_training,
-        batch_sizes=batch_sizes,
-        collocation_size=collocation_size,
-        bc_collocation_size=bc_collocation_size,
-        repeat=repeat,
-        buffer_size=buffer_size,
-        threadpool_size=threadpool_size,
-        max_intra_op_parallelism=max_intra_op_parallelism,
-    )
-    return ds
+        raise ValueError(f"Unknown split {split}")
 
 
-def split_feat(
-    features: TensorDict | FeatureDict,
-    split_rate: float,
-    is_training: bool,
-):
-    batched_data, unbatched_data = divide_batch_feat(features)
-    assert batched_data
-
-    ds = _split(
-        features=batched_data,
-        split_rate=split_rate,
-        is_training=is_training,
-    )
-
-    return {**ds, **unbatched_data}
-
-
-def process_features(
-    features: TensorDict,
+def load(
+    split: Split,
+    split_ratio: float,
     is_training: bool,
     # batch_sizes should be:
     # [device_count, per_device_outer_batch_size]
     # total_batch_size = device_count * per_device_outer_batch_size
     batch_sizes: Sequence[int],
     # collocation_sizes should be:
-    # total_collocation_size or
+    # [total_collocation_size] or
     # [residual_size, boundary_size, quadrature_size]
-    collocation_size: Optional[int] = None,
-    bc_collocation_size: Optional[int] = None,
+    collocation_sizes: Optional[Sequence[int]] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    seed: int = jax.process_index(),
-    repeat: int | None = 1,
+    repeat: Optional[int] = 1,
     # shuffle buffer size
-    buffer_size: int = 5_000,
-    # Dataset options
-    threadpool_size: int = 48,
-    max_intra_op_parallelism: int = 1,
+    name: str = "rte",
+    data_dir: str = "/workspaces/deeprte/data/tfds",
 ) -> Generator[FeatureDict, None, None]:
+    tfds_split = _to_tfds_split(split, split_ratio)
+    total_batch_size = np.prod(batch_sizes)
 
-    batched_feat, unbatched_feat = divide_batch_feat(features)
-    ds = tf.data.Dataset.from_tensor_slices(batched_feat)
-
-    if is_training:
-        if not collocation_size or not repeat:
-
-            raise ValueError(
-                "`collocation_size` and `repeat` should not be None"
-                "when `is_training=True`"
-            )
-    total_grid_size = tf.cast(
-        tf.shape(unbatched_feat["phase_coords"])[-2], dtype=tf.int64
+    ds = tfds.load(
+        name, data_dir=data_dir, split=tfds_split, shuffle_files=True
     )
-
+    # tf.data options
     options = tf.data.Options()
-    options.threading.max_intra_op_parallelism = max_intra_op_parallelism
-    options.threading.private_threadpool_size = threadpool_size
+    options.threading.private_threadpool_size = 48
+    options.threading.max_intra_op_parallelism = 1
     options.experimental_optimization.map_parallelization = True
     options.experimental_optimization.parallel_batch = True
     if is_training:
         options.deterministic = False
-
-        assert collocation_size <= total_grid_size
-
-    if is_training:
-        if jax.process_count() > 1:
-            # Only cache if we are reading a subset of the dataset.
-            ds = ds.cache()
-        ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=buffer_size)
-        ds = data_transforms.repeat_batch(batch_sizes, ds, repeat)
-
-    # batch per_device outer first,
-    # since they share the same random grid points
-    ds = ds.batch(batch_sizes[-1], drop_remainder=True)
-    # construct the inputs structure
-    g = tf.random.Generator.from_seed(seed=seed)
-
-    ds = ds.map(
-        data_transforms.cat_feat(unbatched_feat),
-        num_parallel_calls=tf.data.AUTOTUNE,
-    )
-
-    ds = ds.batch(batch_sizes[0], drop_remainder=True)
-
-    # print(ds.element_spec)
-
-    if bc_collocation_size:
-        collocation_sizes = (bc_collocation_size, collocation_size)
-        collocation_features = (
-            make_boudary_sample_axis(),
-            make_collocation_axis(),
-        )
-        total_boundary_size = tf.cast(
-            tf.shape(unbatched_feat["boundary_coords"])[-2], dtype=tf.int64
-        )
-        total_grid_sizes = (total_boundary_size, total_grid_size)
-        is_replacing = (False, True)
-
-    else:
-        collocation_sizes = (collocation_size,)
-        collocation_features = (make_collocation_axis(),)
-        total_grid_sizes = (total_grid_size,)
-        is_replacing = (True,)
-
-    if is_training:
-        ds = ds.map(
-            data_transforms.construct_batch(
-                collocation_sizes=collocation_sizes,
-                collocation_features=collocation_features,
-                total_grid_sizes=total_grid_sizes,
-                generator=g,
-                is_replacing=is_replacing,
-            )
-        )
-    # batch device dim
-    # ds = ds.batch(batch_sizes[0], drop_remainder=True)
-    # tf.nest.map_structure(lambda x: x.shape, ds)
-
-    ds = ds.prefetch(AUTOTUNE)
     ds = ds.with_options(options)
 
-    # convert to a numpy generator
-    yield from tfds.as_numpy(ds)
-
-
-def shard(
-    shard_index: int,
-    num_shards: int,
-    num_val: int,
-    num_train: Optional[int] = None,
-) -> tuple[int, int]:
-    """Returns [start, end) for the given shard index."""
-    assert shard_index < num_shards
-
-    def _get_endpoint(num):
-        arange = np.arange(num)
-        shard_range = np.split(arange, num_shards)[shard_index]
-        start, end = shard_range[0], (shard_range[-1] + 1)
-        return start, end
-
-    if num_train:
-        start, end = _get_endpoint(num_train)
-        offset = num_val
-        start += offset
-        end += offset
-    else:
-        start, end = _get_endpoint(num_val)
-
-    return start, end
-
-
-def _split(
-    features: TensorDict | FeatureDict,
-    split_rate: float,
-    is_training: bool = True,
-):
-    num_train_and_val = list(features.values())[0].shape[0]
-    num_train = int(num_train_and_val * split_rate)
-    num_val = num_train_and_val - num_train
-
-    def _make_ds(
-        num_train: Optional[int] = None,
-    ) -> TensorDict:
-        _start, _end = shard(
-            jax.process_index(),
-            jax.process_count(),
-            num_val=num_val,
-            num_train=num_train,
-        )
-        return tf.nest.map_structure(
-            lambda arr: arr[_start:_end],
-            features,
-        )
-
     if is_training:
-        return _make_ds(num_train=num_train)
-    else:
-        return _make_ds()
+        ds = ds.cache()
+        ds = ds.repeat()
+        ds = ds.shuffle(buffer_size=10 * total_batch_size)
+        ds = data_transforms.repeat_batch(batch_sizes, repeat)(ds)
+
+    for batch_size in reversed(batch_sizes):
+        ds = ds.batch(batch_size, drop_remainder=True)
+
+    if is_training and collocation_sizes:
+        rng = tf.random.Generator.from_seed(seed=0)
+        ds = ds.map(
+            data_transforms.sample_collocation_coords(collocation_sizes, rng),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
+
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+
+    yield from tfds.as_numpy(ds)
 
 
 def make_data_config(
@@ -285,17 +105,3 @@ def make_data_config(
     cfg = copy.deepcopy(config.data)
 
     return cfg
-
-
-def make_device_batch(
-    global_batch_size: int,
-    num_devices: int,
-):
-    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
-    # Raise error if not divisible
-    if ragged:
-        raise ValueError(
-            f"Global batch size {global_batch_size} must be divisible by "
-            f"number of devices {num_devices}"
-        )
-    return [num_devices, per_device_batch_size]

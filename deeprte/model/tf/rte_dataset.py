@@ -24,25 +24,6 @@ import tensorflow as tf
 from deeprte.model.tf import rte_features
 
 TensorDict = Dict[str, tf.Tensor]
-AUTOTUNE = tf.data.AUTOTUNE
-
-
-def make_collocation_axis():
-    axis_dict = {
-        k: rte_features.FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS)
-        - len(rte_features.FEATURES[k][1])
-        for k in rte_features.COLLOCATION_FEATURE_NAMES
-    }
-    return axis_dict
-
-
-def make_boudary_sample_axis():
-    axis_dict = {
-        k: rte_features.FEATURES[k][1].index(rte_features.NUM_BOUNDARY_COORDS)
-        - len(rte_features.FEATURES[k][1])
-        for k in rte_features.BOUNDARY_FEATURE_NAMES
-    }
-    return axis_dict
 
 
 def _make_features_metadata(
@@ -58,14 +39,13 @@ def _make_features_metadata(
 
 def parse_reshape_logic(
     parsed_features: TensorDict,
-    shape_dict,
+    placeholder_shapes: Mapping[str, int],
     features: rte_features.FeaturesMetadata,
 ) -> TensorDict:
-
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
-            **shape_dict,
+            **placeholder_shapes,
             features=features,
         )
         new_shape_size = tf.constant(1, dtype=tf.int32)
@@ -88,7 +68,8 @@ def parse_reshape_logic(
 
 
 def np_to_tensor_dict(
-    np_examples: Mapping[str, np.ndarray],
+    np_example: Mapping[str, np.ndarray],
+    placeholder_shapes: Mapping[str, int],
     features_names: Optional[Sequence[str]] = None,
 ) -> TensorDict:
     """Creates dict of tensors from a dict of NumPy arrays.
@@ -107,13 +88,12 @@ def np_to_tensor_dict(
     features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
         k: tf.constant(v)
-        for k, v in np_examples.items()
+        for k, v in np_example.items()
         if k in features_metadata
     }
-    shape_dict = np_examples["shapes"]
     # Ensures shapes are as expected. Needed for setting size of empty features
     # e.g. when no template hits were found.
     tensor_dict = parse_reshape_logic(
-        tensor_dict, shape_dict, features_metadata
+        tensor_dict, placeholder_shapes, features_metadata
     )
     return tensor_dict
