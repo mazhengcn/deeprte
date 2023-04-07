@@ -52,7 +52,7 @@ def load(
     batch_sizes: Sequence[int],
     # collocation_sizes should be:
     # [total_collocation_size] or
-    # [residual_size, boundary_size, quadrature_size]
+    # [interior_size, boundary_size, quadrature_size]
     collocation_sizes: Optional[Sequence[int]] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
@@ -60,12 +60,17 @@ def load(
     # shuffle buffer size
     name: str = "rte",
     data_dir: str = "/workspaces/deeprte/data/tfds",
+    with_info: bool = False,
 ) -> Generator[FeatureDict, None, None]:
     tfds_split = _to_tfds_split(split, split_ratio)
     total_batch_size = np.prod(batch_sizes)
 
-    ds = tfds.load(
-        name, data_dir=data_dir, split=tfds_split, shuffle_files=True
+    ds, ds_info = tfds.load(
+        name,
+        data_dir=data_dir,
+        split=tfds_split,
+        shuffle_files=True,
+        with_info=True,
     )
     # tf.data options
     options = tf.data.Options()
@@ -80,7 +85,7 @@ def load(
     if is_training:
         ds = ds.cache()
         ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=10 * total_batch_size)
+        ds = ds.shuffle(buffer_size=100 * total_batch_size)
         ds = data_transforms.repeat_batch(batch_sizes, repeat)(ds)
 
     for batch_size in reversed(batch_sizes):
