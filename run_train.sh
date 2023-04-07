@@ -17,14 +17,12 @@ set -e
 export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-SOURCE_DIR=${1:-"./data/train-scattering-kernel-0309/"}
-DATA_NAME_LIST=${2:-"train_random_kernel_1.mat,train_random_kernel_2.mat,train_random_kernel_3.mat,train_random_kernel_4.mat"}
-TEST_DATA_SAVE_PATH=${3:-"./data/test_data/train_random_kernel.npz"}
+SOURCE_DIR=${1:-"./data/tfds"}
+# TEST_DATA_SAVE_PATH=${3:-"./data/test_data/train_random_kernel.npz"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
-	--source_dir="${SOURCE_DIR}" \
-	--data_name_list="${DATA_NAME_LIST}" \
-	--save_path="${TEST_DATA_SAVE_PATH}" \
+	--tfds_dir="${SOURCE_DIR}" \
 	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
-	--jaxline_mode="train_eval_multithreaded" \
+	# --config.restore_dir="./ckpts/square_full_it_2023-04-01T21:39:01/models/latest/step_75000_2023-04-02T18:25:34" \
+	--jaxline_mode="train" \
 	--alsologtostderr="true"
