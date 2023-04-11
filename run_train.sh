@@ -18,7 +18,7 @@ export CUDA_VISIBLE_DEVICES="7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 TFDS_DIR=${1:-"./data/tfds"}
-python run_deeprte.py \
+python train_deeprte.py \
 	--config=deeprte/config.py \
 	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
 	--config.experiment_kwargs.config.dataset.data_dir="${TFDS_DIR}" \
