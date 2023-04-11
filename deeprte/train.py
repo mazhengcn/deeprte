@@ -51,20 +51,6 @@ def _format_logs(prefix, results):
     logging.info("%s - %s", prefix, logging_str)
 
 
-def make_device_batch(
-    global_batch_size: int,
-    num_devices: int,
-):
-    per_device_batch_size, ragged = divmod(global_batch_size, num_devices)
-    # Raise error if not divisible
-    if ragged:
-        raise ValueError(
-            f"Global batch size {global_batch_size} must be divisible by "
-            f"number of devices {num_devices}"
-        )
-    return [num_devices, per_device_batch_size]
-
-
 class Trainer(experiment.AbstractExperiment):
     """RTE solver."""
 
@@ -119,7 +105,6 @@ class Trainer(experiment.AbstractExperiment):
     def step(self, global_step, rng, *unused_args, **unused_kwargs):
         """See base class."""
         if not self._training:
-            print("Hello")
             self._initialize_training()
 
         # Get next batch
@@ -165,9 +150,8 @@ class Trainer(experiment.AbstractExperiment):
             return scaled_loss, (loss_scalars, out_state)
 
         # Gradient function w.r.t. params
-        grad_fn = jax.grad(loss, has_aux=True)
-        scaled_grads, (loss_scalars, new_state) = self.accum_grads(
-            grad_fn, params, batch
+        scaled_grads, (loss_scalars, new_state) = self._accum_grads(
+            jax.grad(loss, has_aux=True), params, batch
         )
         # Compute loss and gradients.
         # scaled_grads, (loss_scalars, new_state) = grad_fn(params, batch)
@@ -194,15 +178,25 @@ class Trainer(experiment.AbstractExperiment):
 
     def _build_train_input(self) -> Generator[FeatureDict, None, None]:
         """Build train input as generator/iterator."""
-        c = self.config.dataset
-        batch_sizes = make_device_batch(c.train.batch_size, jax.device_count())
+        c = self.config
+        global_batch_size = c.training.batch_size
+        per_device_batch_size, ragged = divmod(
+            global_batch_size, jax.local_device_count()
+        )
+        # Raise error if not divisible
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"number of devices {jax.local_device_count()}"
+            )
         return input_pipeline.load(
             split=input_pipeline.Split.TRAIN,
-            split_ratio=c.split_ratio,
+            split_percentage=c.dataset.split_percentage,
             is_training=True,
-            batch_sizes=batch_sizes,
-            collocation_sizes=c.train.collocation_sizes,
-            repeat=c.train.repeat,
+            batch_sizes=[jax.local_device_count(), per_device_batch_size],
+            collocation_sizes=c.training.collocation_sizes,
+            batch_repeat=c.training.batch_repeat,
+            data_dir=c.dataset.data_dir,
         )
 
     def _initialize_training(self):
@@ -216,32 +210,41 @@ class Trainer(experiment.AbstractExperiment):
         # h2d transfers to overlap with execution.
         self._train_input = jl_utils.double_buffer_on_gpu(train_input)
 
-        # Total batch size
-        total_batch_size = c.dataset.train.batch_size
+        global_batch_size = c.training.batch_size
+        per_device_batch_size, ragged = divmod(
+            global_batch_size, jax.local_device_count()
+        )
+        # Raise error if not divisible
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"number of devices {jax.local_device_count()}"
+            )
+        self._accum_grads = functools.partial(
+            utils.accumulate_gradient,
+            batch_size=per_device_batch_size,
+            accum_steps=c.training.accum_grads_steps,
+        )
+
         # NOTE: Since we may have repeat number for the same batch
         # with different collocation points, stpes_per_epoch should be
         # multiplied by repeat.
         steps_per_epoch = (
-            c.dataset.data_split.num_train_samples
-            / c.dataset.train.batch_size
-            * c.dataset.train.repeat
+            c.dataset.num_train_examples
+            / c.training.batch_size
+            * c.training.batch_repeat
         )
         total_steps = c.training.num_epochs * steps_per_epoch
-
-        self.accum_grads = functools.partial(
-            utils.accumulate_gradient, accum_steps=1
-        )
-
         # Get learning rate schedule.
         self._lr_schedule = optimizers.get_learning_rate_schedule(
-            total_batch_size,
+            global_batch_size,
             steps_per_epoch,
             total_steps,
-            c.training.optimizer,
+            c.optimizer,
         )
         # Optimizer
         self.optimizer = optimizers.make_optimizer(
-            c.training.optimizer, self._lr_schedule
+            c.optimizer, self._lr_schedule
         )
 
         # Initialize net if no params available.
@@ -249,9 +252,9 @@ class Trainer(experiment.AbstractExperiment):
             logging.info("Initializing parameters.")
 
             # Pmap initial functions
-            # init_net = jax.pmap(lambda *a: self.solution.init(*a))
-            init_net = functools.partial(self.model.init, is_training=True)
-            init_net = jax.pmap(init_net)
+            init_net = jax.pmap(
+                lambda *a: self.model.init(*a, is_training=True)
+            )
             init_opt = jax.pmap(self.optimizer.init)
 
             # Init uses the same RNG key on all hosts+devices to ensure
@@ -259,8 +262,8 @@ class Trainer(experiment.AbstractExperiment):
             init_rng = jl_utils.bcast_local_devices(self.init_rng)
 
             # Load initial inputs
-            dummy_inputs = self._build_dummy_input()
-            self._params, self._state = init_net(init_rng, dummy_inputs)
+            batch = next(self._train_input)
+            self._params, self._state = init_net(init_rng, batch)
             self._opt_state = init_opt(self._params)
 
             # Log total number of parameters
@@ -268,7 +271,6 @@ class Trainer(experiment.AbstractExperiment):
             logging.info(
                 "Net parameters: %d", num_params // jax.local_device_count()
             )
-        print("hello2")
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
@@ -380,26 +382,21 @@ class Trainer(experiment.AbstractExperiment):
         self._evaluating = True
 
     def _build_eval_input(self) -> Generator[FeatureDict, None, None]:
-        c = self.config.dataset
-        batch_sizes = make_device_batch(
-            c.validation.batch_size, jax.device_count()
+        c = self.config
+        global_batch_size = c.training.batch_size
+        per_device_batch_size, ragged = divmod(
+            global_batch_size, jax.local_device_count()
         )
+        # Raise error if not divisible
+        if ragged:
+            raise ValueError(
+                f"Global batch size {global_batch_size} must be divisible by "
+                f"number of devices {jax.local_device_count()}"
+            )
         return input_pipeline.load(
             split=input_pipeline.Split.VALID,
-            split_ratio=c.split_ratio,
+            split_percentage=c.training.split_percentage,
             is_training=False,
-            batch_sizes=batch_sizes,
+            batch_sizes=[jax.local_device_count(), per_device_batch_size],
+            data_dir=c.dataset.data_dir,
         )
-
-    def _build_dummy_input(self) -> tuple[jax.Array]:
-        """Load dummy data for initializing network parameters."""
-
-        dummy_ds = input_pipeline.load(
-            split=input_pipeline.Split.TRAIN,
-            split_ratio=self.config.dataset.split_ratio,
-            is_training=True,
-            batch_sizes=[jax.local_device_count(), 1],
-            collocation_sizes=[1],
-        )
-
-        return next(dummy_ds)

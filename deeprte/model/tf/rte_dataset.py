@@ -84,7 +84,6 @@ def np_to_tensor_dict(
             Only the given features are returned, all other ones are
             filtered out.
     """
-    features_names = features_names or rte_features.FEATURE_NAMES
     features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
         k: tf.constant(v)

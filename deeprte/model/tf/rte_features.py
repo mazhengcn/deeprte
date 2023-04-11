@@ -37,7 +37,12 @@ NUM_BOUNDARY_COORDS = "num boundary coordinates placeholder"
 
 FEATURES = {
     # Static features of RTE #
-    "psi_label": (tf.float32, [NUM_PHASE_COORDS]),
+    "phase_coords": (tf.float32, [NUM_PHASE_COORDS, 2 * NUM_DIM]),
+    "boundary_coords": (tf.float32, [NUM_BOUNDARY_COORDS, 2 * NUM_DIM]),
+    "boundary_weights": (tf.float32, [NUM_BOUNDARY_COORDS]),
+    "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
+    "velocity_coords": (tf.float32, [NUM_VELOCITY_COORDS, NUM_DIM]),
+    "velocity_weights": (tf.float32, [NUM_VELOCITY_COORDS]),
     "boundary": (tf.float32, [NUM_BOUNDARY_COORDS]),
     "sigma": (tf.float32, [NUM_POSITION_COORDS, 2]),
     "scattering_kernel": (tf.float32, [NUM_PHASE_COORDS, NUM_VELOCITY_COORDS]),
@@ -45,36 +50,17 @@ FEATURES = {
         tf.float32,
         [NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
     ),
-    "boundary_scattering_kernel": (
-        tf.float32,
-        [NUM_BOUNDARY_COORDS, NUM_VELOCITY_COORDS],
-    ),
-    "phase_coords": (tf.float32, [NUM_PHASE_COORDS, 2 * NUM_DIM]),
-    "boundary_coords": (tf.float32, [NUM_BOUNDARY_COORDS, 2 * NUM_DIM]),
-    "boundary_weights": (tf.float32, [NUM_BOUNDARY_COORDS]),
-    "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
-    "velocity_coords": (tf.float32, [NUM_VELOCITY_COORDS, NUM_DIM]),
-    "velocity_weights": (tf.float32, [NUM_VELOCITY_COORDS]),
 }
 
-FEATURE_NAMES = [k for k in FEATURES.keys()]
 FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
 FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
 
-PHASE_FEATURE_NAMES = [
-    k for k in FEATURES if NUM_PHASE_COORDS in FEATURES[k][1]
-]
-PHASE_FEATURE_AXIS = {
-    k: FEATURES[k][1].index(NUM_PHASE_COORDS) - len(FEATURES[k][1])
-    for k in PHASE_FEATURE_NAMES
-}
-BOUNDARY_FEATURE_NAMES = [
-    k for k in FEATURES if NUM_BOUNDARY_COORDS in FEATURES[k][1]
-]
-BOUNDARY_FEATURE_AXIS = {
-    k: FEATURES[k][1].index(NUM_BOUNDARY_COORDS) - len(FEATURES[k][1])
-    for k in BOUNDARY_FEATURE_NAMES
-}
+# Extra features for training
+# "boundary_scattering_kernel": (
+#     tf.float32,
+#     [NUM_BOUNDARY_COORDS, NUM_VELOCITY_COORDS],
+# ),
+# "psi_label": (tf.float32, [NUM_PHASE_COORDS]),
 
 
 def register_feature(

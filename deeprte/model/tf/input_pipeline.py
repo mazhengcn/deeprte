@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import enum
 from collections.abc import Generator, Sequence
 from typing import Optional
 
-import ml_collections
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -33,18 +31,18 @@ class Split(enum.Enum):
     TEST = 4
 
 
-def _to_tfds_split(split: Split, ratio: float = 0.8):
+def _to_tfds_split(split: Split, split_percentage: str = "80%"):
     if split in (Split.TRAIN, Split.TRAIN_AND_VALID):
-        return f"train[:{ratio:.0%}]"
+        return f"train[:{split_percentage}]"
     elif split in (Split.VALID, Split.TEST):
-        return f"train[{ratio:.0%}:]"
+        return f"train[{split_percentage}:]"
     else:
         raise ValueError(f"Unknown split {split}")
 
 
 def load(
     split: Split,
-    split_ratio: float,
+    split_percentage: str,
     is_training: bool,
     # batch_sizes should be:
     # [device_count, per_device_outer_batch_size]
@@ -56,16 +54,14 @@ def load(
     collocation_sizes: Optional[Sequence[int]] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    repeat: Optional[int] = 1,
-    # shuffle buffer size
+    batch_repeat: Optional[int] = 1,
     name: str = "rte",
     data_dir: str = "/workspaces/deeprte/data/tfds",
-    with_info: bool = False,
 ) -> Generator[FeatureDict, None, None]:
-    tfds_split = _to_tfds_split(split, split_ratio)
+    tfds_split = _to_tfds_split(split, split_percentage)
     total_batch_size = np.prod(batch_sizes)
 
-    ds, ds_info = tfds.load(
+    ds, info = tfds.load(
         name,
         data_dir=data_dir,
         split=tfds_split,
@@ -86,27 +82,24 @@ def load(
         ds = ds.cache()
         ds = ds.repeat()
         ds = ds.shuffle(buffer_size=100 * total_batch_size)
-        ds = data_transforms.repeat_batch(batch_sizes, repeat)(ds)
+        ds = data_transforms.repeat_batch(batch_sizes, batch_repeat)(ds)
 
     for batch_size in reversed(batch_sizes):
         ds = ds.batch(batch_size, drop_remainder=True)
 
     if is_training and collocation_sizes:
         rng = tf.random.Generator.from_seed(seed=0)
+        collocation_axis_dict = (
+            info.metadata["phase_feature_axis"],
+            info.metadata["boundary_feature_axis"],
+        )
         ds = ds.map(
-            data_transforms.sample_collocation_coords(collocation_sizes, rng),
+            data_transforms.sample_collocation_coords(
+                collocation_sizes, collocation_axis_dict, rng
+            ),
             num_parallel_calls=tf.data.AUTOTUNE,
         )
 
     ds = ds.prefetch(tf.data.AUTOTUNE)
 
     yield from tfds.as_numpy(ds)
-
-
-def make_data_config(
-    config: ml_collections.ConfigDict,
-) -> ml_collections.ConfigDict:
-    """Makes a data config for the input pipeline."""
-    cfg = copy.deepcopy(config.data)
-
-    return cfg

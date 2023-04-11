@@ -19,10 +19,8 @@ import jax
 import numpy as np
 
 
-def accumulate_gradient(grad_fn, params, batch, accum_steps):
+def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
     """Accumulate gradient over multiple steps to save on memory."""
-    batch_size = batch["psi_label"].shape[0]
-    print(batch_size)
 
     if accum_steps and accum_steps > 1:
         assert (

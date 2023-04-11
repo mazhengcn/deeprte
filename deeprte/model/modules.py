@@ -26,7 +26,7 @@ from ml_collections import ConfigDict
 
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.tf.rte_features import PHASE_FEATURE_NAMES
+from deeprte.model.tf import rte_features
 from deeprte.model.utils import (
     dropout_wrapper,
     get_initializer_scale,
@@ -34,9 +34,11 @@ from deeprte.model.utils import (
     query_chunk_attention,
 )
 
-
-def get_vmap_axes(dict_keys: list[str], template: list[str]):
-    return ({k: 0 if k in template else None for k in dict_keys},)
+FEATURES = rte_features.FEATURES
+COLLOCATION_AXES = {
+    k: 0 if (rte_features.NUM_PHASE_COORDS in FEATURES[k][1]) else None
+    for k in FEATURES
+}
 
 
 @dataclasses.dataclass
@@ -53,15 +55,15 @@ class DeepRTE(hk.Module):
         gc = self.config.global_config
         ret = {}
 
-        def rte_op(batch):
+        def rte_op(inputs):
             green_fn = GreenFunction(c.green_function, gc)
             quadratures = (
-                batch["boundary_coords"],
-                batch["boundary"] * batch["boundary_weights"],
+                inputs["boundary_coords"],
+                inputs["boundary"] * inputs["boundary_weights"],
             )
             rte_sol = integrate.quad(
                 green_fn, quadratures=quadratures, argnum=1
-            )(batch["phase_coords"], batch, is_training)
+            )(inputs["phase_coords"], inputs, is_training)
             return rte_sol
 
         low_memory = (
@@ -69,15 +71,15 @@ class DeepRTE(hk.Module):
             if is_training or hk.running_init()
             else gc.subcollocation_size
         )
-        collocation_axes = get_vmap_axes(batch.keys(), PHASE_FEATURE_NAMES)
-
         batched_rte_op = hk.vmap(
             mapping.sharded_map(
-                rte_op, shard_size=low_memory, in_axes=collocation_axes
+                rte_op, shard_size=low_memory, in_axes=(COLLOCATION_AXES,)
             ),
             split_rng=(not hk.running_init()),
         )
-        predictions = batched_rte_op(batch)
+
+        rte_inputs = {k: batch[k] for k in FEATURES}
+        predictions = batched_rte_op(rte_inputs)
         ret.update({"predicted_psi": predictions})
 
         if compute_loss:
@@ -90,13 +92,14 @@ class DeepRTE(hk.Module):
                     interior_loss / jnp.mean(interior_labels**2)
                 ),
             }
-            if "sampled_boundary_coords" in batch.keys():
-                batch["phase_coords"] = batch["sampled_boundary_coords"]
-                batch["scattering_kernel"] = batch[
+            if "sampled_boundary_coords" in batch:
+                rte_inputs["phase_coords"] = batch["sampled_boundary_coords"]
+                rte_inputs["scattering_kernel"] = batch[
                     "sampled_boundary_scattering_kernel"
                 ]
+
                 boundary_labels = batch["sampled_boundary"]
-                boundary_predictions = batched_rte_op(batch)
+                boundary_predictions = batched_rte_op(rte_inputs)
                 boundary_loss = mean_squared_loss_fn(
                     boundary_predictions, boundary_labels
                 )

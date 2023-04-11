@@ -1,97 +1,67 @@
-import functools
-
 import ml_collections
+import tensorflow_datasets as tfds
 from jaxline import base_config
 
 from deeprte.model.config import model_config
 
-CONFIG_DATASET = ml_collections.ConfigDict(
-    {
-        "tfds_dir": "",
-        "train": {
-            "batch_size": 4,
-            "collocation_sizes": [120, 30],
-            "repeat": 1,
-        },
-        "validation": {
-            "batch_size": 1,
-        },
-        "data_split": {
-            "num_train_samples": 1600,
-            "num_test_samples": 400,
-            "save_path": "",
-            "is_split_datasets": True,
-        },
-        "split_ratio": 0.8,
-        "pre_shuffle_seed": 42,
-        "buffer_size": 5000,
-        "threadpool_size": 48,
-        "max_intra_op_parallelism": 1,
-        "pre_shuffle": True,
-    }
-)
-CONFIG_TRAINING = ml_collections.ConfigDict(
-    {
-        "num_epochs": 5000,
-        "accum_grads_steps": 1,
-        "optimizer": {
-            "base_lr": 1e-3,
-            "scale_by_batch": False,
-            "schedule_type": "exponential",
-            "decay_kwargs": {
-                "transition_steps": 100,
-                "decay_rate": 0.96,
-            },
-            "optimizer": "adam",
-            "adam_kwargs": {},
-        },
-    }
-)
 
-
-def get_steps_from_epochs(num_epochs, batch_size, n_train_examples, repeat=1):
-    """Get global steps from given epoch."""
-    # print(n_train_examples.type)
-    return max(int(repeat * num_epochs * n_train_examples // batch_size), 1)
-
-
-def get_config() -> ml_collections.ConfigDict:
+def get_config():
     config = base_config.get_base_config()
 
-    steps_from_epochs = functools.partial(
-        get_steps_from_epochs,
-        n_train_examples=CONFIG_DATASET.data_split.num_train_samples,
-        batch_size=CONFIG_DATASET.train.batch_size,
-        repeat=CONFIG_DATASET.train.repeat,
+    num_epochs = 5000
+    train_batch_size = 4
+    batch_repeat = 1
+
+    dataset = ml_collections.ConfigDict(
+        dict(name="rte", data_dir="./data/tfds", split_percentage="60%")
     )
 
-    if "transition_steps" in CONFIG_TRAINING.optimizer.decay_kwargs:
-        num = CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps
-        CONFIG_TRAINING.optimizer.decay_kwargs.transition_steps = (
-            steps_from_epochs(num)
+    dataset_builder = tfds.builder(dataset.name, data_dir=dataset.data_dir)
+    dataset.num_train_examples = dataset_builder.info.splits[
+        f"train[:{dataset.split_percentage}]"
+    ].num_examples
+    dataset.normalization = dataset_builder.info.metadata["normalization"]
+
+    def steps_from_epochs(num_epochs):
+        return max(
+            int(
+                batch_repeat
+                * num_epochs
+                * dataset.num_train_examples
+                // train_batch_size
+            ),
+            1,
         )
-    config.training_steps = steps_from_epochs(CONFIG_TRAINING.num_epochs)
 
-    config.save_checkpoint_interval = steps_from_epochs(
-        config.save_checkpoint_interval
-    )
-    config.log_tensors_interval = steps_from_epochs(
-        config.log_tensors_interval
-    )
-    config.log_train_data_interval = steps_from_epochs(
-        config.log_train_data_interval
-    )
+    config.training_steps = steps_from_epochs(num_epochs)
 
-    expr_config = ml_collections.config_dict.ConfigDict(
+    config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
             config=dict(
-                dataset=CONFIG_DATASET,
-                training=CONFIG_TRAINING,
+                dataset=dataset,
+                training=dict(
+                    num_epochs=num_epochs,
+                    batch_size=train_batch_size,
+                    collocation_sizes=[120, 30],
+                    batch_repeat=batch_repeat,
+                    accum_grads_steps=4,
+                ),
+                optimizer=dict(
+                    base_lr=1e-3,
+                    scale_by_batch=False,
+                    schedule_type="exponential",
+                    decay_kwargs=dict(
+                        transition_steps=steps_from_epochs(100),
+                        decay_rate=0.96,
+                    ),
+                    optimizer="adam",
+                    adam_kwargs=dict(),
+                ),
+                evaluation=dict(),
                 model=model_config(),
             )
         )
     )
-    config.experiment_kwargs = expr_config
 
     config.interval_type = "steps"
     config.save_checkpoint_interval = steps_from_epochs(10)

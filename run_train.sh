@@ -14,15 +14,13 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-SOURCE_DIR=${1:-"./data/tfds"}
-# TEST_DATA_SAVE_PATH=${3:-"./data/test_data/train_random_kernel.npz"}
+TFDS_DIR=${1:-"./data/tfds"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
-	--tfds_dir="${SOURCE_DIR}" \
 	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
-	# --config.restore_dir="./ckpts/square_full_it_2023-04-01T21:39:01/models/latest/step_75000_2023-04-02T18:25:34" \
+	--config.experiment_kwargs.config.dataset.data_dir="${TFDS_DIR}" \
 	--jaxline_mode="train" \
 	--alsologtostderr="true"
