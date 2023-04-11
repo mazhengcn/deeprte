@@ -18,8 +18,6 @@ from collections.abc import Generator, Sequence
 
 import tensorflow as tf
 
-from deeprte.model.tf import rte_features
-
 
 def curry1(f):
     """Supply all arguments but the first."""
@@ -28,6 +26,58 @@ def curry1(f):
         return lambda x: f(x, *args, **kwargs)
 
     return fc
+
+
+@curry1
+def sample_collocation_coords(
+    batch,
+    collocation_sizes: list[int],
+    collocation_axis_dicts: list[dict],
+    generator: Generator,
+):
+    """Sample phase points randomly and take collocation points.
+
+    Args:
+        featrues: batch to sample.
+        collocation_sizes: number of collocation points.
+        seed: random seed.
+
+    Returns:
+        sampled data.
+    """
+
+    phase_feature_axis = collocation_axis_dicts[0]
+    num_phase_coords = tf.shape(batch["phase_coords"])[
+        phase_feature_axis["phase_coords"]
+    ]
+    phase_coords_indices = generator.uniform(
+        (collocation_sizes[0],),
+        minval=0,
+        maxval=num_phase_coords,
+        dtype=tf.int32,
+    )
+    for k, axis in phase_feature_axis.items():
+        if k in batch:
+            batch[k] = tf.gather(batch[k], phase_coords_indices, axis=axis)
+
+    if len(collocation_sizes) > 1:
+        boundary_feature_axis = collocation_axis_dicts[1]
+        num_boundary_coords = tf.shape(batch["boundary_coords"])[
+            boundary_feature_axis["boundary_coords"]
+        ]
+        boundary_coords_indices = generator.uniform(
+            (collocation_sizes[1],),
+            minval=0,
+            maxval=num_boundary_coords,
+            dtype=tf.int32,
+        )
+        for k, axis in boundary_feature_axis.items():
+            if k in batch:
+                batch["sampled_" + k] = tf.gather(
+                    batch[k], boundary_coords_indices, axis=axis
+                )
+
+    return batch
 
 
 @curry1
@@ -54,50 +104,3 @@ def repeat_batch(
     for _ in batch_sizes:
         ds = ds.unbatch()
     return ds
-
-
-@curry1
-def sample_collocation_coords(
-    batch, collocation_sizes: list[int], generator: Generator
-):
-    """Sample phase points randomly and take collocation points.
-
-    Args:
-        featrues: batch to sample.
-        collocation_sizes: number of collocation points.
-        seed: random seed.
-
-    Returns:
-        sampled data.
-    """
-
-    num_phase_coords = tf.shape(batch["phase_coords"])[
-        rte_features.PHASE_FEATURE_AXIS["phase_coords"]
-    ]
-    phase_coords_indices = generator.uniform(
-        (collocation_sizes[0],),
-        minval=0,
-        maxval=num_phase_coords,
-        dtype=tf.int32,
-    )
-    for k, axis in rte_features.PHASE_FEATURE_AXIS.items():
-        if k in batch:
-            batch[k] = tf.gather(batch[k], phase_coords_indices, axis=axis)
-
-    if len(collocation_sizes) > 1:
-        num_boundary_coords = tf.shape(batch["boundary_coords"])[
-            rte_features.BOUNDARY_FEATURE_AXIS["boundary_coords"]
-        ]
-        boundary_coords_indices = generator.uniform(
-            (collocation_sizes[1],),
-            minval=0,
-            maxval=num_boundary_coords,
-            dtype=tf.int32,
-        )
-        for k, axis in rte_features.BOUNDARY_FEATURE_AXIS.items():
-            if k in batch:
-                batch["sampled_" + k] = tf.gather(
-                    batch[k], boundary_coords_indices, axis=axis
-                )
-
-    return batch

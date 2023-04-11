@@ -30,12 +30,8 @@ from deeprte.train import Trainer
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("tfds_dir", None, "source dir path")
-
 
 def main(experiment_class, argv):
-    write_data_path(FLAGS.config.experiment_kwargs.config.dataset)
-
     # Maybe restore a model.
     restore_dir = FLAGS.config.restore_dir
 
@@ -66,12 +62,6 @@ def main(experiment_class, argv):
         platform.main(experiment_class, argv)
     finally:
         save_model_fn()  # Save at the end of training or in case of exception.
-
-
-def write_data_path(config):
-    # config.data_name_list = FLAGS.data_name_list
-    config.tfds_dir = FLAGS.tfds_dir
-    # config.data_split.save_path = FLAGS.save_path
 
 
 if __name__ == "__main__":
