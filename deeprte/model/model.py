@@ -30,9 +30,11 @@ class RunModel:
         self,
         config: ml_collections.ConfigDict,
         params: Optional[Mapping[str, Mapping[str, jax.Array]]] = None,
+        multi_devices: bool = False,
     ):
         self.config = config
         self.params = params
+        self.multi_devices = multi_devices
 
         def _forward_fn(batch):
             model = modules.DeepRTE(self.config)
@@ -43,8 +45,26 @@ class RunModel:
                 compute_metrics=False,
             )
 
-        self.apply = jax.jit(hk.transform(_forward_fn).apply)
         self.init = jax.jit(hk.transform(_forward_fn).init)
+
+        if multi_devices:
+            if self.multi_devices:
+                # Replicate parameters across devices.
+                self.params = jax.device_put_replicated(
+                    self.params, jax.local_devices()
+                )
+            collocation_axes = {
+                k: v + 1 if (v is not None) else None
+                for k, v in modules.COLLOCATION_AXES.items()
+            }
+            self.apply = jax.pmap(
+                hk.transform(_forward_fn).apply,
+                in_axes=(0, None, collocation_axes),
+                out_axes=1,
+                axis_name="batch",
+            )
+        else:
+            self.apply = jax.jit(hk.transform(_forward_fn).apply)
 
     def init_params(self, feat: features.FeatureDict, random_seed: int = 0):
         """Initializes the model parameters."""
@@ -57,12 +77,24 @@ class RunModel:
             )
             logging.warning("Initialized parameters randomly")
 
+            if self.multi_devices:
+                # Replicate parameters across devices.
+                self.params = jax.device_put_replicated(
+                    self.params, jax.local_devices()
+                )
+
     def process_features(
         self, raw_features: features.FeatureDict
     ) -> features.FeatureDict:
         """Processes features to prepare for feeding them into the model."""
 
-        return features.np_data_to_features(raw_features)
+        if self.multi_devices:
+            feat = features.np_data_to_features(
+                raw_features, jax.local_device_count()
+            )
+            return feat
+        else:
+            return features.np_data_to_features(raw_features)
 
     def eval_shape(self, feat: features.FeatureDict) -> jax.ShapeDtypeStruct:
         self.init_params(feat)
@@ -77,7 +109,7 @@ class RunModel:
         return shape
 
     def predict(
-        self, feat: features.FeatureDict, random_seed: int
+        self, feat: features.FeatureDict, random_seed: int = 0
     ) -> Mapping[str, Any]:
         """Makes a prediction by inferencing the model on the provided
         features.
