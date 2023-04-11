@@ -86,7 +86,7 @@ def np_to_tensor_dict(
     """
     features_metadata = _make_features_metadata(features_names)
     tensor_dict = {
-        k: tf.constant(v)
+        k: tf.constant(v) if not isinstance(v, tf.Tensor) else v
         for k, v in np_example.items()
         if k in features_metadata
     }
