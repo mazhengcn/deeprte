@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "flake8", "isort", "maptlotlib", "pandas"]
+dev = ["black", "flake8", "isort", "matplotlib", "pandas"]
 
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
