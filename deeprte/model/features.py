@@ -20,7 +20,7 @@ def np_data_to_features(
 ) -> FeatureDict:
     """Preprocesses NumPy feature dict using TF pipeline."""
 
-    num_examples = raw_data["shape"].pop("num_examples")
+    num_examples = raw_data["functions"]["boundary"].shape[0]
 
     def to_features(x):
         raw_example = {**x, **raw_data["grid"]}

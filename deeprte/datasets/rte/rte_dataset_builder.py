@@ -92,7 +92,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     def _generate_examples(self, raw_data):
         """Yields examples."""
 
-        num_examples = raw_data["shape"].pop("num_examples")
+        num_examples = raw_data["shape"]["num_examples"]
 
         for i in range(num_examples):
             np_example = {
