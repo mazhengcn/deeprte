@@ -9,7 +9,7 @@ def get_config():
     config = base_config.get_base_config()
 
     num_epochs = 5000
-    train_batch_size = 4
+    train_batch_size = 16
     batch_repeat = 1
 
     dataset = ml_collections.ConfigDict(
