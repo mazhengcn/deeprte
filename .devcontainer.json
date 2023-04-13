@@ -8,9 +8,7 @@
     // Features to install
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": true,
-            "installOhMyZsh": true,
-            "configureZshAsDefaultShell": true,
+            "installZsh": false,
             "upgradePackages": true,
             "username": "none"
         },

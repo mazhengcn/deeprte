@@ -4,6 +4,7 @@ slurm/
 ckpts/
 rte_data/
 archive/
+results/
 # svgs/
 # notebooks/
 
