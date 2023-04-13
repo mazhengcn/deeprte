@@ -14,7 +14,7 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="7"
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 TFDS_DIR=${1:-"./data/tfds"}
