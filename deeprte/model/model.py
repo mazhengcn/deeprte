@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from collections.abc import Mapping
 from typing import Any, Optional
 
 import haiku as hk
 import jax
 import ml_collections
+from absl import logging
 
 from deeprte.model import features, modules
 
@@ -53,10 +53,9 @@ class RunModel:
                 self.params = jax.device_put_replicated(
                     self.params, jax.local_devices()
                 )
-            collocation_axes = {
-                k: v + 1 if (v is not None) else None
-                for k, v in modules.COLLOCATION_AXES.items()
-            }
+            collocation_axes = jax.tree_map(
+                lambda x: x + 1 if not x else x, modules.COLLOCATION_AXES
+            )
             self.apply = jax.pmap(
                 hk.transform(_forward_fn).apply,
                 in_axes=(0, None, collocation_axes),
@@ -89,10 +88,9 @@ class RunModel:
         """Processes features to prepare for feeding them into the model."""
 
         if self.multi_devices:
-            feat = features.np_data_to_features(
+            return features.np_data_to_features(
                 raw_features, jax.local_device_count()
             )
-            return feat
         else:
             return features.np_data_to_features(raw_features)
 
@@ -120,6 +118,8 @@ class RunModel:
             jax.tree_map(lambda x: x.shape, feat),
         )
         result = self.apply(self.params, jax.random.PRNGKey(random_seed), feat)
+
+        jax.tree_map(lambda x: x.block_until_ready(), result)
 
         logging.info(
             "Output shape was %s",
