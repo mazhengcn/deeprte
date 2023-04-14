@@ -14,18 +14,18 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-SOURCE_DIR=${1:-"./rte_data/rte_data/matlab/train-delta/"}
-DATA_NAME_LIST=${2:-"train_delta_1.mat,train_delta_2.mat,train_delta_3.mat,train_delta_4.mat"}
+SOURCE_DIR=${1:-"./rte_data/matlab/train-scattering-kernel-0405/"}
+DATA_NAME_LIST=${2:-"train_random_kernel_g0.8_1.mat,train_random_kernel_g0.8_2.mat,train_random_kernel_g0.8_3.mat,train_random_kernel_g0.8_4.mat"}
 # TEST_DATA_SAVE_PATH=${3:-"./rte_data/test/train_delta_${TIMESTAMP%+*}"}
-TEST_DATA_SAVE_PATH=${3:-"./rte_data/test/train_delta.npz"}
+TEST_DATA_SAVE_PATH=${3:-"./rte_data/test/train_scattering_kernel.npz"}
 python run_deeprte.py \
 	--config=deeprte/config.py \
 	--source_dir="${SOURCE_DIR}" \
 	--data_name_list="${DATA_NAME_LIST}" \
 	--save_path="${TEST_DATA_SAVE_PATH}" \
-	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
-	--jaxline_mode="train_eval_multithreaded" \
+	--config.checkpoint_dir="./ckpts/train_scattering_kernel_g0.8_${TIMESTAMP%+*}" \
+	--jaxline_mode="train" \
 	--alsologtostderr="true"

@@ -11,13 +11,13 @@ CONFIG_DATASET = ml_collections.ConfigDict(
         "data_name_list": [],
         "num_samples": 2000,
         "train": {
-            "batch_size": 8,
-            "collocation_sizes": 100,
-            "bc_collocation_sizes": 50,
+            "batch_size": 4,
+            "collocation_sizes": 120,
+            "bc_collocation_sizes": 30,
             "repeat": 1,
         },
         "validation": {
-            "batch_size": 8,
+            "batch_size": 4,
         },
         "data_split": {
             "num_test_samples": 400,
@@ -40,7 +40,7 @@ CONFIG_TRAINING = ml_collections.ConfigDict(
             "scale_by_batch": False,
             "schedule_type": "exponential",
             "decay_kwargs": {
-                "transition_steps": 800,
+                "transition_steps": 200,
                 "decay_rate": 0.96,
             },
             "optimizer": "adam",

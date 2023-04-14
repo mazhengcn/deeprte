@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.colors import ListedColormap
 
 from deeprte.data.pipeline import DataPipeline, make_shape_dict
-from deeprte.model.tf.rte_features import BATCH_FEATURE_NAMES
+from deeprte.model.tf import rte_features
 
 
 def plot_phi(r, phi_label, phi_pre):
@@ -57,7 +57,9 @@ def plot_phi(r, phi_label, phi_pre):
 
 def slice_batch(i: int, feat: dict):
     return {
-        k: feat[k][i : i + 1] if k in BATCH_FEATURE_NAMES else feat[k]
+        k: feat[k][i : i + 1]
+        if k in rte_features.BATCH_FEATURE_NAMES
+        else feat[k]
         for k in feat
     }
 
@@ -76,3 +78,11 @@ def get_normalized_rate(config):
         (config.model.data.normalization_dict.boundary_range).split(" ")[-1]
     )
     return psi_range / boundary_range
+
+
+def make_collocation_axis():
+    axis_dict = {
+        k: rte_features.FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS)
+        for k in rte_features.COLLOCATION_FEATURE_NAMES
+    }
+    return axis_dict
