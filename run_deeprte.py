@@ -118,8 +118,6 @@ def predict_radiative_transfer(
     normalization_ratio,
     random_seed: int,
 ):
-    """Predicts structure using AlphaFold for the given sequence."""
-
     # Get features.
     raw_feature_dict = data_pipeline.process()
     num_examples = raw_feature_dict["shape"]["num_examples"]
