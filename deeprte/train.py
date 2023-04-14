@@ -12,24 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""DeepRTE experiment."""
+"""DeepRTE trainer."""
 
+import datetime
 import functools
+import os
+import pathlib
+import signal
+import threading
 import time
 from collections.abc import Generator, Mapping
 
+import dill
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
-from absl import logging
-from jaxline import experiment
+from absl import app, flags, logging
+from jaxline import experiment, platform
 from jaxline import utils as jl_utils
 
 from deeprte import optimizers, utils
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model import modules
 from deeprte.model.tf import input_pipeline
+from deeprte.utils import to_flat_dict
+
+FLAGS = flags.FLAGS
 
 OptState = tuple[
     optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
@@ -52,7 +62,7 @@ def _format_logs(prefix, results):
 
 
 class Trainer(experiment.AbstractExperiment):
-    """RTE solver."""
+    """RTE Trainer."""
 
     # A map from object properties that will be checkpointed to their name
     # in a checkpoint. Currently we assume that these are all sharded
@@ -383,7 +393,7 @@ class Trainer(experiment.AbstractExperiment):
 
     def _build_eval_input(self) -> Generator[FeatureDict, None, None]:
         c = self.config
-        global_batch_size = c.training.batch_size
+        global_batch_size = c.evaluation.batch_size
         per_device_batch_size, ragged = divmod(
             global_batch_size, jax.local_device_count()
         )
@@ -395,8 +405,169 @@ class Trainer(experiment.AbstractExperiment):
             )
         return input_pipeline.load(
             split=input_pipeline.Split.VALID,
-            split_percentage=c.training.split_percentage,
+            split_percentage=c.dataset.split_percentage,
             is_training=False,
             batch_sizes=[jax.local_device_count(), per_device_batch_size],
             data_dir=c.dataset.data_dir,
         )
+
+
+def _get_step_date_label(global_step):
+    # Date removing microseconds.
+    date_str = datetime.datetime.now().isoformat().split(".")[0]
+    return f"step_{global_step}_{date_str}"
+
+
+def restore_state_to_in_memory_checkpointer(restore_path):
+    """Initializes experiment state from a checkpoint."""
+    if not isinstance(restore_path, pathlib.Path):
+        restore_path = pathlib.Path(restore_path)
+
+    # Load pretrained experiment state.
+    python_state_path = restore_path / "checkpoint.dill"
+    with open(python_state_path, "rb") as f:
+        pretrained_state = dill.load(f)
+    logging.info("Restored checkpoint from %s", python_state_path)
+
+    # Assign state to a dummy experiment instance for the in-memory
+    # checkpointer, broadcasting to devices.
+    dummy_experiment = Trainer(
+        mode="train",
+        init_rng=jnp.array([0]),
+        config=FLAGS.config.experiment_kwargs.config,
+    )
+    for attribute, key in Trainer.CHECKPOINT_ATTRS.items():
+        setattr(
+            dummy_experiment,
+            attribute,
+            jl_utils.bcast_local_devices(pretrained_state[key]),
+        )
+
+    jaxline_state = dict(
+        global_step=pretrained_state["global_step"],
+        experiment_module=dummy_experiment,
+    )
+    snapshot = jl_utils.SnapshotNT(0, jaxline_state)
+
+    # Finally, seed the jaxline `utils.InMemoryCheckpointer` global dict.
+    jl_utils.GLOBAL_CHECKPOINT_DICT["latest"] = jl_utils.CheckpointNT(
+        threading.local(), [snapshot]
+    )
+
+
+def save_state_from_in_memory_checkpointer(
+    save_path, experiment_class: experiment.AbstractExperiment
+):
+    """Saves experiment state to a checkpoint."""
+    if not isinstance(save_path, pathlib.Path):
+        save_path = pathlib.Path(save_path)
+
+    # Serialize config as json
+    logging.info("Saving config.")
+    config_path = save_path.parent / "config.json"
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(FLAGS.config.to_json_best_effort(indent=2))
+
+    logging.info("Saving model.")
+    for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
+        if not checkpoint.history:
+            logging.info('Nothing to save in "%s"', checkpoint_name)
+            continue
+
+        pickle_nest = checkpoint.history[-1].pickle_nest
+        global_step = pickle_nest["global_step"]
+
+        state_dict = {"global_step": global_step}
+        for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
+            state_dict[key] = jl_utils.get_first(
+                getattr(pickle_nest["experiment_module"], attribute)
+            )
+
+        # Saving directory
+        save_dir = (
+            save_path / checkpoint_name / _get_step_date_label(global_step)
+        )
+
+        # Save params and states in a dill file
+        python_state_path = save_dir / "checkpoint.dill"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        with open(python_state_path, "wb") as f:
+            dill.dump(state_dict, f)
+
+        # Save flat params separately
+        numpy_params_path = save_dir / "params.npz"
+        flat_np_params = to_flat_dict(state_dict["params"])
+        np.savez(numpy_params_path, **flat_np_params)
+
+        logging.info(
+            'Saved "%s" checkpoint and flat numpy params under %s',
+            checkpoint_name,
+            save_dir,
+        )
+
+
+def setup_signals(save_model_fn):
+    """Sets up a signal for model saving."""
+
+    # Save a model on Ctrl+C.
+    def sigint_handler(unused_sig, unused_frame):
+        # Ideally, rather than saving immediately, we would then "wait" for
+        # a good time to save. In practice this reads from an in-memory
+        # checkpoint that only saves every 30 seconds or so, so chances of
+        # race conditions are very small.
+        save_model_fn()
+        logging.info(r"Use `Ctrl+\` to save and exit.")
+
+    # Exit on `Ctrl+\`, saving a model.
+    prev_sigquit_handler = signal.getsignal(signal.SIGQUIT)
+
+    def sigquit_handler(unused_sig, unused_frame):
+        # Restore previous handler early, just in case something goes wrong
+        # in the next lines, so it is possible to press again and exit.
+        signal.signal(signal.SIGQUIT, prev_sigquit_handler)
+        save_model_fn()
+        logging.info(r"Exiting on `Ctrl+\`")
+
+        # Re-raise for clean exit.
+        os.kill(os.getpid(), signal.SIGQUIT)
+
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGQUIT, sigquit_handler)
+
+
+def main(experiment_class, argv):
+    # Maybe restore a model.
+    restore_dir = FLAGS.config.restore_dir
+
+    if restore_dir:
+        restore_state_to_in_memory_checkpointer(restore_dir)
+
+    # Maybe save a model.
+    save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
+
+    if FLAGS.config.one_off_evaluate:
+        save_model_fn = (
+            lambda: None
+        )  # noqa: E731  # No need to save checkpoint in this case.
+    else:
+        save_model_fn = functools.partial(
+            save_state_from_in_memory_checkpointer, save_dir, experiment_class
+        )
+    setup_signals(save_model_fn)  # Save on Ctrl+C (continue) or Ctrl+\ (exit).
+
+    if FLAGS.jaxline_mode.startswith("train"):
+        if not pathlib.Path(FLAGS.config.checkpoint_dir).exists():
+            pathlib.Path(FLAGS.config.checkpoint_dir).mkdir()
+        logging.get_absl_handler().use_absl_log_file(
+            "train", FLAGS.config.checkpoint_dir
+        )
+
+    try:
+        platform.main(experiment_class, argv)
+    finally:
+        save_model_fn()  # Save at the end of training or in case of exception.
+
+
+if __name__ == "__main__":
+    flags.mark_flag_as_required("config")
+    app.run(functools.partial(main, Trainer))

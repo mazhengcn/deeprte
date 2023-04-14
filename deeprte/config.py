@@ -11,6 +11,7 @@ def get_config():
     num_epochs = 5000
     train_batch_size = 16
     batch_repeat = 1
+    eval_batch_size = 4
 
     dataset = ml_collections.ConfigDict(
         dict(name="rte", data_dir="./data/tfds", split_percentage="60%")
@@ -61,7 +62,7 @@ def get_config():
                     optimizer="adam",
                     adam_kwargs=dict(),
                 ),
-                evaluation=dict(),
+                evaluation=dict(batch_size=eval_batch_size),
                 model=model,
             )
         )
