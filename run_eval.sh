@@ -14,17 +14,16 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
-RESTORE_PATH=${1:-"./ckpts/square_full_1_2022-02-09T00:04:32/models/latest/step_500000_2022-02-10T08:51:07"}
-TEST_DATA_PATH=${2:-"./data/train/square_full_2.npz"}
+RESTORE_DIR=${1:-"/workspaces/deeprte/ckpts/square_full_it_2023-04-03T12:47:33/models/latest/step_375000_2023-04-07T00:31:21"}
 EVAL_CKPT_DIR=${3:-"./ckpts/eval_ckpts"}
 
-python run_deeprte.py \
+python deeprte/train.py \
 	--config=deeprte/config.py \
-	--config.experiment_kwargs.config.dataset.data_path="${TEST_DATA_PATH}" \
-	--config.experiment_kwargs.config.evaluation.batch_size="200" \
+	--config.experiment_kwargs.config.evaluation.batch_size="4" \
+	--config.experiment_kwargs.config.dataset.split_percentage="99%" \
 	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
-	--config.restore_path="${RESTORE_PATH}" \
+	--config.restore_dir="${RESTORE_DIR}" \
 	--config.one_off_evaluate="true" \
 	--jaxline_mode="eval"
