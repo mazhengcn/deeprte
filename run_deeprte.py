@@ -146,7 +146,7 @@ def predict_radiative_transfer(
         }
 
         # Write out features as a pickled dictionary.
-        features_output_path = output_dir / "features.pkl"
+        features_output_path = output_dir / "features.dill"
         with open(features_output_path, "wb") as f:
             dill.dump(feature_dict, f)
 
