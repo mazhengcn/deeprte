@@ -20,7 +20,11 @@ def get_config():
     dataset.num_train_examples = dataset_builder.info.splits[
         f"train[:{dataset.split_percentage}]"
     ].num_examples
-    dataset.normalization = dataset_builder.info.metadata["normalization"]
+
+    model = model_config()
+    model.data.normalization_dict = dataset_builder.info.metadata[
+        "normalization"
+    ]
 
     def steps_from_epochs(num_epochs):
         return max(
@@ -58,7 +62,7 @@ def get_config():
                     adam_kwargs=dict(),
                 ),
                 evaluation=dict(),
-                model=model_config(),
+                model=model,
             )
         )
     )
