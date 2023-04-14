@@ -57,6 +57,12 @@ def rmse(pred, target):
     return np.sqrt(np.mean((pred - target) ** 2) / np.mean(target**2))
 
 
+def get_normalization_ratio(psi_range, boundary_range):
+    psi_range = float(psi_range.split(" ")[-1])
+    boundary_range = float(boundary_range.split(" ")[-1])
+    return psi_range / boundary_range
+
+
 def _jnp_to_np(output: dict[str, Any]) -> dict[str, Any]:
     """Recursively changes jax arrays to numpy arrays."""
     for k, v in output.items():
@@ -109,6 +115,7 @@ def predict_radiative_transfer(
     data_pipeline: pipeline.DataPipeline,
     model_runner: model.RunModel,
     benchmark: bool,
+    normalization_ratio,
     random_seed: int,
 ):
     """Predicts structure using AlphaFold for the given sequence."""
@@ -183,6 +190,9 @@ def predict_radiative_transfer(
             .reshape(1, -1)  # reshape multi_devices to single device
             .reshape(psi_shape)
         )
+        if normalization_ratio:
+            predicted_psi = predicted_psi * normalization_ratio
+
         predicted_phi = jnp.sum(
             predicted_psi * feature_dict["grid"]["velocity_weights"],
             axis=-1,
@@ -253,9 +263,23 @@ def main(argv):
     logging.info("Model params loaded from %s", params_path)
 
     model_runner = model.RunModel(model_config, params, multi_devices=True)
+    if model_config.data.is_normalization:
+        normalization_dict = model_config.data.normalization_dict
+        normalization_ratio = get_normalization_ratio(
+            normalization_dict["psi_range"],
+            normalization_dict["boundary_range"],
+        )
+    else:
+        normalization_ratio = None
+
     logging.info("Running prediction...")
     predict_radiative_transfer(
-        FLAGS.output_dir, data_pipeline, model_runner, FLAGS.benchmark, 0
+        FLAGS.output_dir,
+        data_pipeline,
+        model_runner,
+        FLAGS.benchmark,
+        normalization_ratio,
+        0,
     )
 
 
