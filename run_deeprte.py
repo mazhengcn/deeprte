@@ -277,18 +277,12 @@ def main(argv):
         model_runner,
         FLAGS.benchmark,
         normalization_ratio,
-        0,
+        0
     )
 
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        [
-            "data_dir",
-            "data_filenames",
-            "output_dir",
-            "model_dir",
-        ]
+        ["data_dir", "data_filenames", "output_dir", "model_dir"]
     )
-
     app.run(main)
