@@ -7,11 +7,7 @@
     },
     // Features to install
     "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": false,
-            "upgradePackages": true,
-            "username": "none"
-        },
+        "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/mazhengcn/devcontainer-features/starship:1": {}
     },
     // Extensions to install and vscode settings to apply
