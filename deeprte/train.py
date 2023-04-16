@@ -285,9 +285,7 @@ class Trainer(experiment.AbstractExperiment):
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
         # start with `params, state, opt_state`).
-        self.update_fn = jax.pmap(
-            self._update_fn, axis_name="i", donate_argnums=(0, 1, 2)
-        )
+        self.update_fn = jax.pmap(self._update_fn, axis_name="i")
 
         # Set training state to True after initialization
         self._training = True
