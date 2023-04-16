@@ -557,7 +557,7 @@ def main(experiment_class, argv):
 
     if FLAGS.jaxline_mode.startswith("train"):
         if not pathlib.Path(FLAGS.config.checkpoint_dir).exists():
-            pathlib.Path(FLAGS.config.checkpoint_dir).mkdir()
+            pathlib.Path(FLAGS.config.checkpoint_dir).mkdir(parents=True)
         logging.get_absl_handler().use_absl_log_file(
             "train", FLAGS.config.checkpoint_dir
         )
