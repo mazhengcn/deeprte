@@ -162,24 +162,27 @@ def predict_radiative_transfer(
         )
         t_diff = time.time() - t_0
         timings["predict_and_compile"] = t_diff
-        logging.info(
-            "Total JAX model predict time "
-            "(includes compilation time, see --benchmark): %.1fs",
-            t_diff,
-        )
 
-        if benchmark:
-            t_0 = time.time()
-            model_runner.predict(
-                processed_feature_dict, random_seed=random_seed
-            )
-            t_diff = time.time() - t_0
-            timings["predict_benchmark"] = t_diff
+        if i == 0:
             logging.info(
                 "Total JAX model predict time "
-                "(excludes compilation time): %.1fs",
+                "(includes compilation time, see --benchmark): %.1fs",
                 t_diff,
             )
+            if benchmark:
+                t_0 = time.time()
+                model_runner.predict(
+                    processed_feature_dict, random_seed=random_seed
+                )
+                t_diff = time.time() - t_0
+                timings["predict_benchmark"] = t_diff
+                logging.info(
+                    "Total JAX model predict time "
+                    "(excludes compilation time): %.1fs",
+                    t_diff,
+                )
+        else:
+            logging.info("Total JAX model predict time: %.1fs", t_diff)
 
         psi_shape = feature_dict["functions"]["psi_label"].shape
         t_0 = time.time()
@@ -277,7 +280,7 @@ def main(argv):
         model_runner,
         FLAGS.benchmark,
         normalization_ratio,
-        0
+        0,
     )
 
 
