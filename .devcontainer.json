@@ -3,7 +3,7 @@
     "name": "DeepRTE Dev Container",
     // Dockerfile to build the container
     "build": {
-        "dockerfile": "./docker/Dockerfile"
+        "dockerfile": "Dockerfile"
     },
     // Features to install
     "features": {
