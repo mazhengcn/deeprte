@@ -7,8 +7,10 @@
     },
     // Features to install
     "features": {
-        "ghcr.io/devcontainers/features/git:1": {},
-        "ghcr.io/mazhengcn/devcontainer-features/starship:1": {}
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "configureZshAsDefaultShell": true,
+            "username": "none"
+        }
     },
     // Extensions to install and vscode settings to apply
     "customizations": {
