@@ -29,7 +29,7 @@ end
 %% 指定散射截面，源项会发生变化的区域(Omega_C)
 Omega_C=@(x,y) (x>=0.4).*(x<=0.6).*(y>=0.4).*(y<=0.6);
 [Xc,Yc]=meshgrid(xl+0.5*hx:hx:xr-0.5*hx,yl+0.5*hy:hy:yr-0.5*hy);
-[row,col]=find(Omega_C(Xc,Yc)>0); 
+[row,col]=find(Omega_C(Xc,Yc)>0);
 LC=[row,col]; %Omega_C对应的网格集合
 
 %% Omega_C外不变的散射截面，源项

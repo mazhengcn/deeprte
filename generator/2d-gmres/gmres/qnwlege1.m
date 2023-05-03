@@ -19,8 +19,8 @@ for its=1:maxit
    pp = n*(z.*p1-p2)./(z.*z-1);
    z1 = z;
    z = z1-p1./pp;
-   if abs(z-z1)<1e-14 
-      break; 
+   if abs(z-z1)<1e-14
+      break;
    end
 end
 if its==maxit

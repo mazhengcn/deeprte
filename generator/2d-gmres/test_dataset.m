@@ -35,7 +35,7 @@ mesh_B_theta = theta(0 * M + 1:2 * M) .* ones(1, I);
 mesh_T_theta = theta(2 * M + 1:4 * M) .* ones(1, I);
 
 for n = 1:N_itr
-
+    
     func_psiL = @(x, y)(func_bc_list_x{1}(x, y, params_x(n, 1, :)));
     func_psiL_v = @(v)(func_bc_list_v{1}(v, params_v(n, 1, :)));
     func_psiR = @(x, y)(func_bc_list_x{2}(x, y, params_x(n, 2, :)));
@@ -44,12 +44,12 @@ for n = 1:N_itr
     func_psiB_v = @(v)(func_bc_list_v{3}(v, params_v(n, 3, :)));
     func_psiT = @(x, y)(func_bc_list_x{4}(x, y, params_x(n, 4, :)));
     func_psiT_v = @(v)(func_bc_list_v{4}(v, params_v(n, 4, :)));
-
+    
     list_psiL(:, :, n) = func_psiL_v([ct(3 * M + 1:4 * M); ct(1:M)]) .* func_psiL_v([st(3 * M + 1:4 * M); st(1:M)]) * func_psiL(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy);
     list_psiR(:, :, n) = func_psiR_v(ct(1 * M + 1:3 * M)) .* func_psiR_v(st(1 * M + 1:3 * M)) * func_psiR(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy);
     list_psiB(:, :, n) = func_psiB_v(ct(0 * M + 1:2 * M)) .* func_psiB_v(st(0 * M + 1:2 * M)) * func_psiB(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl);
     list_psiT(:, :, n) = func_psiT_v(ct(2 * M + 1:4 * M)) .* func_psiT_v(st(2 * M + 1:4 * M)) * func_psiT(yl + 0.5 * hy:hy:yr - 0.5 * hy, yr);
-
+    
 end
 
 %% 指定散射截面，源项会发生变化的区域(Omega_C)
@@ -78,7 +78,7 @@ T_offline_part1 = toc;
 %% 运行主程序
 Input = {[N I J xl xr yl yr], {f_sigma_T, f_sigma_a, f_varepsilon, f_q, LC}, {list_psiL, list_psiR, list_psiB, list_psiT, g_sigma_T, g_sigma_a, g_varepsilon, g_q}};
 [list_psi_x, list_psi_y, list_alpha, list_Psi, list_Phi, list_varepsilon, list_sigma_T, list_sigma_a, list_q, ...
-        T_offline_part2, T_online_each] = run_main(Input);
+    T_offline_part2, T_online_each] = run_main(Input);
 T_offline = T_offline_part1 + T_offline_part2
 %% generate mat file
 

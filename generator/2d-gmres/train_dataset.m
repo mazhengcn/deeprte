@@ -46,13 +46,13 @@ for n = 1:N_itr
     c_ind = randi(range_c_ind, 1, 4);
     v_index = randi(2 * M, 4, 1);
     % v_index = [4; 11; 4; 6];
-
+    
     list_v_index(:, n) = v_index;
     y_l = (c_ind(1) - 0.5) * hy + yl;
     y_r = yr - (c_ind(2) - 0.5) * hy;
     x_b = xr - (c_ind(3) - 0.5) * hx;
     x_t = (c_ind(4) - 0.5) * hx + xl;
-
+    
     func_psiL = @(x, y)(func_psibc(x, y, xl, y_l, variance_x(1)));
     func_psiL_v = @(v)(func_psibc_v(v, v(list_v_index(1, n)), variance_v(1)));
     % func_psiL_v = @(x)(exp(- (x - x(v_index(1))).^2/2 / variance_v(1)));
@@ -62,17 +62,17 @@ for n = 1:N_itr
     func_psiB_v = @(v)(func_psibc_v(v, v(list_v_index(3, n)), variance_v(3)));
     func_psiT = @(x, y)(func_psibc(x, y, x_t, yr, variance_x(4)));
     func_psiT_v = @(v)(func_psibc_v(v, v(list_v_index(4, n)), variance_v(4)));
-
+    
     sum_x_L = sum(func_psiL(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiL(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiL(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl) + func_psiL(xl + 0.5 * hx:hx:xr - 0.5 * hx, yr));
     sum_x_R = sum(func_psiR(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiR(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiR(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl) + func_psiR(xl + 0.5 * hx:hx:xr - 0.5 * hx, yr));
     sum_x_B = sum(func_psiB(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiB(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiB(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl) + func_psiB(xl + 0.5 * hx:hx:xr - 0.5 * hx, yr));
     sum_x_T = sum(func_psiT(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiT(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy) + func_psiT(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl) + func_psiT(xl + 0.5 * hx:hx:xr - 0.5 * hx, yr));
-
+    
     sum_v_L = sqrt(sum(func_psiL_v([ct(3 * M + 1:4 * M); ct(1:M)]) .* func_psiL_v([st(3 * M + 1:4 * M); st(1:M)])));
     sum_v_R = sqrt(sum(func_psiR_v(ct(1 * M + 1:3 * M)) .* func_psiR_v(st(1 * M + 1:3 * M))));
     sum_v_B = sqrt(sum(func_psiB_v(ct(0 * M + 1:2 * M)) .* func_psiB_v(st(0 * M + 1:2 * M))));
     sum_v_T = sqrt(sum(func_psiT_v(ct(2 * M + 1:4 * M)) .* func_psiT_v(st(2 * M + 1:4 * M))));
-
+    
     func_psiL = @(x, y)(1 / sum_x_L * func_psibc(x, y, xl, y_l, variance_x(1)));
     func_psiL_v = @(v)(1 / sum_v_L * func_psibc_v(v, v(list_v_index(1, n)), variance_v(1)));
     % func_psiL_v = @(x)(exp(- (x - x(v_index(1))).^2/2 / variance_v(1)));
@@ -82,20 +82,20 @@ for n = 1:N_itr
     func_psiB_v = @(v)(1 / sum_v_B * func_psibc_v(v, v(list_v_index(3, n)), variance_v(3)));
     func_psiT = @(x, y)(1 / sum_x_T * func_psibc(x, y, x_t, yr, variance_x(4)));
     func_psiT_v = @(v)(1 / sum_v_T * func_psibc_v(v, v(list_v_index(4, n)), variance_v(4)));
-
+    
     func_list_x = {func_psiL, func_psiR, func_psiB, func_psiT};
     func_list_v = {func_psiL_v, func_psiR_v, func_psiB_v, func_psiT_v};
-
+    
     for i = 1:4
         list_psiL(:, :, n) = list_psiL(:, :, n) + func_list_v{i}([ct(3 * M + 1:4 * M); ct(1:M)]) .* func_list_v{i}([st(3 * M + 1:4 * M); st(1:M)]) * func_list_x{i}(xl, yl + 0.5 * hy:hy:yr - 0.5 * hy);
         list_psiR(:, :, n) = list_psiR(:, :, n) + func_list_v{i}(ct(1 * M + 1:3 * M)) .* func_list_v{i}(st(1 * M + 1:3 * M)) * func_list_x{i}(xr, yl + 0.5 * hy:hy:yr - 0.5 * hy);
         list_psiB(:, :, n) = list_psiB(:, :, n) + func_list_v{i}(ct(0 * M + 1:2 * M)) .* func_list_v{i}(st(0 * M + 1:2 * M)) * func_list_x{i}(xl + 0.5 * hx:hx:xr - 0.5 * hx, yl);
         list_psiT(:, :, n) = list_psiT(:, :, n) + func_list_v{i}(ct(2 * M + 1:4 * M)) .* func_list_v{i}(st(2 * M + 1:4 * M)) * func_list_x{i}(yl + 0.5 * hy:hy:yr - 0.5 * hy, yr);
     end
-
+    
     list_var(1, :, n) = variance_x;
     list_var(2, :, n) = variance_v;
-
+    
     list_yhat(:, n) = c_ind;
 end
 
@@ -125,7 +125,7 @@ T_offline_part1 = toc;
 %% 运行主程序
 Input = {[N I J xl xr yl yr], {f_sigma_T, f_sigma_a, f_varepsilon, f_q, LC}, {list_psiL, list_psiR, list_psiB, list_psiT, g_sigma_T, g_sigma_a, g_varepsilon, g_q}};
 [list_psi_x, list_psi_y, list_alpha, list_Psi, list_Phi, list_varepsilon, list_sigma_T, list_sigma_a, list_q, ...
-        T_offline_part2, T_online_each] = run_main(Input);
+    T_offline_part2, T_online_each] = run_main(Input);
 T_offline = T_offline_part1 + T_offline_part2
 %% generate mat file
 
