@@ -217,17 +217,25 @@ class Scattering(hk.Module):
             scattering_layer = ScatteringLayer(
                 output_size=c.latent_dim, w_init=w_init
             )
+            layer_norm = hk.LayerNorm(
+                axis=-1, create_scale=True, create_offset=True
+            )
+
             act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
                 kernel=kernel,
                 output_act=act,
             )
+            act_out = layer_norm(act_out)
+
             self_act_out = dropout_wrapper_fn(
                 module=scattering_layer,
                 input_act=self_act,
                 kernel=self_kernel,
             )
+            self_act_out = layer_norm(self_act_out)
+
             return (act_out, self_act_out)
 
         scattering_stack = hk.experimental.layer_stack(c.num_layer)(
