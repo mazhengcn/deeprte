@@ -19,8 +19,6 @@
                 "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
             },
             "extensions": [
-                "aaron-bond.better-comments",
-                "bungcip.better-toml",
                 "GitHub.copilot",
                 "ms-python.black-formatter",
                 "ms-python.flake8",
@@ -28,7 +26,6 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-toolsai.jupyter",
-                "yzhang.markdown-all-in-one"
             ]
         }
     },
@@ -51,5 +48,5 @@
         "--shm-size=8gb"
     ],
     // Command to run after the container is created
-    "postCreateCommand": "python -m pip install -e '.[dev]'"
+    "postCreateCommand": "pip install -e '.[dev]'"
 }
