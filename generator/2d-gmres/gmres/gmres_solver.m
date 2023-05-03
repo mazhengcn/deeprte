@@ -1,9 +1,9 @@
 function [Tgmres,alpha_gmres]=gmres_solver(tol,I,J,M,psiL,psiR,psiB,psiT,fsml,fsmr,fsmb,fsmt,Psi0l,Psi0r,Psi0b,Psi0t)
 %% nested function
     function [LIST]=sparse_trans(direct,io,i,j,A)
-        % ½«Ï¡Êè¾ØÕóÀïµÄ¿é¾ØÕóM×ª»¯ÎªLISTÐÎÊ½,kÎªÆðÊ¼ÐòºÅ-1
-        % directÎ»ÖÃ 1 ÏÂ 2 ÓÒ 3 ÉÏ 4 ×ó
-        % ioÎ»ÖÃ 1±íÊ¾³öÉä 0±íÊ¾ÈëÉä
+        % ï¿½ï¿½Ï¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½M×ªï¿½ï¿½ÎªLISTï¿½ï¿½Ê½,kÎªï¿½ï¿½Ê¼ï¿½ï¿½ï¿½-1
+        % directÎ»ï¿½ï¿½ 1 ï¿½ï¿½ 2 ï¿½ï¿½ 3 ï¿½ï¿½ 4 ï¿½ï¿½
+        % ioÎ»ï¿½ï¿½ 1ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
         [m,n]=size(A);
         LIST=zeros(m*n,3);
         k=(i-1)*J+j;
@@ -53,10 +53,10 @@ b=zeros(8*M*I*J,1);
 ind=0;
 for i=1:I
     for j=1:J
-        % ×¢Òâ£¡LISTµÄÐÐÓëA,bÀïµÄÐÐÊÇ²»Í¬µÄ
+        % ×¢ï¿½â£¡LISTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½A,bï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½Í¬ï¿½ï¿½
         k=(i-1)*J+j;
         P=[fsmb(1:2*M,:,i,j);fsmr(M+1:3*M,:,i,j);fsmt(2*M+1:4*M,:,i,j);fsml(3*M+1:4*M,:,i,j);fsml(1:M,:,i,j)];
-        %µ±Ç°cellÏÂ·½ÈëÉä
+        %ï¿½ï¿½Ç°cellï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½
         LIST(ind+1:ind+16*M^2,:)=sparse_trans(1,0,i,j,fsmb(1:2*M,:,i,j)/P);
         ind=ind+16*M^2;
         if j==1
@@ -67,7 +67,7 @@ for i=1:I
             LIST(ind+1:ind+16*M^2,:)=sparse_trans(3,1,i,j-1,-fsmt(1:2*M,:,i,j-1)/Pb);
             ind=ind+16*M^2;
         end
-        %µ±Ç°cellÓÒ·½ÈëÉä
+        %ï¿½ï¿½Ç°cellï¿½Ò·ï¿½ï¿½ï¿½ï¿½ï¿½
         LIST(ind+1:ind+16*M^2,:)=sparse_trans(2,0,i,j,fsmr(M+1:3*M,:,i,j)/P);
         ind=ind+16*M^2;
         if i==I
@@ -78,7 +78,7 @@ for i=1:I
             LIST(ind+1:ind+16*M^2,:)=sparse_trans(4,1,i+1,j,-fsml(M+1:3*M,:,i+1,j)/Pr);
             ind=ind+16*M^2;
         end
-        %µ±Ç°cellÉÏ·½ÈëÉä
+        %ï¿½ï¿½Ç°cellï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½
         LIST(ind+1:ind+16*M^2,:)=sparse_trans(3,0,i,j,fsmt(2*M+1:4*M,:,i,j)/P);
         ind=ind+16*M^2;
         if j==J
@@ -89,7 +89,7 @@ for i=1:I
             LIST(ind+1:ind+16*M^2,:)=sparse_trans(1,1,i,j+1,-fsmb(2*M+1:4*M,:,i,j+1)/Pt);
             ind=ind+16*M^2;
         end
-        %µ±Ç°cell×ó·½ÈëÉä
+        %ï¿½ï¿½Ç°cellï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         LIST(ind+1:ind+16*M^2,:)=sparse_trans(4,0,i,j,[fsml(3*M+1:4*M,:,i,j);fsml(1:M,:,i,j)]/P);
         ind=ind+16*M^2;
         if i==1

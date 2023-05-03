@@ -1,6 +1,6 @@
 function [p,mij,sij]=ip(z,L,l)
-% check whether index z is in layer set L(p=0/1), 
-% and if so, which layer (sij), and where in the layer (mij) 
+% check whether index z is in layer set L(p=0/1),
+% and if so, which layer (sij), and where in the layer (mij)
 p=0; mij=0; sij=0;
 [~,~,smax]=size(L);
 for s=1:smax
