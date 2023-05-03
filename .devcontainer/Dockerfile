@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN python -m venv ${VENV_PATH}
 ENV PATH=${VENV_PATH}/bin:$PATH
-RUN python -m pip install --no-cache-dir --upgrade pip wheel \
-    && python -m pip install --no-cache-dir -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+RUN pip install --no-cache-dir --upgrade pip wheel \
+    && pip install --no-cache-dir -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
     absl-py \
     jax[cuda${CUDA_MAJOR_VERSION}_pip]==${JAX_VERSION} \
     jaxline@git+https://github.com/mazhengcn/jaxline \
