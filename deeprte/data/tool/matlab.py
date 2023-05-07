@@ -12,6 +12,7 @@ BATCH_FEAT_LIST = [
     "psi_label",
     "psi_bc",
     "scattering_kernel",
+    "phi",
 ]
 
 
@@ -67,33 +68,37 @@ def interpolate(data):
 
 
 def mat_loader(
-    source_dir: str, data_name_list: list[str], seed: int = 12345
+    source_dir: str, data_name_list: list[str]
 ) -> dict[str, np.ndarray]:
+    np_data = {}
 
     dir_path = Path(source_dir)
-    data_list = []
     for filename in data_name_list:
         data_path = dir_path / filename
         mat_dict = sio.loadmat(data_path)
-        if "scattering_kernel" not in mat_dict.keys():
-            rng = np.random.default_rng(seed)
-            num_sample = mat_dict["sigma_a"].shape[0]
-            num_vec = mat_dict["ct"].shape[0]
-            mat_dict["scattering_kernel"] = rng.uniform(
-                0, 1, (num_sample, num_vec, num_vec)
-            )
-        data_list.append(mat_dict)
-    data = data_list[0]
+        if np_data:
+            if mat_dict.keys() != np_data.keys():
+                raise ValueError("The keys of the data are not the same")
+            for k in mat_dict.keys():
+                if k not in BATCH_FEAT_LIST:
+                    if isinstance(mat_dict[k], np.ndarray):
+                        assert np.allclose(
+                            mat_dict[k], np_data[k]
+                        ), f"The value of key: {k} are not the same!"
+                else:
+                    np_data[k] = np.concatenate(
+                        [mat_dict[k], np_data[k]], axis=0
+                    )
+        else:
+            np_data = mat_dict.copy()
 
-    for k in BATCH_FEAT_LIST:
-        data[k] = np.concatenate([d[k] for d in data_list], axis=0)
-
-    unused_keys = [k for k in data.keys() if k.startswith("__")]
+    unused_keys = [k for k in np_data.keys() if k.startswith("__")]
     # for k in unused_keys
     for k in unused_keys:
-        del data[k]
-    # print(mat_dict.keys())
-    data = tree.map_structure(lambda x: np.array(x, dtype=np.float32), data)
+        del np_data[k]
+    np_data = tree.map_structure(
+        lambda x: np.array(x, dtype=np.float32), np_data
+    )
+    np_data = interpolate(np_data)
 
-    data = interpolate(data)
-    return data
+    return np_data
