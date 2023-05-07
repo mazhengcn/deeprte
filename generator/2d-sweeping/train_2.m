@@ -1,4 +1,4 @@
-clear
+clear all
 clc
 
 tic
@@ -9,13 +9,14 @@ I = 40;
 J = I; hx = (xr - xl) / I; hy = (yr - yl) / J; % IxJ: the number of cells, hxxhy: size of cell
 [omega, ct, st, M, theta, ~] = qnwlege2(N);
 
-N_itr = 500;
+rng(194002);
+N_itr = 5;
 list_psiL = zeros(2 * M, J + 1, N_itr); list_psiR = list_psiL;
 list_psiB = zeros(2 * M, I + 1, N_itr); list_psiT = list_psiB;
 %% 生成随机系数并构建入射函数
 list_b = (rand(N_itr, 2) - 0.5) * 0.02;
 list_a = (rand(N_itr, 2) - 0.5) * 2;
-list_g = floor(rand(1, N_itr) * 20) * 0.0125;
+list_g = ones([1, N_itr]) * 0.9;
 list_v_index = randi(2 * M, 4, N_itr);
 
 % g = 0.75; %anisotropic coefficient
@@ -34,7 +35,7 @@ scattering_kernel = zeros(N_itr, 4 * M, 4 * M);
 
 %% cross sections, external source term and boundary conditions
 for n = 1:N_itr
-    
+
     g = list_g(n); %anisotropic coefficient
     K = P2generator(N, g); %Kernel matrix
     scattering_kernel(n, :, :) = K;
@@ -42,13 +43,13 @@ for n = 1:N_itr
     variance_v = 0.01 * rand([1, 4]) + 0.005;
     c_ind = randi([2, 40], 1, 4);
     v_index = randi(2 * M, 4, 1);
-    
+
     list_v_index(:, n) = v_index;
     y_l = c_ind(1) * hy + yl;
     y_r = yr - c_ind(2) * hy;
     x_b = xr - c_ind(3) * hx;
     x_t = c_ind(4) * hx + xl;
-    
+
     func_psiL = @(x, y)(exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
     func_psiL_v = @(x)(exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
     % func_psiL_v = @(x)(exp(- (x - x(v_index(1))).^2/2 / variance_v(1)));
@@ -58,17 +59,17 @@ for n = 1:N_itr
     func_psiB_v = @(x)(exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
     func_psiT = @(x, y)(exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
     func_psiT_v = @(x)(exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
-    
+
     sum_x_L = sum(func_psiL(xl, yl + hy:hy:yr - hy)) + sum(func_psiL(xr, yl + hy:hy:yr - hy)) + sum(func_psiL(hx:hx:xr, yl)) + sum(func_psiL(xl:hx:xr, yr));
     sum_x_R = sum(func_psiR(xl, yl + hy:hy:yr - hy)) + sum(func_psiR(xr, yl + hy:hy:yr - hy)) + sum(func_psiR(xl:hx:xr, yl)) + sum(func_psiR(xl:hx:xr, yr));
     sum_x_B = sum(func_psiB(xl, yl + hy:hy:yr - hy)) + sum(func_psiB(xr, yl + hy:hy:yr - hy)) + sum(func_psiB(xl:hx:xr, yl)) + sum(func_psiB(xl:hx:xr, yr));
     sum_x_T = sum(func_psiT(xl, yl + hy:hy:yr - hy)) + sum(func_psiT(xr, yl + hy:hy:yr - hy)) + sum(func_psiT(xl:hx:xr, yl)) + sum(func_psiT(xl:hx:xr, yr));
-    
+
     sum_v_L = sqrt(sum(func_psiL_v([ct]) .* func_psiL_v([st])));
     sum_v_R = sqrt(sum(func_psiR_v([ct]) .* func_psiR_v([st])));
     sum_v_B = sqrt(sum(func_psiB_v([ct]) .* func_psiB_v([st])));
     sum_v_T = sqrt(sum(func_psiT_v([ct]) .* func_psiT_v([st])));
-    
+
     func_psiL = @(x, y)(1 / sum_x_L * exp(- (y - y_l) .^ 2/2 / variance_x(1)) * exp(- (x - xl) .^ 2/2 / variance_x(1)));
     func_psiL_v = @(x)(1 / sum_v_L * exp(- (x - x(list_v_index(1, n))) .^ 2/2 / variance_v(1)));
     func_psiR = @(x, y)(1 / sum_x_R * exp(- (y - y_r) .^ 2/2 / variance_x(2)) * exp(- (x - xr) .^ 2/2 / variance_x(2)));
@@ -77,34 +78,34 @@ for n = 1:N_itr
     func_psiB_v = @(x)(1 / sum_v_B * exp(- (x - x(list_v_index(3, n))) .^ 2/2 / variance_v(3)));
     func_psiT = @(x, y)(1 / sum_x_T * exp(- (y - yr) .^ 2/2 / variance_x(4)) * exp(- (x - x_t) .^ 2/2 / variance_x(4)));
     func_psiT_v = @(x)(1 / sum_v_T * exp(- (x - x(list_v_index(4, n))) .^ 2/2 / variance_v(4)));
-    
+
     func_list_x = {func_psiL, func_psiR, func_psiB, func_psiT};
     func_list_v = {func_psiL_v, func_psiR_v, func_psiB_v, func_psiT_v};
-    
+
     for i = 1:4
         list_psiL(:, :, n) = list_psiL(:, :, n) + func_list_v{i}([ct(3 * M + 1:4 * M); ct(1:M)]) .* func_list_v{i}([st(3 * M + 1:4 * M); st(1:M)]) * func_list_x{i}(xl, yl:hy:yr);
         list_psiR(:, :, n) = list_psiR(:, :, n) + func_list_v{i}(ct(1 * M + 1:3 * M)) .* func_list_v{i}(st(1 * M + 1:3 * M)) * func_list_x{i}(xr, yl:hy:yr);
         list_psiB(:, :, n) = list_psiB(:, :, n) + func_list_v{i}(ct(0 * M + 1:2 * M)) .* func_list_v{i}(st(0 * M + 1:2 * M)) * func_list_x{i}(xl:hx:xr, yl);
         list_psiT(:, :, n) = list_psiT(:, :, n) + func_list_v{i}(ct(2 * M + 1:4 * M)) .* func_list_v{i}(st(2 * M + 1:4 * M)) * func_list_x{i}(yl:hy:yr, yr);
     end
-    
+
     f_varepsilon{n} = @(x, y)1 .* (x <= xr) .* (y <= yr);
     f_sigma_T{n} = @(x, y)(10 * (x <= xr) .* (y <= yr) - (5) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
     f_sigma_a{n} = @(x, y)(5 * (x <= xr) .* (y <= yr) - (3) * (0.4 <= x) .* (x <= 0.6) * (0.4 <= y) .* (y <= 0.6));
     f_q{n} = @(x, y)(0) .* (x <= xr) .* (y <= yr);
-    
+
     psiL = list_psiL(:, 2:40, n);
     psiR = list_psiR(:, 2:40, n); % i=I+1, j=2:J, m=M+1:4*M
     psiB = list_psiB(:, 2:40, n); % i=2:I, j=1,   m=1:2*M
     psiT = list_psiT(:, 2:40, n); % i=2:I, j=J+1, m=2*M+1:4*M
-    
+
     psiLB = list_psiL(M + 1:2 * M, 1, n); % i=1,   j=1,   m=1:M
     psiLT = list_psiL(1:M, I + 1, n); % i=1,   j=J+1, m=3*M+1:4*M
     psiRB = list_psiR(1:M, 1, n); % i=I+1, j=1,   m=M+1:2*M
     psiRT = list_psiR(M + 1:2 * M, 1, n); % i=I+1, j=J+1, m=2*M+1:3*M
-    
+
     [T, maxerrPsi, maxerrPhi, phi_final, psi_final, sigma_T, sigma_a] = run_main(K, N, I, J, xl, xr, yl, yr, f_sigma_T{n}, f_sigma_a{n}, f_varepsilon{n}, f_q{n}, psiL, psiR, psiB, psiT, psiLB, psiLT, psiRB, psiRT);
-    
+
     list_Psi(:, :, :, n) = psi_final;
     list_Phi(:, :, n) = phi_final;
     list_sigma_a(:, :, n) = sigma_a;
@@ -166,6 +167,7 @@ rv_t(:, :, 4) = squeeze(vy_t);
 
 rv_prime = cat(1, rv_l, rv_r, rv_b, rv_t);
 omega_prime = cat(1, squeeze(omega_l), squeeze(omega_r), squeeze(omega_b), squeeze(omega_t));
+omega_prime = omega_prime / I;
 
 sigma_a = permute(list_sigma_a, [3 1 2]);
 sigma_t = permute(list_sigma_T, [3 1 2]);
@@ -182,4 +184,6 @@ x = squeeze(xl:hx:xr);
 y = squeeze(yl:hy:yr);
 w_angle = omega;
 
-save train_random_kernel_1.mat psi_label phi psi_bc rv_prime omega_prime sigma_a sigma_t ct st x y w_angle scattering_kernel
+g = list_g;
+
+save train_random_kernel_g0.9_1.mat psi_label phi psi_bc rv_prime omega_prime sigma_a sigma_t ct st x y w_angle scattering_kernel g
