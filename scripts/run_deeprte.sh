@@ -14,10 +14,10 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="6"
 
 python run_deeprte.py \
-    --output_dir="./results" \
-    --data_dir="/workspaces/deeprte/data/raw_data/eval_data/0311" \
+    --output_dir="results" \
+    --data_dir="data/raw_data/eval_data/0311" \
     --data_filenames="test_random_kernel_0311.mat" \
-    --model_dir="/workspaces/deeprte/ckpts/saved_model"
+    --model_dir="ckpts/saved_models/no_ln"

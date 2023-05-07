@@ -16,12 +16,14 @@ set -e
 
 export CUDA_VISIBLE_DEVICES="4,5,6,7"
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-TFDS_DIR=${1:-"./data/tfds"}
+RESTORE_DIR=${1:-"ckpts/square_full_it_2023-04-03T12:47:33/models/latest/step_375000_2023-04-07T00:31:21"}
+EVAL_CKPT_DIR=${3:-"ckpts/eval_ckpts"}
 
 python deeprte/train.py \
 	--config=deeprte/config.py \
-	--config.checkpoint_dir="./ckpts/square_full_it_${TIMESTAMP%+*}" \
-	--config.experiment_kwargs.config.dataset.data_dir="${TFDS_DIR}" \
-	--jaxline_mode="train" \
-	--alsologtostderr="true"
+	--config.experiment_kwargs.config.evaluation.batch_size="4" \
+	--config.experiment_kwargs.config.dataset.split_percentage="99%" \
+	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
+	--config.restore_dir="${RESTORE_DIR}" \
+	--config.one_off_evaluate="true" \
+	--jaxline_mode="eval"
