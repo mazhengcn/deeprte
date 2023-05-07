@@ -14,16 +14,15 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-RESTORE_DIR=${1:-"/workspaces/deeprte/ckpts/square_full_it_2023-04-03T12:47:33/models/latest/step_375000_2023-04-07T00:31:21"}
-EVAL_CKPT_DIR=${3:-"./ckpts/eval_ckpts"}
+TIMESTAMP="$(date --iso-8601="seconds")"
+TFDS_DIR=${1:-"data/tfds"}
 
 python deeprte/train.py \
 	--config=deeprte/config.py \
-	--config.experiment_kwargs.config.evaluation.batch_size="4" \
-	--config.experiment_kwargs.config.dataset.split_percentage="99%" \
-	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
-	--config.restore_dir="${RESTORE_DIR}" \
-	--config.one_off_evaluate="true" \
-	--jaxline_mode="eval"
+	--config.checkpoint_dir="ckpts/square_full_it_${TIMESTAMP%+*}" \
+	--config.restore_dir="ckpts/square_full_it_2023-05-03T16:43:13/models/latest/step_273000_2023-05-07T01:21:27" \
+	--config.experiment_kwargs.config.dataset.data_dir="${TFDS_DIR}" \
+	--jaxline_mode="train" \
+	--alsologtostderr="true"
