@@ -1,39 +1,19 @@
 {
-    // Container name
     "name": "DeepRTE Dev Container",
-    // Dockerfile to build the container
     "build": {
         "dockerfile": "Dockerfile"
     },
-    // Features to install
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
             "configureZshAsDefaultShell": true,
             "username": "none"
         }
     },
-    // Extensions to install and vscode settings to apply
-    "customizations": {
-        "vscode": {
-            "settings": {
-                "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
-            },
-            "extensions": [
-                "GitHub.copilot",
-                "ms-python.black-formatter",
-                "ms-python.flake8",
-                "ms-python.isort",
-                "ms-python.python",
-                "ms-python.vscode-pylance",
-                "ms-toolsai.jupyter",
-            ]
-        }
-    },
-    // Make sure the correct timezone is set
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
-    // Mount the data folder
+    "runArgs": [
+        "--name=deeprte",
+        "--gpus=all",
+        "--shm-size=8gb"
+    ],
     "mounts": [
         {
             "source": "rte_data",
@@ -41,12 +21,24 @@
             "type": "volume"
         }
     ],
-    // Run arguments
-    "runArgs": [
-        "--name=deeprte",
-        "--gpus=all",
-        "--shm-size=8gb"
-    ],
-    // Command to run after the container is created
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
+            },
+            "extensions": [
+                "ms-python.black-formatter",
+                "ms-python.flake8",
+                "ms-python.isort",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter",
+                "GitHub.copilot"
+            ]
+        }
+    },
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
+    },
     "postCreateCommand": "pip install -e '.[dev]'"
 }
