@@ -1,5 +1,5 @@
 {
-    "name": "MATLAB Dev Container",
+    "name": "MATLAB",
     "image": "mathworks/matlab:latest",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
