@@ -1,0 +1,13 @@
+# Globa options
+--find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+# Packages
+absl-py
+dill
+dm-haiku
+jax[cuda12_pip]
+jaxline @ git+https://github.com/mazhengcn/jaxline
+ml-collections
+numpy
+optax
+tensorflow-cpu
+tensorflow-datasets
