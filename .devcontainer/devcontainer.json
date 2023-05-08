@@ -5,7 +5,7 @@
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true,
+            "installZsh": false,
             "username": "none"
         }
     },
@@ -21,6 +21,9 @@
             "type": "volume"
         }
     ],
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
+    },
     "customizations": {
         "vscode": {
             "settings": {
@@ -36,9 +39,6 @@
                 "GitHub.copilot"
             ]
         }
-    },
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
     },
     "postCreateCommand": "pip install -e ."
 }
