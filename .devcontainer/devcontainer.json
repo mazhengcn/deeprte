@@ -40,5 +40,5 @@
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
     },
-    "postCreateCommand": "pip install -e '.[dev]'"
+    "postCreateCommand": "pip install -e ."
 }
