@@ -4,5 +4,5 @@
             "source.organizeImports": true
         },
         "editor.defaultFormatter": "ms-python.black-formatter",
-    },
+    }
 }

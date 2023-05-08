@@ -12,7 +12,7 @@
     "runArgs": [
         "--name=deeprte",
         "--gpus=all",
-        "--shm-size=8gb"
+        "--shm-size=1g"
     ],
     "mounts": [
         {

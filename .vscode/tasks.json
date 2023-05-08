@@ -1,0 +1,27 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run deeprte model",
+            "type": "shell",
+            "command": "./scripts/run_deeprte.sh",
+        },
+        {
+            "label": "Train deeprte model",
+            "type": "shell",
+            "command": "screen ./scripts/run_train.sh",
+        },
+        {
+            "label": "Evaluate deeprte model",
+            "type": "shell",
+            "command": "./scripts/run_eval.sh"
+        },
+        {
+            "label": "Build rte tfds dataset",
+            "type": "shell",
+            "command": "./scripts/build_tfds_dataset.sh",
+        }
+    ]
+}
