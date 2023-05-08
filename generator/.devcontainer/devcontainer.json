@@ -7,6 +7,9 @@
             "username": "none"
         }
     },
+    "runArgs": [
+        "--shm-size=512M"
+    ],
     "customizations": {
         "vscode": {
             "extensions": [
