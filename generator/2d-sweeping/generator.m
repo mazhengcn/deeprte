@@ -63,4 +63,4 @@ st = squeeze(params.st);
 
 rand_params = list_rand_params;
 
-save test.mat psi_label phi psi_bc rv_prime omega_prime sigma_a sigma_t ct st x y w_angle scattering_kernel rand_params
+save(params.save_path, 'psi_label', 'phi', 'psi_bc', 'rv_prime', 'omega_prime', 'sigma_a', 'sigma_t', 'ct', 'st', 'x', 'y', 'w_angle', 'scattering_kernel', 'rand_params', 'config')

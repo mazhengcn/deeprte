@@ -110,14 +110,14 @@ end
 phi = Phi_final;
 psi = Psi_new;
 
-x = squeeze(params.xl:params.hx:params.xr);
-y = squeeze(params.yl:params.hy:params.yr);
-surf(x, y, Phi_final);
-view(60, 30)
-xlabel('x')
-ylabel('y')
-zlabel('\phi(x,y)')
-axis([0 1 0 1 0 1.1 * max(max(Phi_final))])
-shading interp
-saveas(gcf, 'save_2.jpg')
+% x = squeeze(params.xl:params.hx:params.xr);
+% y = squeeze(params.yl:params.hy:params.yr);
+% surf(x, y, Phi_final);
+% view(60, 30)
+% xlabel('x')
+% ylabel('y')
+% zlabel('\phi(x,y)')
+% axis([0 1 0 1 0 1.1 * max(max(Phi_final))])
+% shading interp
+% saveas(gcf, 'save_2.jpg')
 end
