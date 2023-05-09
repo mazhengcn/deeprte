@@ -10,7 +10,9 @@ config.J = 40;
 
 % general settings
 config.generate_train_data = true;
-config.save_path = '/workspaces/deeprte/generator/test.mat';
+config.save_path = '/workspaces/deeprte/generator/train_kernel_g0.4-0.6.mat';
+rng('shuffle');
+config.rng = rng;
 
 % number of iteration
 config.N_itr = 2;
@@ -28,7 +30,7 @@ config.out_sigma_a_scope = [5, 5];
 config.out_sigma_t_scope = [10, 10];
 
 % scattering kernel
-config.g_scope = [0.0, 0.2];
+config.g_scope = [0.4, 0.6];
 
 % boundary config
 config.var_x_scope = [0.005, 0.02];

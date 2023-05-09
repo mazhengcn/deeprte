@@ -15,6 +15,8 @@ BATCH_FEAT_LIST = [
     "phi",
 ]
 
+UNUSED_KEY_LIST = ["rand_params", "config"]
+
 
 def interpolate(data):
     list_omega = [
@@ -92,7 +94,8 @@ def mat_loader(
         else:
             np_data = mat_dict.copy()
 
-    unused_keys = [k for k in np_data.keys() if k.startswith("__")]
+    unused_keys = [k for k in UNUSED_KEY_LIST if k in np_data.keys()]
+    unused_keys += [k for k in np_data.keys() if k.startswith("__")]
     # for k in unused_keys
     for k in unused_keys:
         del np_data[k]
