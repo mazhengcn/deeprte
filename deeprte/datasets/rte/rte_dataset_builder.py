@@ -43,6 +43,12 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     RELEASE_NOTES = {
         "0.0.1": "Initial release.",
     }
+    BUILDER_CONFIGS = [
+        # `name` (and optionally `description`) are required for each config
+        tfds.core.BuilderConfig(
+            name="g0.0-0.2", description="g0.0-0.2 dataset."
+        )
+    ]
     MANUAL_DOWNLOAD_INSTRUCTIONS = """
         Please download the raw dataset to project_root/data/raw_data
     """

@@ -1,9 +1,8 @@
 
 function [scattering_kernel, boundary, sigma, q, varepsilon, rand_params] = gen_inputs(params)
-rng('shuffle');
 
 rand_params = [];
-
+rng(params.rng);
 % generate scattering kernel
 [scattering_kernel, rand_params] = gen_scattering_kernel(params.g_scope, params.N, rand_params);
 
@@ -15,8 +14,6 @@ else
 end
 % generate sigma, varepsilon and q
 [sigma, q, varepsilon, rand_params] = gen_coef(params, rand_params);
-
-rand_params.rng = rng;
 
 
 

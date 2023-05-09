@@ -207,6 +207,7 @@ class Trainer(experiment.AbstractExperiment):
             collocation_sizes=c.training.collocation_sizes,
             batch_repeat=c.training.batch_repeat,
             data_dir=c.dataset.data_dir,
+            name=c.dataset.name,
         )
 
     def _initialize_training(self):
@@ -407,6 +408,7 @@ class Trainer(experiment.AbstractExperiment):
             is_training=False,
             batch_sizes=[jax.local_device_count(), per_device_batch_size],
             data_dir=c.dataset.data_dir,
+            name=c.dataset.name,
         )
 
 
