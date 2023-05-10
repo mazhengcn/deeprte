@@ -14,5 +14,4 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 FROM base
 COPY --from=pip-installs /opt/deeprteenv /opt/deeprteenv
-
 ENV PATH="/opt/deeprteenv/bin:$PATH"
