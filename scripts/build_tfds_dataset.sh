@@ -14,7 +14,7 @@
 # limitations under the License.
 set -e
 
-SOURCE_DIR=${1:-"data/raw_data/train-scattering-kernel-0405/g0.7-0.9"}
+SOURCE_DIR=${1:-"data/raw_data"}
 TARGET_DIR=${2:-"data/tfds"}
 
 tfds build deeprte/datasets/rte \

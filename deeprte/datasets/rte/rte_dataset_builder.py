@@ -46,8 +46,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     BUILDER_CONFIGS = [
         # `name` (and optionally `description`) are required for each config
         tfds.core.BuilderConfig(
-            name="g0.0-0.2", description="g0.0-0.2 dataset."
-        )
+            name="g0.1-sigma_a3-sigma_t6", description="g0.0-0.2 dataset."
+        ),
+        tfds.core.BuilderConfig(
+            name="g0.2-sigma_a3-sigma_t6", description="g0.0-0.2 dataset."
+        ),
     ]
     MANUAL_DOWNLOAD_INSTRUCTIONS = """
         Please download the raw dataset to project_root/data/raw_data
@@ -77,8 +80,12 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         """Returns SplitGenerators."""
 
-        datasets_dir = dl_manager.manual_dir
-        filenames = [file.name for file in datasets_dir.iterdir()]
+        datasets_dir = dl_manager.manual_dir / self.builder_config.name
+        filenames = [
+            file.name
+            for file in datasets_dir.iterdir()
+            if file.name.endswith(".mat")
+        ]
 
         data_pipeline = pipeline.DataPipeline(datasets_dir, filenames)
         raw_data = data_pipeline.process(normalization=True)

@@ -10,7 +10,7 @@ config.J = 40;
 
 % general settings
 config.generate_train_data = true;
-config.save_path = '/workspaces/deeprte/generator/train_kernel_g0.4-0.6.mat';
+config.save_dir = '/workspaces/deeprte/generator/data/raw_data/g0.1-sigma_a3-sigma_t6';
 rng('shuffle');
 config.rng = rng;
 
@@ -30,7 +30,7 @@ config.out_sigma_a_scope = [5, 5];
 config.out_sigma_t_scope = [10, 10];
 
 % scattering kernel
-config.g_scope = [0.4, 0.6];
+config.g_scope = [0.0, 0.2];
 
 % boundary config
 config.var_x_scope = [0.005, 0.02];

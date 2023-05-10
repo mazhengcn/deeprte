@@ -76,6 +76,7 @@ def mat_loader(
 
     dir_path = Path(source_dir)
     for filename in data_name_list:
+        assert filename.endswith(".mat")
         data_path = dir_path / filename
         mat_dict = sio.loadmat(data_path)
         if np_data:
