@@ -68,5 +68,5 @@ file_name = append(split_path{end}, '.mat');
 if ~exist(params.save_dir,'dir')
     mkdir(params.save_dir);
 end
-save(append(params.save_dir, '/', file_name), 'psi_label', 'phi', 'psi_bc', 'rv_prime', 'omega_prime', 'sigma_a', 'sigma_t', 'ct', 'st', 'x', 'y', 'w_angle', 'scattering_kernel', 'rand_params', 'config')
+save(append(params.save_dir, '/', file_name), 'psi_label', 'phi', 'psi_bc', 'rv_prime', 'omega_prime', 'sigma_a', 'sigma_t', 'ct', 'st', 'x', 'y', 'w_angle', 'scattering_kernel', 'rand_params', 'config', '-nocompression')
 copyfile('config.m', params.save_dir)
