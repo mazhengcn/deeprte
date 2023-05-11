@@ -28,7 +28,7 @@ def get_config():
     eval_batch_size = 4
 
     dataset = ml_collections.ConfigDict(
-        dict(name="rte", data_dir="./data/tfds", split_percentage="60%")
+        dict(name="rte", data_dir="./data/tfds", split_percentage="80%")
     )
 
     dataset_builder = tfds.builder(dataset.name, data_dir=dataset.data_dir)
