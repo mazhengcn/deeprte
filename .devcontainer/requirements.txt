@@ -6,6 +6,7 @@ dill
 dm-haiku
 jax[cuda12_pip]
 jaxline @ git+https://github.com/mazhengcn/jaxline
+matplotlib
 ml-collections
 numpy
 optax
