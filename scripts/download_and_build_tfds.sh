@@ -14,10 +14,17 @@
 # limitations under the License.
 set -e
 
-SOURCE_DIR=${1:-"data/raw_data"}
-TARGET_DIR=${2:-"data/tfds"}
+RAW_DATA_DIR=${1:-"data/raw_data"}
+TFDS_DIR=${2:-"data/tfds"}
+REMOTE_HOST=${3:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
+REMOTE_DIR=${4:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"}
 
+# Use rsync to copy data to destination host
+# 2&gpTKPd
+rsync -rlptzv --archive --progress "${REMOTE_HOST}:${REMOTE_DIR}/" "${RAW_DATA_DIR}"
+
+find "${RAW_DATA_DIR}" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > deeprte/datasets/rte/CONFIGS.txt
 tfds build deeprte/datasets/rte \
-	--data_dir="${TARGET_DIR}" \
-	--manual_dir="${SOURCE_DIR}" \
+	--data_dir="${TFDS_DIR}" \
+	--manual_dir="${RAW_DATA_DIR}" \
 	--register_checksums

@@ -21,7 +21,7 @@
         {
             "label": "Build rte tfds dataset",
             "type": "shell",
-            "command": "./scripts/build_tfds_dataset.sh",
+            "command": "./scripts/download_and_build_tfds.sh",
         }
     ]
 }
