@@ -7,11 +7,13 @@
             "label": "Run deeprte model",
             "type": "shell",
             "command": "./scripts/run_deeprte.sh",
+            "problemMatcher": []
         },
         {
             "label": "Train deeprte model",
             "type": "shell",
             "command": "screen ./scripts/run_train.sh",
+            "problemMatcher": []
         },
         {
             "label": "Evaluate deeprte model",
@@ -21,7 +23,7 @@
         {
             "label": "Build rte tfds dataset",
             "type": "shell",
-            "command": "./scripts/download_and_build_tfds.sh",
+            "command": "./scripts/download_and_build_tfds.sh"
         }
     ]
 }
