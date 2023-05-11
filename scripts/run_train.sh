@@ -14,15 +14,16 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="0,1,2,3"
+export CUDA_VISIBLE_DEVICES="1,2,3,4"
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-TFDS_DIR=${1:-"data/tfds"}
+DATASET_NAME=${1:-"g0.5-sigma_a3-sigma_t6"}
+TFDS_DIR=${2:-"data/tfds"}
 
 python deeprte/train.py \
 	--config=deeprte/config.py \
-	--config.checkpoint_dir="ckpts/square_full_it_${TIMESTAMP%+*}" \
-	--config.restore_dir="ckpts/square_full_it_2023-05-03T16:43:13/models/latest/step_273000_2023-05-07T01:21:27" \
+	--config.checkpoint_dir="ckpts/${DATASET_NAME}_${TIMESTAMP%+*}" \
+	--config.experiment_kwargs.config.dataset.name="rte/${DATASET_NAME}" \
 	--config.experiment_kwargs.config.dataset.data_dir="${TFDS_DIR}" \
 	--jaxline_mode="train" \
 	--alsologtostderr="true"
