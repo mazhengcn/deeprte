@@ -249,14 +249,12 @@ def main(argv):
     data_pipeline = pipeline.DataPipeline(FLAGS.data_dir, FLAGS.data_filenames)
     logging.info("Data pipeline created from %s", FLAGS.data_dir)
 
-    model_config_path = os.path.join(FLAGS.model_dir, "config.json")
+    model_config_path = os.path.join(FLAGS.model_dir, "model.json")
+    logging.info("Loading model config from %s", model_config_path)
     with open(model_config_path) as f:
         str = f.read()
-        config = ml_collections.ConfigDict(json.loads(str))
-
-    logging.info("Model config loaded from %s", model_config_path)
-    model_config = config.experiment_kwargs.config.model
-    logging.info("Model config: %s", model_config)
+        model_config = ml_collections.ConfigDict(json.loads(str))
+    logging.info("Model config:\n%s", model_config)
 
     params_path = os.path.join(FLAGS.model_dir, "params.npz")
     np_params = np.load(params_path, allow_pickle=True)

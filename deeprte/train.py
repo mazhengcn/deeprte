@@ -466,7 +466,7 @@ def save_state_from_in_memory_checkpointer(
     logging.info("Saving config.")
     config_path = save_path.parent / "config.json"
     with open(config_path, "w", encoding="utf-8") as f:
-        f.write(FLAGS.config.to_json_best_effort(indent=2))
+        f.write(FLAGS.config.to_json_best_effort(indent=4))
 
     logging.info("Saving model.")
     for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
@@ -498,6 +498,12 @@ def save_state_from_in_memory_checkpointer(
         numpy_params_path = save_dir / "params.npz"
         flat_np_params = to_flat_dict(state_dict["params"])
         np.savez(numpy_params_path, **flat_np_params)
+
+        # Save model config under the same directory of params
+        model_config_path = save_dir / "model.json"
+        model_config = FLAGS.config.experiment_kwargs.config.model
+        with open(model_config_path, "w", encoding="utf-8") as f:
+            f.write(model_config.to_json_best_effort(indent=4))
 
         logging.info(
             'Saved "%s" checkpoint and flat numpy params under %s',
