@@ -1,5 +1,6 @@
 """rte_dataset dataset."""
 import os
+import pathlib
 
 import numpy as np
 import tensorflow as tf
@@ -36,6 +37,12 @@ BOUNDARY_FEATURE_AXIS = {
 }
 
 
+def _get_config_names(file):
+    config_path = pathlib.Path(__file__).parent / file
+    with open(config_path, "r") as f:
+        return f.read().splitlines()
+
+
 class Builder(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for rte_dataset dataset."""
 
@@ -44,13 +51,8 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         "0.0.1": "Initial release.",
     }
     BUILDER_CONFIGS = [
-        # `name` (and optionally `description`) are required for each config
-        tfds.core.BuilderConfig(
-            name="g0.1-sigma_a3-sigma_t6", description="g0.0-0.2 dataset."
-        ),
-        tfds.core.BuilderConfig(
-            name="g0.2-sigma_a3-sigma_t6", description="g0.0-0.2 dataset."
-        ),
+        tfds.core.BuilderConfig(name=name)
+        for name in _get_config_names("CONFIGS.txt")
     ]
     MANUAL_DOWNLOAD_INSTRUCTIONS = """
         Please download the raw dataset to project_root/data/raw_data
