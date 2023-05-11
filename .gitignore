@@ -5,7 +5,7 @@ ckpts/
 rte_data/
 archive/
 results/
-# svgs/
+CONFIGS.txt
 # notebooks/
 
 # Byte-compiled / optimized / DLL files
