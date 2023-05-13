@@ -16,6 +16,7 @@
 import collections.abc
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 
 
@@ -36,9 +37,6 @@ def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
 
             return jax.tree_map(slice_fn, feat_dict)
 
-        # loss, (scalars, state) = ret
-        l_and_state = grad_fn(params, dynamic_slice_feat(batch, 0, step_size))
-
         def acc_grad_and_loss(i, l_and_state):
             sliced_batch = dynamic_slice_feat(batch, i * step_size, step_size)
             grads_i, (scalars_i, state_i) = grad_fn(params, sliced_batch)
@@ -48,8 +46,14 @@ def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
                 state_i,
             )
 
+        grads_shape_dtype = jax.eval_shape(
+            grad_fn, params, dynamic_slice_feat(batch, 0, step_size)
+        )
+        l_and_state_0 = jax.tree_map(
+            lambda sd: jnp.zeros(sd.shape, sd.dtype), grads_shape_dtype
+        )
         grads, (scalars, state) = jax.lax.fori_loop(
-            1, accum_steps, acc_grad_and_loss, l_and_state
+            0, accum_steps, acc_grad_and_loss, l_and_state_0
         )
         return jax.tree_map(
             lambda x: x / accum_steps, (grads, (scalars, state))
