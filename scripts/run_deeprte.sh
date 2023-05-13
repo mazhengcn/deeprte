@@ -14,10 +14,13 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="6"
+CUDA_DEVICES=${1:-"0,1,2,3"}
+DATA_DIR=${2:-"data/raw_data/g0.1-sigma_a3-sigma_t6"}
+DATA_FILENAMES=${3:-"g0.1-sigma_a3-sigma_t6.mat"}
+MODEL_DIR=${4:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-11T22:23:28/models/latest/step_300_2023-05-11T22:29:10"}
 
-python run_deeprte.py \
+CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" python run_deeprte.py \
     --output_dir="results" \
-    --data_dir="data/raw_data/eval_data/0311" \
-    --data_filenames="test_random_kernel_0311.mat" \
-    --model_dir="ckpts/saved_models/no_ln"
+    --data_dir="data/raw_data/g0.1-sigma_a3-sigma_t6" \
+    --data_filenames="g0.1-sigma_a3-sigma_t6.mat" \
+    --model_dir="ckpts/g0.5-sigma_a3-sigma_t6_2023-05-11T22:23:28/models/latest/step_300_2023-05-11T22:29:10"

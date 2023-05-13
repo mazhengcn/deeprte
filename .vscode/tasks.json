@@ -4,26 +4,124 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run deeprte model",
+            "label": "Build RTE tfds dataset",
+            "type": "shell",
+            "command": "./scripts/download_and_build_tfds.sh",
+            "args": [
+                "${input:rawDataDir}",
+                "${input:tfdsDir}",
+                "${input:remoteHost}",
+                "${input:remoteDir}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Train DeepRTE",
+            "type": "shell",
+            "command": "./scripts/run_train.sh",
+            "args": [
+                "${input:cudaVisibleDevices}",
+                "${input:datasetName}",
+                "${input:batchSize}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Evaluate DeepRTE",
+            "type": "shell",
+            "command": "./scripts/run_eval.sh",
+            "args": [
+                "${input:cudaVisibleDevices}",
+                "${input:restoreDir}",
+                "${input:evalCkptsDir}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run DeepRTE",
             "type": "shell",
             "command": "./scripts/run_deeprte.sh",
+            "args": [
+                "${input:cudaVisibleDevices}",
+                "${input:dataDir}",
+                "${input:dataFilename}",
+                "${input:modelDir}"
+            ],
             "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "type": "promptString",
+            "id": "rawDataDir",
+            "description": "Raw data directory",
+            "default": "data/raw_data"
         },
         {
-            "label": "Train deeprte model",
-            "type": "shell",
-            "command": "screen ./scripts/run_train.sh",
-            "problemMatcher": []
+            "type": "promptString",
+            "id": "tfdsDir",
+            "description": "TFDS directory",
+            "default": "data/tfds"
         },
         {
-            "label": "Evaluate deeprte model",
-            "type": "shell",
-            "command": "./scripts/run_eval.sh"
+            "type": "promptString",
+            "id": "remoteHost",
+            "description": "Remote host",
+            "default": "matjxt-mz@sydata.hpc.sjtu.edu.cn"
         },
         {
-            "label": "Build rte tfds dataset",
-            "type": "shell",
-            "command": "./scripts/download_and_build_tfds.sh"
+            "type": "promptString",
+            "id": "remoteDir",
+            "description": "Remote directory",
+            "default": "/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"
+        },
+        {
+            "type": "promptString",
+            "id": "cudaVisibleDevices",
+            "description": "Set `CUDA_VISIBLE_DEVICES' environment variable",
+            "default": "0,1,2,3"
+        },
+        {
+            "type": "promptString",
+            "id": "batchSize",
+            "description": "Batch size",
+            "default": "8"
+        },
+        {
+            "type": "pickString",
+            "id": "datasetName",
+            "description": "Dataset name to train",
+            "options": [
+                "g0.1-sigma_a3-sigma_t6",
+                "g0.5-sigma_a3-sigma_t6",
+                "g0.8-sigma_a3-sigma_t6"
+            ]
+        },
+        {
+            "type": "promptString",
+            "id": "restoreDir",
+            "description": "Restore directory"
+        },
+        {
+            "type": "promptString",
+            "id": "evalCkptsDir",
+            "description": "Eval checkpoints directory",
+            "default": "ckpts/eval_ckpts"
+        },
+        {
+            "type": "promptString",
+            "id": "dataDir",
+            "description": "Data directory"
+        },
+        {
+            "type": "promptString",
+            "id": "dataFilename",
+            "description": "Data filename"
+        },
+        {
+            "type": "promptString",
+            "id": "modelDir",
+            "description": "Model directory"
         }
     ]
 }
