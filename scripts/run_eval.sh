@@ -14,15 +14,16 @@
 # limitations under the License.
 set -e
 
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
-
-RESTORE_DIR=${1:-"ckpts/square_full_it_2023-04-03T12:47:33/models/latest/step_375000_2023-04-07T00:31:21"}
+CUDA_DEVICES=${1:-"0,1,2,3"}
+RESTORE_DIR=${2:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-12T23:11:39/models/latest/step_25000_2023-05-13T06:22:58"}
 EVAL_CKPT_DIR=${3:-"ckpts/eval_ckpts"}
 
-python deeprte/train.py \
+DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
+BATCH_SIZE=${#DEVICES[@]}
+
+CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" python deeprte/train.py \
 	--config=deeprte/config.py \
-	--config.experiment_kwargs.config.evaluation.batch_size="4" \
-	--config.experiment_kwargs.config.dataset.split_percentage="99%" \
+	--config.experiment_kwargs.config.evaluation.batch_size=${BATCH_SIZE} \
 	--config.checkpoint_dir="${EVAL_CKPT_DIR}" \
 	--config.restore_dir="${RESTORE_DIR}" \
 	--config.one_off_evaluate="true" \

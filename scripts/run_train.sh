@@ -19,8 +19,8 @@ DATASET_NAME=${2:-"g0.5-sigma_a3-sigma_t6"}
 BATCH_SIZE=${3:-"8"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
-NUM_DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
-ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#NUM_DEVICES[@]}))
+DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
+ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#DEVICES[@]}))
 
 if ! type screen > /dev/null 2>&1; then
     apt-get update
