@@ -11,11 +11,11 @@ config.J = 40;
 % general settings
 config.generate_train_data = true;
 config.save_dir = '/workspaces/deeprte/generator/data/raw_data/g0.1-sigma_a3-sigma_t6';
-rng('shuffle');
-config.rng = rng;
+
+config.rng_seed = 1608;
 
 % number of iteration
-config.N_itr = 2;
+config.N_itr = 1000;
 
 % sigma region
 config.regionx_sigma_a = [0.4, 0.6];
