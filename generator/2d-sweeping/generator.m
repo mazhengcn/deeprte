@@ -3,6 +3,8 @@ clear all
 config = config();
 params = get_params(config);
 
+rng(params.rng_seed);
+
 N_itr = params.N_itr;
 M = params.M; J = params.J; I = params.I;
 
