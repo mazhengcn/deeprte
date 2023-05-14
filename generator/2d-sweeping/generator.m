@@ -1,5 +1,3 @@
-clear all
-
 config = config();
 params = get_params(config);
 

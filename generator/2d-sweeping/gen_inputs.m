@@ -1,4 +1,3 @@
-
 function [scattering_kernel, boundary, sigma, q, varepsilon, rand_params] = gen_inputs(params)
 
 % generate scattering kernel
@@ -141,15 +140,5 @@ end
 function [start, range] = get_rand_params(input_scope)
 start = input_scope(1);
 range = input_scope(2)-input_scope(1);
-
-end
-
-function [rand_params] = merge_struct(params_1, params_2)
-
-f = fieldnames(params_2);
-for i = 1:numel(f)
-    params_1.(f{i}) = params_2.(f{i});
-end
-rand_params = params_1;
 
 end
