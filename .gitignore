@@ -6,6 +6,7 @@ rte_data/
 archive/
 results/
 CONFIGS.txt
+generator/2d-sweeping/config.m
 # notebooks/
 
 # Byte-compiled / optimized / DLL files
