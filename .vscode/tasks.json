@@ -11,7 +11,8 @@
                 "${input:rawDataDir}",
                 "${input:tfdsDir}",
                 "${input:remoteHost}",
-                "${input:remoteDir}"
+                "${input:remoteDir}",
+                "${input:overWrite}"
             ],
             "problemMatcher": []
         },
@@ -74,6 +75,16 @@
             "id": "remoteDir",
             "description": "Remote directory",
             "default": "/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"
+        },
+        {
+            "type": "pickString",
+            "id": "overWrite",
+            "description": "Overwrite existing data",
+            "default": "False",
+            "options": [
+                "True",
+                "False"
+            ]
         },
         {
             "type": "promptString",
