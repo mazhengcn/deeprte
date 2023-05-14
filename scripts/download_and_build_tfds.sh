@@ -18,13 +18,18 @@ RAW_DATA_DIR=${1:-"data/raw_data"}
 TFDS_DIR=${2:-"data/tfds"}
 REMOTE_HOST=${3:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
 REMOTE_DIR=${4:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"}
+OVERWRITE=${5:-"True"}
 
 # Use rsync to copy data to destination host
 # 2&gpTKPd
 rsync -rlptzv --archive --progress "${REMOTE_HOST}:${REMOTE_DIR}/" "${RAW_DATA_DIR}"
 
-find "${RAW_DATA_DIR}" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > deeprte/datasets/rte/CONFIGS.txt
-tfds build deeprte/datasets/rte \
-	--data_dir="${TFDS_DIR}" \
-	--manual_dir="${RAW_DATA_DIR}" \
-	--register_checksums
+find "${RAW_DATA_DIR}/train" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > deeprte/datasets/rte/CONFIGS.txt
+
+TFDS_ARGS="--data_dir=${TFDS_DIR} --manual_dir=${RAW_DATA_DIR}/train"
+
+if [ "${OVERWRITE}" = "True" ]; then
+	TFDS_ARGS="${TFDS_ARGS} --overwrite"
+fi
+
+tfds build deeprte/datasets/rte ${TFDS_ARGS}
