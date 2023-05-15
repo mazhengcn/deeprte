@@ -21,7 +21,6 @@ REMOTE_DIR=${4:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"}
 OVERWRITE=${5:-"True"}
 
 # Use rsync to copy data to destination host
-# 2&gpTKPd
 rsync -rlptzv --archive --progress "${REMOTE_HOST}:${REMOTE_DIR}/" "${RAW_DATA_DIR}"
 
 find "${RAW_DATA_DIR}/train" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > deeprte/datasets/rte/CONFIGS.txt

@@ -23,7 +23,8 @@
             "args": [
                 "${input:cudaVisibleDevices}",
                 "${input:datasetName}",
-                "${input:batchSize}"
+                "${input:batchSize}",
+                "${input:restoreDir}"
             ],
             "problemMatcher": []
         },
@@ -111,7 +112,8 @@
         {
             "type": "promptString",
             "id": "restoreDir",
-            "description": "Restore directory"
+            "description": "Restore directory",
+            "default": ""
         },
         {
             "type": "promptString",
