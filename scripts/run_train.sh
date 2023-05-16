@@ -24,7 +24,6 @@ DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
 ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#DEVICES[@]}))
 
 TRAIN_ARGS="--config=deeprte/config.py \
-	--config.checkpoint_dir=ckpts/${DATASET_NAME}_${TIMESTAMP%+*} \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
 	--config.experiment_kwargs.config.training.batch_size=${BATCH_SIZE} \
 	--config.experiment_kwargs.config.training.accum_grads_steps=${ACCUM_GRADS_STEPS} \
@@ -33,7 +32,9 @@ TRAIN_ARGS="--config=deeprte/config.py \
 	"
 
 if [ -n "${RESTORE_DIR}" ]; then
-	TRAIN_ARGS="${TRAIN_ARGS} --config.restore_dir=${RESTORE_DIR}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${RESTORE_DIR%%/models*} --config.restore_dir=${RESTORE_DIR}"
+else
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=ckpts/${DATASET_NAME}_${TIMESTAMP%+*}"
 fi
 
 if ! type screen > /dev/null 2>&1; then
