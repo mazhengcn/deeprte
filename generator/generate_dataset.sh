@@ -38,5 +38,5 @@ sync_data () {
     fi
 }
 
-sync_data "${DATA_SAVE_DIR}" "${DESTINATION_HOST_DIR}"
+sync_data "${DATA_SAVE_DIR}" "${DESTINATION_HOST_DIR}/train"
 # sync_data "${DATA_SAVE_DIR}/isotropic" "${DESTINATION_HOST_DIR}/isotropic"
