@@ -34,6 +34,7 @@
             "command": "./scripts/run_eval.sh",
             "args": [
                 "${input:cudaVisibleDevices}",
+                "${input:datasetName}",
                 "${input:restoreDir}",
                 "${input:evalCkptsDir}"
             ],
