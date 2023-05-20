@@ -41,9 +41,7 @@ from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
 
-OptState = tuple[
-    optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState
-]
+OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jax.Array]
 
 
@@ -52,9 +50,7 @@ def _format_logs(prefix, results):
     # "array(4., dtype=float32)".
     logging_str = " - ".join(
         [
-            f"{k}: {results[k]:.2%}"
-            if k[-2:] == "pe"
-            else f"{k}: {results[k]}"
+            f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
             for k in sorted(results.keys())
         ]
     )
@@ -254,18 +250,14 @@ class Trainer(experiment.AbstractExperiment):
             c.optimizer,
         )
         # Optimizer
-        self.optimizer = optimizers.make_optimizer(
-            c.optimizer, self._lr_schedule
-        )
+        self.optimizer = optimizers.make_optimizer(c.optimizer, self._lr_schedule)
 
         # Initialize net if no params available.
         if self._params is None:
             logging.info("Initializing parameters.")
 
             # Pmap initial functions
-            init_net = jax.pmap(
-                lambda *a: self.model.init(*a, is_training=True)
-            )
+            init_net = jax.pmap(lambda *a: self.model.init(*a, is_training=True))
             init_opt = jax.pmap(self.optimizer.init)
 
             # Init uses the same RNG key on all hosts+devices to ensure
@@ -279,9 +271,7 @@ class Trainer(experiment.AbstractExperiment):
 
             # Log total number of parameters
             num_params = hk.data_structures.tree_size(self._params)
-            logging.info(
-                "Net parameters: %d", num_params // jax.local_device_count()
-            )
+            logging.info("Net parameters: %d", num_params // jax.local_device_count())
         # NOTE: We "donate" the `params, state, opt_state` arguments which
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
@@ -305,9 +295,7 @@ class Trainer(experiment.AbstractExperiment):
 
         # Get global step value on the first device for logging.
         global_step_value = jl_utils.get_first(global_step)
-        logging.info(
-            "Running evaluation at global_step %s...", global_step_value
-        )
+        logging.info("Running evaluation at global_step %s...", global_step_value)
 
         t_0 = time.time()
         # Run evaluation for an epoch
@@ -319,8 +307,7 @@ class Trainer(experiment.AbstractExperiment):
         t_diff = time.time() - t_0
 
         _format_logs(
-            f"(Evaluation time {t_diff:.1f}s, "
-            f"global_step {global_step_value})",
+            f"(Evaluation time {t_diff:.1f}s, " f"global_step {global_step_value})",
             metrics,
         )
 
@@ -336,9 +323,7 @@ class Trainer(experiment.AbstractExperiment):
             num_examples += jnp.prod(jnp.array(batch["psi_label"].shape[:2]))
             metrics = self.eval_fn(params, state, rng, batch)
             # Accumulate the sum of scalars for each step.
-            metrics = jax.tree_util.tree_map(
-                lambda x: jnp.sum(x[0], axis=0), metrics
-            )
+            metrics = jax.tree_util.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
             if summed_metrics is None:
                 summed_metrics = metrics
             else:
@@ -355,9 +340,7 @@ class Trainer(experiment.AbstractExperiment):
         metrics = {}
         # Take sqrt if it is squared
         for k, v in mean_metrics.items():
-            metrics["eval_" + k] = (
-                jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
-            )
+            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
 
         return metrics
 
@@ -484,9 +467,7 @@ def save_state_from_in_memory_checkpointer(
             )
 
         # Saving directory
-        save_dir = (
-            save_path / checkpoint_name / _get_step_date_label(global_step)
-        )
+        save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)
 
         # Save params and states in a dill file
         python_state_path = save_dir / "checkpoint.dill"

@@ -9,15 +9,11 @@ from deeprte.model.tf import rte_dataset, rte_features
 FeatureDict = Mapping[str, Mapping[str, np.ndarray]]
 
 PHASE_FEATURES = {
-    k
-    for k, v in rte_features.FEATURES.items()
-    if rte_features.NUM_PHASE_COORDS in v[1]
+    k for k, v in rte_features.FEATURES.items() if rte_features.NUM_PHASE_COORDS in v[1]
 }
 
 
-def np_data_to_features(
-    raw_data: FeatureDict, num_devices=None
-) -> FeatureDict:
+def np_data_to_features(raw_data: FeatureDict, num_devices=None) -> FeatureDict:
     """Preprocesses NumPy feature dict using TF pipeline."""
 
     num_examples = raw_data["functions"]["boundary"].shape[0]

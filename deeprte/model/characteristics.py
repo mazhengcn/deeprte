@@ -29,9 +29,7 @@ class Characteristics:
     def from_tensor(cls, grid: jax.Array):
         return cls(grid)
 
-    def apply_to_point(
-        self, phase_coord: jax.Array
-    ) -> tuple[jax.Array, jax.Array]:
+    def apply_to_point(self, phase_coord: jax.Array) -> tuple[jax.Array, jax.Array]:
         """Compute local coordinates and mask of the grid
         for a given point in phase space.
         """

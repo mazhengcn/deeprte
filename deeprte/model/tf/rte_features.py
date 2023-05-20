@@ -63,9 +63,7 @@ FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
 # "psi_label": (tf.float32, [NUM_PHASE_COORDS]),
 
 
-def register_feature(
-    name: str, type_: tf.dtypes.DType, shape_: tuple[str | int]
-):
+def register_feature(name: str, type_: tf.dtypes.DType, shape_: tuple[str | int]):
     """Register extra features used in custom datasets."""
     FEATURES[name] = (type_, shape_)
     FEATURE_TYPES[name] = type_

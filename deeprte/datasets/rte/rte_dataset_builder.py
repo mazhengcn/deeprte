@@ -28,9 +28,7 @@ os.environ["NO_GCE_CHECK"] = "true"
 tfds.core.utils.gcs_utils._is_gcs_disabled = True
 
 
-rte_features.register_feature(
-    "psi_label", tf.float32, [rte_features.NUM_PHASE_COORDS]
-)
+rte_features.register_feature("psi_label", tf.float32, [rte_features.NUM_PHASE_COORDS])
 rte_features.register_feature(
     "boundary_scattering_kernel",
     tf.float32,
@@ -38,14 +36,12 @@ rte_features.register_feature(
 )
 FEATURES = rte_features.FEATURES
 PHASE_FEATURE_AXIS = {
-    k: FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS)
-    - len(FEATURES[k][1])
+    k: FEATURES[k][1].index(rte_features.NUM_PHASE_COORDS) - len(FEATURES[k][1])
     for k in FEATURES
     if rte_features.NUM_PHASE_COORDS in FEATURES[k][1]
 }
 BOUNDARY_FEATURE_AXIS = {
-    k: FEATURES[k][1].index(rte_features.NUM_BOUNDARY_COORDS)
-    - len(FEATURES[k][1])
+    k: FEATURES[k][1].index(rte_features.NUM_BOUNDARY_COORDS) - len(FEATURES[k][1])
     for k in FEATURES
     if rte_features.NUM_BOUNDARY_COORDS in FEATURES[k][1]
 }
@@ -65,8 +61,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         "0.0.1": "Initial release.",
     }
     BUILDER_CONFIGS = [
-        tfds.core.BuilderConfig(name=name)
-        for name in _get_config_names("CONFIGS.txt")
+        tfds.core.BuilderConfig(name=name) for name in _get_config_names("CONFIGS.txt")
     ]
     MANUAL_DOWNLOAD_INSTRUCTIONS = """
         Please download the raw dataset to project_root/data/raw_data
@@ -98,9 +93,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         datasets_dir = dl_manager.manual_dir / self.builder_config.name
         filenames = [
-            file.name
-            for file in datasets_dir.iterdir()
-            if file.name.endswith(".mat")
+            file.name for file in datasets_dir.iterdir() if file.name.endswith(".mat")
         ]
 
         data_pipeline = pipeline.DataPipeline(datasets_dir, filenames)

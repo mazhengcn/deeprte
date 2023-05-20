@@ -38,9 +38,7 @@ logging.set_verbosity(logging.INFO)
 
 flags.DEFINE_string("data_dir", None, "Path to directory containing the data.")
 flags.DEFINE_list("data_filenames", None, "List of data filenames.")
-flags.DEFINE_string(
-    "model_dir", None, "Path to directory containing the model."
-)
+flags.DEFINE_string("model_dir", None, "Path to directory containing the model.")
 flags.DEFINE_string(
     "output_dir",
     None,
@@ -87,9 +85,7 @@ def plot_phi(r, phi_pre, phi_label, save_path):
     cbar = fig.colorbar(cs_1)
     cbar.ax.tick_params(labelsize=16)
 
-    cs_2 = axs[1].contourf(
-        r[..., 0], r[..., 1], phi_pre, cmap=ListedColormap(viridis)
-    )
+    cs_2 = axs[1].contourf(r[..., 0], r[..., 1], phi_pre, cmap=ListedColormap(viridis))
     axs[1].set_title(r"Predict $f(x,v)$", fontsize=20)
     axs[1].tick_params(axis="both", labelsize=15)
     cbar = fig.colorbar(cs_2)
@@ -171,9 +167,7 @@ def predict_radiative_transfer(
             )
             if benchmark:
                 t_0 = time.time()
-                model_runner.predict(
-                    processed_feature_dict, random_seed=random_seed
-                )
+                model_runner.predict(processed_feature_dict, random_seed=random_seed)
                 t_diff = time.time() - t_0
                 timings["predict_benchmark"] = t_diff
                 logging.info(
@@ -233,9 +227,7 @@ def predict_radiative_transfer(
 
         figure_save_path = output_dir / "plot.png"
         plot_phi(
-            feature_dict["grid"]["position_coords"].reshape(
-                *psi_shape[1:-1], -1
-            ),
+            feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
             predicted_phi[0],
             phi_label[0],
             figure_save_path,

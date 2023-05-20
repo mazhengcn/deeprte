@@ -48,9 +48,7 @@ class DeepRTE(hk.Module):
     config: ConfigDict
     name: Optional[str] = "deeprte"
 
-    def __call__(
-        self, batch, is_training, compute_loss=False, compute_metrics=False
-    ):
+    def __call__(self, batch, is_training, compute_loss=False, compute_metrics=False):
         c = self.config
         gc = self.config.global_config
         ret = {}
@@ -61,15 +59,13 @@ class DeepRTE(hk.Module):
                 inputs["boundary_coords"],
                 inputs["boundary"] * inputs["boundary_weights"],
             )
-            rte_sol = integrate.quad(
-                green_fn, quadratures=quadratures, argnum=1
-            )(inputs["phase_coords"], inputs, is_training)
+            rte_sol = integrate.quad(green_fn, quadratures=quadratures, argnum=1)(
+                inputs["phase_coords"], inputs, is_training
+            )
             return rte_sol
 
         low_memory = (
-            None
-            if is_training or hk.running_init()
-            else gc.subcollocation_size
+            None if is_training or hk.running_init() else gc.subcollocation_size
         )
         batched_rte_op = hk.vmap(
             mapping.sharded_map(
@@ -214,12 +210,8 @@ class Scattering(hk.Module):
 
         def scattering_block(x):
             act, self_act = x
-            scattering_layer = ScatteringLayer(
-                output_size=c.latent_dim, w_init=w_init
-            )
-            layer_norm = hk.LayerNorm(
-                axis=-1, create_scale=True, create_offset=True
-            )
+            scattering_layer = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)
+            layer_norm = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
 
             act_out = dropout_wrapper_fn(
                 module=scattering_layer,
@@ -238,9 +230,7 @@ class Scattering(hk.Module):
 
             return (act_out, self_act_out)
 
-        scattering_stack = hk.experimental.layer_stack(c.num_layer)(
-            scattering_block
-        )
+        scattering_stack = hk.experimental.layer_stack(c.num_layer)(scattering_block)
         act_output, self_act_output = scattering_stack((act, self_act))
 
         return act_output, self_act_output
@@ -303,15 +293,11 @@ class Attenuation(hk.Module):
 
         act = jnp.concatenate([coord1, coord2, att])
         for _ in range(c.num_layer - 1):
-            act = hk.Linear(
-                c.latent_dim, w_init=w_init, name="attenuation_linear"
-            )(act)
+            act = hk.Linear(c.latent_dim, w_init=w_init, name="attenuation_linear")(act)
             act = jax.nn.tanh(act)
 
         act = jax.nn.tanh(
-            hk.Linear(c.output_dim, w_init=w_init, name="output_projection")(
-                act
-            )
+            hk.Linear(c.output_dim, w_init=w_init, name="output_projection")(act)
         )
 
         return act
@@ -384,9 +370,7 @@ class Attention(hk.Module):
     def _linear_projection(
         self, x: jax.Array, head_dim: int, name: Optional[str] = None
     ) -> jax.Array:
-        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(
-            x
-        )
+        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(x)
         *leading_dims, _ = x.shape
         return y.reshape((*leading_dims, self.num_head, head_dim))
 
@@ -453,8 +437,6 @@ class Attention_v2(hk.Module):
     def _linear_projection(
         self, x: jax.Array, head_dim: int, name: Optional[str] = None
     ) -> jax.Array:
-        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(
-            x
-        )
+        y = hk.Linear(self.num_head * head_dim, w_init=self.w_init, name=name)(x)
         *leading_dims, _ = x.shape
         return y.reshape((*leading_dims, self.num_head, head_dim))

@@ -22,9 +22,7 @@ import numpy as np
 from jax import lax
 
 # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
-TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(
-    0.87962566103423978, dtype=np.float32
-)
+TRUNCATED_NORMAL_STDDEV_FACTOR = np.asarray(0.87962566103423978, dtype=np.float32)
 
 
 def mean_squared_loss_fn(x, y, axis=None):
