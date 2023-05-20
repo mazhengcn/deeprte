@@ -31,9 +31,7 @@ def _make_features_metadata(
 ) -> rte_features.FeaturesMetadata:
     """Makes a feature name to type and shape mapping from a list of names."""
 
-    features_metadata = {
-        name: rte_features.FEATURES[name] for name in feature_names
-    }
+    features_metadata = {name: rte_features.FEATURES[name] for name in feature_names}
     return features_metadata
 
 
@@ -63,9 +61,7 @@ def parse_reshape_logic(
             "into %s" % (k, tf.size(v), new_shape),
         )
         with tf.control_dependencies([assert_equal]):
-            parsed_features[k] = tf.reshape(
-                v, new_shape, name="reshape_%s" % k
-            )
+            parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
 
     return parsed_features
 

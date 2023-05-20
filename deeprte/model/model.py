@@ -71,9 +71,7 @@ class RunModel:
         if not self.params:
             # Init params randomly.
             rng = jax.random.PRNGKey(random_seed)
-            self.params = hk.data_structures.to_mutable_dict(
-                self.init(rng, feat)
-            )
+            self.params = hk.data_structures.to_mutable_dict(self.init(rng, feat))
             logging.warning("Initialized parameters randomly")
 
             if self.multi_devices:
@@ -88,9 +86,7 @@ class RunModel:
         """Processes features to prepare for feeding them into the model."""
 
         if self.multi_devices:
-            return features.np_data_to_features(
-                raw_features, jax.local_device_count()
-            )
+            return features.np_data_to_features(raw_features, jax.local_device_count())
         else:
             return features.np_data_to_features(raw_features)
 
@@ -100,9 +96,7 @@ class RunModel:
             "Running eval_shape with shape(feat) = %s",
             jax.tree_map(lambda x: x.shape, feat),
         )
-        shape = jax.eval_shape(
-            self.apply, self.params, jax.random.PRNGKey(0), feat
-        )
+        shape = jax.eval_shape(self.apply, self.params, jax.random.PRNGKey(0), feat)
         logging.info("Output shape was %s", shape)
         return shape
 

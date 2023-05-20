@@ -60,9 +60,7 @@ def get_learning_rate_schedule(
             decay_rate=decay_rate,
         )
     elif schedule_type == "cosine":
-        warmup_steps = (
-            optimizer_config.decay_kwargs.warmup_epochs * steps_per_epoch
-        )
+        warmup_steps = optimizer_config.decay_kwargs.warmup_epochs * steps_per_epoch
         # Batch scale the other lr values as well:
         init_value = _get_batch_scaled_lr(
             total_batch_size,
@@ -114,9 +112,7 @@ def make_optimizer(optimizer_config, lr_schedule):
 
     if optimizer_config.optimizer == "adam":
         # See: https://arxiv.org/abs/1412.6980
-        optax_chain.extend(
-            [optax.scale_by_adam(**optimizer_config.adam_kwargs)]
-        )
+        optax_chain.extend([optax.scale_by_adam(**optimizer_config.adam_kwargs)])
     elif optimizer_config.optimizer == "lamb":
         # See: https://arxiv.org/abs/1904.00962
         optax_chain.extend(

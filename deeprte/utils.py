@@ -55,9 +55,7 @@ def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
         grads, (scalars, state) = jax.lax.fori_loop(
             0, accum_steps, acc_grad_and_loss, l_and_state_0
         )
-        return jax.tree_map(
-            lambda x: x / accum_steps, (grads, (scalars, state))
-        )
+        return jax.tree_map(lambda x: x / accum_steps, (grads, (scalars, state)))
     else:
         return grad_fn(params, batch)
 
