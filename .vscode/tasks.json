@@ -21,10 +21,10 @@
             "type": "shell",
             "command": "./scripts/run_train.sh",
             "args": [
-                "${input:cudaVisibleDevices}",
                 "${input:datasetName}",
                 "${input:batchSize}",
-                "${input:restoreDir}"
+                "${input:restoreDir}",
+                "${input:cudaVisibleDevices}"
             ],
             "problemMatcher": []
         },
@@ -92,7 +92,7 @@
             "type": "promptString",
             "id": "cudaVisibleDevices",
             "description": "Set `CUDA_VISIBLE_DEVICES' environment variable",
-            "default": "0,1,2,3"
+            "default": ""
         },
         {
             "type": "promptString",

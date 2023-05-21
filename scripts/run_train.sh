@@ -14,14 +14,18 @@
 # limitations under the License.
 set -e
 
-CUDA_DEVICES=${1:-"0,1,2,3"}
-DATASET_NAME=${2:-"g0.5-sigma_a3-sigma_t6"}
-BATCH_SIZE=${3:-"8"}
-RESTORE_DIR=${4:-""}
+DATASET_NAME=${1:-"g0.5-sigma_a3-sigma_t6"}
+BATCH_SIZE=${2:-"8"}
+RESTORE_DIR=${3:-""}
+CUDA_DEVICES=${4:-""}
 
-TIMESTAMP="$(date --iso-8601="seconds")"
-DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
-ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#DEVICES[@]}))
+if [ -n "${CUDA_DEVICES}" ]; then
+	export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
+	DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
+	ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#DEVICES[@]}))
+else
+	ACCUM_GRADS_STEPS="1"
+fi
 
 TRAIN_ARGS="--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
@@ -32,9 +36,13 @@ TRAIN_ARGS="--config=deeprte/config.py \
 	"
 
 if [ -n "${RESTORE_DIR}" ]; then
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${RESTORE_DIR%%/models*} --config.restore_dir=${RESTORE_DIR}"
+	CKPT_DIR="${RESTORE_DIR%%/models*}"
+	CKPT_NAME="${CKPT_DIR##ckpts/}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${CKPT_DIR} --config.restore_dir=${RESTORE_DIR}"
 else
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=ckpts/${DATASET_NAME}_${TIMESTAMP%+*}"
+	TIMESTAMP="$(date --iso-8601="seconds")"
+	CKPT_NAME="${DATASET_NAME}_${TIMESTAMP%+*}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=ckpts/${CKPT_NAME}"
 fi
 
 if ! type screen > /dev/null 2>&1; then
@@ -46,4 +54,4 @@ if ! type screen > /dev/null 2>&1; then
     rm -rf /var/lib/apt/lists/*
 fi
 
-CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" screen python deeprte/train.py ${TRAIN_ARGS}
+screen -S "${CKPT_NAME}" python deeprte/train.py ${TRAIN_ARGS}
