@@ -5,7 +5,7 @@
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": false,
+            "configureZshAsDefaultShell": true,
             "username": "none"
         }
     },
@@ -36,7 +36,7 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-toolsai.jupyter",
-                "GitHub.copilot"
+                "spmeesseman.vscode-taskexplorer"
             ]
         }
     },
