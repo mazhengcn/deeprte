@@ -33,10 +33,10 @@
             "type": "shell",
             "command": "./scripts/run_eval.sh",
             "args": [
-                "${input:cudaVisibleDevices}",
                 "${input:datasetName}",
                 "${input:restoreDir}",
-                "${input:evalCkptsDir}"
+                "${input:evalCkptsDir}",
+                "${input:cudaVisibleDevices}"
             ],
             "problemMatcher": []
         },
@@ -45,10 +45,10 @@
             "type": "shell",
             "command": "./scripts/run_deeprte.sh",
             "args": [
-                "${input:cudaVisibleDevices}",
                 "${input:dataDir}",
                 "${input:dataFilename}",
-                "${input:modelDir}"
+                "${input:modelDir}",
+                "${input:cudaVisibleDevices}"
             ],
             "problemMatcher": []
         }
