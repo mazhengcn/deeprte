@@ -14,13 +14,17 @@
 # limitations under the License.
 set -e
 
-CUDA_DEVICES=${1:-"0,1,2,3"}
-DATA_DIR=${2:-"data/raw_data/g0.1-sigma_a3-sigma_t6"}
-DATA_FILENAMES=${3:-"g0.1-sigma_a3-sigma_t6.mat"}
-MODEL_DIR=${4:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-11T22:23:28/models/latest/step_300_2023-05-11T22:29:10"}
+DATA_DIR=${1:-"data/raw_data/g0.1-sigma_a3-sigma_t6"}
+DATA_FILENAMES=${2:-"g0.1-sigma_a3-sigma_t6.mat"}
+MODEL_DIR=${3:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-11T22:23:28/models/latest/step_300_2023-05-11T22:29:10"}
+CUDA_DEVICES=${4:-""}
 
-CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" python run_deeprte.py \
+if [ -n "${CUDA_DEVICES}" ]; then
+    export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
+fi
+
+python run_deeprte.py \
     --output_dir="results" \
-    --data_dir="data/raw_data/g0.1-sigma_a3-sigma_t6" \
-    --data_filenames="g0.1-sigma_a3-sigma_t6.mat" \
-    --model_dir="ckpts/g0.5-sigma_a3-sigma_t6_2023-05-11T22:23:28/models/latest/step_300_2023-05-11T22:29:10"
+    --data_dir="${DATA_DIR}" \
+    --data_filenames="${DATA_FILENAMES}" \
+    --model_dir="${MODEL_DIR}"

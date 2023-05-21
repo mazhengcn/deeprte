@@ -14,15 +14,20 @@
 # limitations under the License.
 set -e
 
-CUDA_DEVICES=${1:-"0,1,2,3"}
-DATASET_NAME=${2:-"g0.5-sigma_a3-sigma_t6"}
-RESTORE_DIR=${3:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-12T23:11:39/models/latest/step_25000_2023-05-13T06:22:58"}
-EVAL_CKPT_DIR=${4:-"ckpts/eval_ckpts"}
+DATASET_NAME=${1:-"g0.5-sigma_a3-sigma_t6"}
+RESTORE_DIR=${2:-"ckpts/g0.5-sigma_a3-sigma_t6_2023-05-12T23:11:39/models/latest/step_25000_2023-05-13T06:22:58"}
+EVAL_CKPT_DIR=${3:-"ckpts/eval_ckpts"}
+CUDA_DEVICES=${4:-""}
 
-DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
-BATCH_SIZE=${#DEVICES[@]}
+if [ -n "${CUDA_DEVICES}" ]; then
+	export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
+	DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
+	BATCH_SIZE=${#DEVICES[@]}
+else
+	BATCH_SIZE="$(nvidia-smi --list-gpus | wc -l)"
+fi
 
-CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" python deeprte/train.py \
+python deeprte/train.py \
 	--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
 	--config.experiment_kwargs.config.evaluation.batch_size=${BATCH_SIZE} \
