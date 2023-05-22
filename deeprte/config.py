@@ -23,31 +23,38 @@ def get_config():
     config = base_config.get_base_config()
 
     num_epochs = 5000
-    train_batch_size = 8
-    batch_repeat = 1
-    eval_batch_size = 4
 
-    dataset = ml_collections.ConfigDict(
+    dataset_config = ml_collections.ConfigDict(
         dict(name="rte", data_dir="data/tfds", split_percentage="80%")
     )
 
-    dataset_builder = tfds.builder(dataset.name, data_dir=dataset.data_dir)
-    dataset.num_train_examples = dataset_builder.info.splits[
-        f"train[:{dataset.split_percentage}]"
+    dataset_builder = tfds.builder(
+        dataset_config.name, data_dir=dataset_config.data_dir
+    )
+    dataset_config.num_train_examples = dataset_builder.info.splits[
+        f"train[:{dataset_config.split_percentage}]"
     ].num_examples
 
     model = model_config()
-    model.data.normalization_dict = dataset_builder.info.metadata[
-        "normalization"
-    ]
+    model.data.normalization_dict = dataset_builder.info.metadata["normalization"]
+
+    training_config = ml_collections.ConfigDict(
+        dict(
+            num_epochs=num_epochs,
+            batch_size=8,
+            collocation_sizes=[128],
+            batch_repeat=1,
+            accum_grads_steps=1,
+        )
+    )
 
     def steps_from_epochs(num_epochs):
         return max(
             int(
-                batch_repeat
+                training_config.batch_repeat
                 * num_epochs
-                * dataset.num_train_examples
-                // train_batch_size
+                * dataset_config.num_train_examples
+                // training_config.batch_size
             ),
             1,
         )
@@ -57,26 +64,19 @@ def get_config():
     config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
             config=dict(
-                dataset=dataset,
-                training=dict(
-                    num_epochs=num_epochs,
-                    batch_size=train_batch_size,
-                    collocation_sizes=[135],
-                    batch_repeat=batch_repeat,
-                    accum_grads_steps=2,
-                ),
+                dataset=dataset_config,
+                training=training_config,
                 optimizer=dict(
                     base_lr=1e-3,
                     scale_by_batch=False,
                     schedule_type="exponential",
                     decay_kwargs=dict(
-                        transition_steps=steps_from_epochs(100),
-                        decay_rate=0.96,
+                        transition_steps=steps_from_epochs(100), decay_rate=0.96
                     ),
                     optimizer="adam",
                     adam_kwargs=dict(),
                 ),
-                evaluation=dict(batch_size=eval_batch_size),
+                evaluation=dict(batch_size=4),
                 model=model,
             )
         )
