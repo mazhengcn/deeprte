@@ -39,9 +39,7 @@ def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
         np_data["scattering_kernel"],
         (1, sigma_t.shape[1] * sigma_t.shape[2], 1),
     )
-    scattering_kernel = scattering_kernel_value.reshape(
-        *(psi.shape + psi.shape[-1:])
-    )
+    scattering_kernel = scattering_kernel_value.reshape(*(psi.shape + psi.shape[-1:]))
     nv = int(psi.shape[-1] / 4)
     boundary_scattering_kernel_L = np.concatenate(
         [
