@@ -114,7 +114,7 @@
             "type": "promptString",
             "id": "restoreDir",
             "description": "Restore directory",
-            "default": ""
+            "default": "None"
         },
         {
             "type": "promptString",

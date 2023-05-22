@@ -16,7 +16,7 @@ set -e
 
 DATASET_NAME=${1:-"g0.5-sigma_a3-sigma_t6"}
 BATCH_SIZE=${2:-"8"}
-RESTORE_DIR=${3:-""}
+RESTORE_DIR=${3:-"None"}
 CUDA_DEVICES=${4:-""}
 
 if [ -n "${CUDA_DEVICES}" ]; then
@@ -35,14 +35,14 @@ TRAIN_ARGS="--config=deeprte/config.py \
 	--alsologtostderr=true
 	"
 
-if [ -n "${RESTORE_DIR}" ]; then
-	CKPT_DIR="${RESTORE_DIR%%/models*}"
-	CKPT_NAME="${CKPT_DIR##ckpts/}"
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${CKPT_DIR} --config.restore_dir=${RESTORE_DIR}"
-else
+if [ "${RESTORE_DIR}" = "None" ]; then
 	TIMESTAMP="$(date --iso-8601="seconds")"
 	CKPT_NAME="${DATASET_NAME}_${TIMESTAMP%+*}"
 	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=ckpts/${CKPT_NAME}"
+else
+	CKPT_DIR="${RESTORE_DIR%%/models*}"
+	CKPT_NAME="${CKPT_DIR##ckpts/}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${CKPT_DIR} --config.restore_dir=${RESTORE_DIR}"
 fi
 
 if ! type screen > /dev/null 2>&1; then
