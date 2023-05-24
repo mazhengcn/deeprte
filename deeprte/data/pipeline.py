@@ -20,7 +20,7 @@ from typing import Optional
 import numpy as np
 
 from deeprte.data import utils
-from deeprte.data.tool import matlab
+from deeprte.data.tools import matlab
 
 FeatureDict = MutableMapping[str, np.ndarray]
 
