@@ -36,7 +36,7 @@ from jaxline import utils as jl_utils
 from deeprte import optimizers, utils
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model import modules
-from deeprte.model.tf import input_pipeline
+from deeprte import input_pipeline
 from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
