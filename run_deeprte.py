@@ -31,7 +31,7 @@ from matplotlib.colors import ListedColormap
 
 from deeprte.data import pipeline
 from deeprte.model import model
-from deeprte.model.data import flat_params_to_haiku
+from deeprte.model.utils import flat_params_to_haiku
 
 logging.set_verbosity(logging.INFO)
 
