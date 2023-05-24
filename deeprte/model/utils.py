@@ -14,6 +14,7 @@
 
 "Utilities functions."
 import functools
+from collections.abc import Mapping
 
 import haiku as hk
 import jax
@@ -95,6 +96,18 @@ def get_initializer_scale(initializer_name, input_shape=()):
         w_init = hk.initializers.TruncatedNormal(mean=0.0, stddev=stddev)
 
     return w_init
+
+
+def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
+    """Convert a dictionary of NumPy arrays to Haiku parameters."""
+    hk_params = {}
+    for path, array in params.items():
+        scope, name = path.split("//")
+        if scope not in hk_params:
+            hk_params[scope] = {}
+        hk_params[scope][name] = jnp.array(array)
+
+    return hk_params
 
 
 def query_chunk_attention(

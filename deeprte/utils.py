@@ -17,7 +17,6 @@ import collections.abc
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 
 def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
@@ -75,15 +74,3 @@ def to_flat_dict(d, parent_key="", sep="//"):
         items.append((parent_key, {}))
 
     return dict(items)
-
-
-def flat_dict_to_rte_data(flat_dict):
-    """Convert a dictionary of NumPy arrays to Haiku parameters."""
-    rte_data = {}
-    for path, array in flat_dict.items():
-        scope, name = path.split("/")
-        if scope not in rte_data:
-            rte_data[scope] = {}
-        rte_data[scope][name] = np.asarray(array)
-
-    return rte_data
