@@ -70,7 +70,11 @@ def load(
     if is_training:
         ds = ds.cache()
         ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=ds.cardinality(), reshuffle_each_iteration=True)
+        ds = ds.shuffle(
+            buffer_size=info.splits[tfds_split].num_examples,
+            reshuffle_each_iteration=True,
+        )
+
         if batch_repeat:
             ds = repeat_batch(batch_sizes, batch_repeat)(ds)
 
