@@ -27,9 +27,8 @@ else
 	ACCUM_GRADS_STEPS="1"
 fi
 
-TRAIN_ARGS="--config=deeprte/config.py \
+TRAIN_ARGS="--config=deeprte/config.py:${BATCH_SIZE},5000 \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
-	--config.experiment_kwargs.config.training.batch_size=${BATCH_SIZE} \
 	--config.experiment_kwargs.config.training.accum_grads_steps=${ACCUM_GRADS_STEPS} \
 	--jaxline_mode=train \
 	--alsologtostderr=true
@@ -54,4 +53,5 @@ if ! type screen > /dev/null 2>&1; then
     rm -rf /var/lib/apt/lists/*
 fi
 
-screen -S "${CKPT_NAME}" python deeprte/train.py ${TRAIN_ARGS}
+# screen -S "${CKPT_NAME}" 
+python deeprte/train.py ${TRAIN_ARGS}

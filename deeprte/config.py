@@ -19,15 +19,22 @@ from jaxline import base_config
 from deeprte.model.config import model_config
 
 
-def get_config():
-    config = base_config.get_base_config()
+def get_config(arg_string: str = "8, 5000"):
+    args = arg_string.split(",")
+    if len(args) != 2:
+        raise ValueError(
+            "You must provide exactly two arguments separated by a "
+            "comma - train_batch_size,num_epochs"
+        )
+    train_batch_size, num_epochs = args
+    train_batch_size = int(train_batch_size)
+    num_epochs = int(num_epochs)
 
-    num_epochs = 5000
+    config = base_config.get_base_config()
 
     dataset_config = ml_collections.ConfigDict(
         dict(name="rte", tfds_dir="data/tfds", split_percentage="80%")
     )
-
     dataset_builder = tfds.builder(
         dataset_config.name, data_dir=dataset_config.tfds_dir
     )
@@ -38,41 +45,22 @@ def get_config():
     model = model_config()
     model.data.normalization_dict = dataset_builder.info.metadata["normalization"]
 
-    training_config = ml_collections.ConfigDict(
-        dict(
-            num_epochs=num_epochs,
-            batch_size=8,
-            collocation_sizes=[128],
-            batch_repeat=1,
-            accum_grads_steps=1,
-        )
-    )
-
-    def steps_from_epochs(num_epochs):
-        return max(
-            int(
-                training_config.batch_repeat
-                * num_epochs
-                * dataset_config.num_train_examples
-                // training_config.batch_size
-            ),
-            1,
-        )
-
-    config.training_steps = steps_from_epochs(num_epochs)
-
     config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
             config=dict(
                 dataset=dataset_config,
-                training=training_config,
+                training=dict(
+                    num_epochs=num_epochs,
+                    batch_size=train_batch_size,
+                    collocation_sizes=[128],
+                    batch_repeat=1,
+                    accum_grads_steps=1,
+                ),
                 optimizer=dict(
                     base_lr=1e-3,
                     scale_by_batch=False,
                     schedule_type="exponential",
-                    decay_kwargs=dict(
-                        transition_steps=steps_from_epochs(100), decay_rate=0.96
-                    ),
+                    decay_kwargs=dict(transition_steps=10000, decay_rate=0.96),
                     optimizer="adam",
                     adam_kwargs=dict(),
                 ),
@@ -81,6 +69,19 @@ def get_config():
             )
         )
     )
+
+    def steps_from_epochs(num_epochs):
+        return max(
+            int(
+                config.experiment_kwargs.config.training.batch_repeat
+                * num_epochs
+                * dataset_config.num_train_examples
+                // train_batch_size
+            ),
+            1,
+        )
+
+    config.training_steps = steps_from_epochs(num_epochs)
 
     config.interval_type = "steps"
     config.save_checkpoint_interval = steps_from_epochs(10)
