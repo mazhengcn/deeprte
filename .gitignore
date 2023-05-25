@@ -1,8 +1,7 @@
 # Project related files
-data/
+data/*
 slurm/
 ckpts/
-rte_data/
 archive/
 results/
 CONFIGS.txt
