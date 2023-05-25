@@ -1,5 +1,5 @@
 # Project related files
-data/*
+/data/
 slurm/
 ckpts/
 archive/
