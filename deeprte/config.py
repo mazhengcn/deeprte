@@ -25,11 +25,11 @@ def get_config():
     num_epochs = 5000
 
     dataset_config = ml_collections.ConfigDict(
-        dict(name="rte", data_dir="data/tfds", split_percentage="80%")
+        dict(name="rte", tfds_dir="data/tfds", split_percentage="80%")
     )
 
     dataset_builder = tfds.builder(
-        dataset_config.name, data_dir=dataset_config.data_dir
+        dataset_config.name, data_dir=dataset_config.tfds_dir
     )
     dataset_config.num_train_examples = dataset_builder.info.splits[
         f"train[:{dataset_config.split_percentage}]"
