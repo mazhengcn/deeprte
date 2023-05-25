@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import enum
+import os
 from collections.abc import Generator, Sequence
 from typing import Optional
 
-import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
@@ -31,29 +31,28 @@ class Split(enum.Enum):
 
 
 def load(
+    name: str,
+    *,
     split: Split,
-    split_percentage: str,
-    is_training: bool,
+    split_percentage: str = "",
+    tfds_dir: str | os.PathLike | None = None,
+    is_training: bool = False,
     # batch_sizes should be:
     # [device_count, per_device_outer_batch_size]
     # total_batch_size = device_count * per_device_outer_batch_size
-    batch_sizes: Sequence[int],
+    batch_sizes: Optional[Sequence[int] | None] = None,
     # collocation_sizes should be:
     # [total_collocation_size] or
     # [interior_size, boundary_size, quadrature_size]
-    collocation_sizes: Optional[Sequence[int]] = None,
+    collocation_sizes: Optional[Sequence[int] | None] = None,
     # repeat number of inner batch, for training the same batch with
     # {repeat} steps of different collocation points
-    batch_repeat: Optional[int] = 1,
-    name: str = "rte",
-    data_dir: str = "/workspaces/deeprte/data/tfds",
+    batch_repeat: Optional[int | None] = None,
 ) -> Generator[FeatureDict, None, None]:
     tfds_split = _to_tfds_split(split, split_percentage)
-    total_batch_size = np.prod(batch_sizes)
-
     ds, info = tfds.load(
         name,
-        data_dir=data_dir,
+        data_dir=tfds_dir,
         split=tfds_split,
         shuffle_files=True,
         with_info=True,
@@ -71,8 +70,9 @@ def load(
     if is_training:
         ds = ds.cache()
         ds = ds.repeat()
-        ds = ds.shuffle(buffer_size=100 * total_batch_size)
-        ds = repeat_batch(batch_sizes, batch_repeat)(ds)
+        ds = ds.shuffle(buffer_size=ds.cardinality(), reshuffle_each_iteration=True)
+        if batch_repeat:
+            ds = repeat_batch(batch_sizes, batch_repeat)(ds)
 
     for batch_size in reversed(batch_sizes):
         ds = ds.batch(batch_size, drop_remainder=True)
@@ -93,7 +93,7 @@ def load(
     yield from tfds.as_numpy(ds)
 
 
-def _to_tfds_split(split: Split, split_percentage: str = "80%"):
+def _to_tfds_split(split: Split, split_percentage: str = ""):
     if split in (Split.TRAIN, Split.TRAIN_AND_VALID):
         return f"train[:{split_percentage}]"
     elif split in (Split.VALID, Split.TEST):

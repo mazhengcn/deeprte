@@ -33,10 +33,9 @@ from absl import app, flags, logging
 from jaxline import experiment, platform
 from jaxline import utils as jl_utils
 
-from deeprte import optimizers, utils
+from deeprte import input_pipeline, optimizers, utils
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model import modules
-from deeprte import input_pipeline
 from deeprte.utils import to_flat_dict
 
 FLAGS = flags.FLAGS
@@ -196,14 +195,14 @@ class Trainer(experiment.AbstractExperiment):
                 f"number of devices {jax.local_device_count()}"
             )
         return input_pipeline.load(
+            name=c.dataset.name,
             split=input_pipeline.Split.TRAIN,
             split_percentage=c.dataset.split_percentage,
+            tfds_dir=c.dataset.tfds_dir,
             is_training=True,
             batch_sizes=[jax.local_device_count(), per_device_batch_size],
             collocation_sizes=c.training.collocation_sizes,
             batch_repeat=c.training.batch_repeat,
-            data_dir=c.dataset.data_dir,
-            name=c.dataset.name,
         )
 
     def _initialize_training(self):
@@ -386,12 +385,11 @@ class Trainer(experiment.AbstractExperiment):
                 f"number of devices {jax.local_device_count()}"
             )
         return input_pipeline.load(
+            name=c.dataset.name,
             split=input_pipeline.Split.VALID,
             split_percentage=c.dataset.split_percentage,
-            is_training=False,
+            tfds_dir=c.dataset.tfds_dir,
             batch_sizes=[jax.local_device_count(), per_device_batch_size],
-            data_dir=c.dataset.data_dir,
-            name=c.dataset.name,
         )
 
 
