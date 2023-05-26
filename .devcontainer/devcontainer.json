@@ -7,7 +7,8 @@
     "image": "ghcr.io/mazhengcn/devcontainers/jax:latest",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true
+            "configureZshAsDefaultShell": true,
+            "username": "jax"
         }
     },
     "runArgs": [
@@ -42,5 +43,5 @@
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
     },
-    "remoteUser": "root"
+    "remoteUser": "jax"
 }
