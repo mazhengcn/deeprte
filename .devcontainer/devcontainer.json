@@ -1,12 +1,13 @@
 {
     "name": "DeepRTE",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    // Use pre-built image or build from Dockerfile
+    // "build": {
+    //     "dockerfile": "Dockerfile"
+    // },
+    "image": "ghcr.io/mazhengcn/devcontainers/jax:latest",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true,
-            "username": "none"
+            "configureZshAsDefaultShell": true
         }
     },
     "runArgs": [
@@ -21,9 +22,7 @@
             "type": "volume"
         }
     ],
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
+    "postCreateCommand": "pip install -e .",
     "customizations": {
         "vscode": {
             "settings": {
@@ -40,5 +39,8 @@
             ]
         }
     },
-    "postCreateCommand": "pip install -e ."
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
+    },
+    "remoteUser": "root"
 }
