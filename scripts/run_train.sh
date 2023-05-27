@@ -53,5 +53,4 @@ if ! type screen > /dev/null 2>&1; then
     rm -rf /var/lib/apt/lists/*
 fi
 
-# screen -S "${CKPT_NAME}" 
-python deeprte/train.py ${TRAIN_ARGS}
+screen -S "${CKPT_NAME}" python deeprte/train.py ${TRAIN_ARGS}
