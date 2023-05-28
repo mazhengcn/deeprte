@@ -1,21 +1,14 @@
 {
     "name": "DeepRTE",
-    // Use pre-built image or build from Dockerfile
-    // "build": {
-    //     "dockerfile": "Dockerfile"
-    // },
+    // Use pre-built image or use the Dockerfile under .devcontainer folder
     "image": "ghcr.io/mazhengcn/devcontainers/jax:latest",
+    // Common utilities in the container
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true,
             "username": "jax"
         }
     },
-    "runArgs": [
-        "--name=deeprte",
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
+    // Volume mount data folder
     "mounts": [
         {
             "source": "rte_data",
@@ -23,25 +16,30 @@
             "type": "volume"
         }
     ],
+    // Runtime arguments
+    "runArgs": [
+        "--name=deeprte",
+        "--gpus=all",
+        "--shm-size=1g"
+    ],
+    // Editable install of deeprte
     "postCreateCommand": "pip install -e .",
+    // Supporting tool 
     "customizations": {
         "vscode": {
-            "settings": {
-                "python.defaultInterpreterPath": "/opt/deeprteenv/bin/python"
-            },
             "extensions": [
-                "ms-python.black-formatter",
-                "ms-python.flake8",
-                "ms-python.isort",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
+                "ms-python.flake8",
+                "ms-python.black-formatter",
+                "ms-python.isort",
                 "ms-toolsai.jupyter",
                 "spmeesseman.vscode-taskexplorer"
             ]
         }
     },
+    // Environment varibles for support tool
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
-    },
-    "remoteUser": "jax"
+    }
 }
