@@ -80,13 +80,13 @@ def plot_phi(r, phi_pre, phi_label, save_path):
     cs_1 = axs[0].contourf(
         r[..., 0], r[..., 1], phi_label, cmap=ListedColormap(viridis)
     )
-    axs[0].set_title(r"Exact $f(x,v)$", fontsize=20)
+    axs[0].set_title(r"Exact $f(r,\Omega)$", fontsize=20)
     axs[0].tick_params(axis="both", labelsize=15)
     cbar = fig.colorbar(cs_1)
     cbar.ax.tick_params(labelsize=16)
 
     cs_2 = axs[1].contourf(r[..., 0], r[..., 1], phi_pre, cmap=ListedColormap(viridis))
-    axs[1].set_title(r"Predict $f(x,v)$", fontsize=20)
+    axs[1].set_title(r"Predict $f(r,\Omega)$", fontsize=20)
     axs[1].tick_params(axis="both", labelsize=15)
     cbar = fig.colorbar(cs_2)
     cbar.ax.tick_params(labelsize=16)
@@ -272,6 +272,15 @@ def main(argv):
         normalization_ratio,
         0,
     )
+
+    logging.info("Writing config file...")
+    config_path = os.path.join(FLAGS.output_dir, "config.json")
+    config = {
+        "model_dir": FLAGS.model_dir,
+        "data_dir": FLAGS.data_dir,
+    }
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4)
 
 
 if __name__ == "__main__":
