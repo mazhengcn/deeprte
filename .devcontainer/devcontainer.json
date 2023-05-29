@@ -5,6 +5,7 @@
     // Common utilities in the container
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": false,
             "username": "jax"
         }
     },
@@ -41,5 +42,6 @@
     // Environment varibles for support tool
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
-    }
+    },
+    "remoteUser": "root"
 }
