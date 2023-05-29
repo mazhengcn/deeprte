@@ -42,6 +42,5 @@
     // Environment varibles for support tool
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
-    },
-    "remoteUser": "root"
+    }
 }
