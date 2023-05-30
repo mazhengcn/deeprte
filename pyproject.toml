@@ -39,6 +39,3 @@ homepage = "https://github.com/mazhengcn/deeprte"
 
 [tool.setuptools]
 packages = ["deeprte"]
-
-[tool.isort]
-profile = "black"
