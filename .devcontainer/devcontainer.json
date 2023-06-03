@@ -32,8 +32,7 @@
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
                 "charliermarsh.ruff",
-                "ms-toolsai.jupyter",
-                "spmeesseman.vscode-taskexplorer"
+                "ms-toolsai.jupyter"
             ]
         }
     },
