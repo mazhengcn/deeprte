@@ -1,7 +1,6 @@
 {
     "[python]": {
         "editor.codeActionsOnSave": {
-            "source.fixAll": true,
             "source.organizeImports": true
         },
         "editor.defaultFormatter": "ms-python.black-formatter",
