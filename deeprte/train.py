@@ -531,9 +531,10 @@ def main(experiment_class, argv):
     save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
 
     if FLAGS.config.one_off_evaluate:
-        save_model_fn = (
-            lambda: None
-        )  # noqa: E731  # No need to save checkpoint in this case.
+
+        def save_model_fn():
+            return None  # noqa: E731  # No need to save checkpoint in this case.
+
     else:
         save_model_fn = functools.partial(
             save_state_from_in_memory_checkpointer, save_dir, experiment_class
