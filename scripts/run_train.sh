@@ -45,12 +45,12 @@ else
 fi
 
 if ! type screen > /dev/null 2>&1; then
-    apt-get update
+    sudo apt-get update
     echo "Installing screen..."
-    apt-get -y install --no-install-recommends screen
+    sudo apt-get -y install --no-install-recommends screen
     # Clean up
-    apt-get clean -y
-    rm -rf /var/lib/apt/lists/*
+    sudo apt-get clean -y
+    sudo rm -rf /var/lib/apt/lists/*
 fi
 
 screen -S "${CKPT_NAME}" python deeprte/train.py ${TRAIN_ARGS}
