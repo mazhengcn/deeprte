@@ -1,13 +1,7 @@
 {
     "name": "DeepRTE",
     // Use pre-built image or use the Dockerfile under .devcontainer folder
-    "image": "ghcr.io/mazhengcn/devcontainers/jax:latest",
-    // Common utilities in the container
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "username": "jax"
-        }
-    },
+    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
     // Volume mount data folder
     "mounts": [
         {
