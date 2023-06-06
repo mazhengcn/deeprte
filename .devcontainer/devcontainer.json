@@ -17,7 +17,7 @@
         "--shm-size=1g"
     ],
     // Editable install of deeprte
-    "postCreateCommand": "pip install -e .",
+    "postCreateCommand": "python -m pip install -e .",
     // Supporting tool 
     "customizations": {
         "vscode": {
