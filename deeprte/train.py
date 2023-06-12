@@ -44,18 +44,6 @@ OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[str, jax.Array]
 
 
-def _format_logs(prefix, results):
-    # f_list for less verbosity; e.g., "4." instead of
-    # "array(4., dtype=float32)".
-    logging_str = " - ".join(
-        [
-            f"{k}: {results[k]:.2%}" if k[-2:] == "pe" else f"{k}: {results[k]}"
-            for k in sorted(results.keys())
-        ]
-    )
-    logging.info("%s - %s", prefix, logging_str)
-
-
 class Trainer(experiment.AbstractExperiment):
     """RTE Trainer."""
 
@@ -305,10 +293,12 @@ class Trainer(experiment.AbstractExperiment):
         )
         t_diff = time.time() - t_0
 
-        _format_logs(
-            f"(Evaluation time {t_diff:.1f}s, " f"global_step {global_step_value})",
+        logging.info(
+            "Evaluation time: %.1f at global_step: %d, %s",
+            t_diff,
+            global_step_value,
             metrics,
-        )
+        ),
 
         return metrics
 
@@ -339,7 +329,9 @@ class Trainer(experiment.AbstractExperiment):
         metrics = {}
         # Take sqrt if it is squared
         for k, v in mean_metrics.items():
-            metrics["eval_" + k] = jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+            metrics["eval_" + k] = (
+                100 * jnp.sqrt(v) if k.split("_")[-1][0] == "r" else v
+            )
 
         return metrics
 

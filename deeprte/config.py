@@ -90,8 +90,11 @@ def get_config(arg_string: str = "8, 5000"):
     # When True, the eval job immediately loads a checkpoint
     # runs evaluate() once, then terminates.
     config.one_off_evaluate = False
+    config.max_checkpoints_to_keep = 2
     # Seed for the RNGs (default is 42).
     config.random_seed = 42
+    config.best_model_eval_metric = "eval_rmspe"
+    config.best_model_eval_metric_higher_is_better = False
     config.checkpoint_dir = ""
     config.restore_dir = ""
 
