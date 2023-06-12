@@ -84,9 +84,8 @@ class DeepRTE(hk.Module):
             total_loss = gc.loss_weights * interior_loss
             ret["loss"] = {
                 "interior_mse": interior_loss,
-                "interior_rmspe": jnp.sqrt(
-                    interior_loss / jnp.mean(interior_labels**2)
-                ),
+                "interior_rmspe": 100
+                * jnp.sqrt(interior_loss / jnp.mean(interior_labels**2)),
             }
             if "sampled_boundary_coords" in batch:
                 rte_inputs["phase_coords"] = batch["sampled_boundary_coords"]
