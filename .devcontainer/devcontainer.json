@@ -14,7 +14,7 @@
     "runArgs": [
         "--name=deeprte",
         "--gpus=all",
-        "--ipc=host"
+        "--shm-size=1g"
     ],
     // Editable install of deeprte
     "postCreateCommand": "python -m pip install -e .",
@@ -33,6 +33,5 @@
     // Environment varibles for support tool
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
-    },
-    "remoteUser": "root"
+    }
 }
