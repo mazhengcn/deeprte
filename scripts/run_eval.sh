@@ -27,7 +27,7 @@ else
 	BATCH_SIZE="$(nvidia-smi --list-gpus | wc -l)"
 fi
 
-python deeprte/train.py \
+python deeprte/main.py \
 	--config=deeprte/config.py \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
 	--config.experiment_kwargs.config.evaluation.batch_size=${BATCH_SIZE} \
