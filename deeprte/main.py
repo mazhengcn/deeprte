@@ -35,9 +35,7 @@ def main(experiment_class, argv):
     restore_dir = FLAGS.config.restore_dir
 
     if restore_dir:
-        restore_state_to_in_memory_checkpointer(
-            restore_dir, FLAGS.config.experiment_kwargs.config
-        )
+        restore_state_to_in_memory_checkpointer(restore_dir, FLAGS.config)
 
     # Maybe save a model.
     save_dir = os.path.join(FLAGS.config.checkpoint_dir, "models")
@@ -49,7 +47,10 @@ def main(experiment_class, argv):
 
     else:
         save_model_fn = functools.partial(
-            save_state_from_in_memory_checkpointer, save_dir, experiment_class
+            save_state_from_in_memory_checkpointer,
+            save_dir,
+            experiment_class,
+            FLAGS.config,
         )
     setup_signals(save_model_fn)  # Save on Ctrl+C (continue) or Ctrl+\ (exit).
 
