@@ -26,7 +26,7 @@ from absl import logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte.train import Experiment
+from deeprte.experiment import Experiment
 from deeprte.utils import to_flat_dict
 
 

@@ -25,7 +25,7 @@ from deeprte.checkpoint import (
     save_state_from_in_memory_checkpointer,
     setup_signals,
 )
-from deeprte.train import Experiment
+from deeprte.experiment import Experiment
 
 FLAGS = flags.FLAGS
 
