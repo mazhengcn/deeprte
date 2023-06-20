@@ -14,16 +14,17 @@
 
 """Core modules including Green's function with Attenuation and Scattering."""
 
-import dataclasses
 import functools
 from typing import Optional
 
+import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from ml_collections import ConfigDict
+from ml_collections import config_dict
 
+from deeprte.data import pipeline
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
@@ -41,14 +42,25 @@ COLLOCATION_AXES = {
 }
 
 
-@dataclasses.dataclass
 class DeepRTE(hk.Module):
     """Deep RTE model."""
 
-    config: ConfigDict
-    name: Optional[str] = "deeprte"
+    def __init__(
+        self, config: config_dict.ConfigDict, name: Optional[str] = "deeprte"
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
 
-    def __call__(self, batch, is_training, compute_loss=False, compute_metrics=False):
+    def __call__(
+        self,
+        batch: pipeline.FeatureDict,
+        is_training: bool,
+        compute_loss: bool = False,
+        compute_metrics: bool = False,
+    ) -> (
+        dict[str, dict[str, chex.Array]]
+        | tuple[float, dict[str, dict[str, chex.Array]]]
+    ):
         c = self.config
         gc = self.config.global_config
         ret = {}
@@ -121,15 +133,26 @@ class DeepRTE(hk.Module):
         return ret
 
 
-@dataclasses.dataclass
 class GreenFunction(hk.Module):
     """Green's function module."""
 
-    config: ConfigDict
-    global_config: ConfigDict
-    name: Optional[str] = "green_function"
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "green_function",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
 
-    def __call__(self, coord1, coord2, batch, is_training):
+    def __call__(
+        self,
+        coord1: chex.Array,
+        coord2: chex.Array,
+        batch: pipeline.FeatureDict,
+        is_training: bool,
+    ) -> chex.Array:
         c = self.config
         gc = self.global_config
 
@@ -187,15 +210,27 @@ class GreenFunction(hk.Module):
         return output
 
 
-@dataclasses.dataclass
 class Scattering(hk.Module):
     """Scattering module."""
 
-    config: ConfigDict
-    global_config: ConfigDict
-    name: Optional[str] = "scattering_module"
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "scattering_module",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
 
-    def __call__(self, act, self_act, kernel, self_kernel, is_training):
+    def __call__(
+        self,
+        act: chex.Array,
+        self_act: chex.Array,
+        kernel: chex.Array,
+        self_kernel: chex.Array,
+        is_training: bool,
+    ) -> tuple[chex.Array, chex.Array]:
         c = self.config
         gc = self.global_config
         w_init = get_initializer_scale(gc.w_init)
@@ -235,16 +270,24 @@ class Scattering(hk.Module):
         return act_output, self_act_output
 
 
-@dataclasses.dataclass
 class ScatteringLayer(hk.Module):
     "A single layer describing scattering action."
 
-    output_size: int
-    with_bias: bool = True
-    w_init: int | None = None
-    name: Optional[str] = "scattering_layer"
+    def __init__(
+        self,
+        output_size: int,
+        with_bias: bool = True,
+        w_init: int | None = None,
+        name: Optional[str] = "scattering_layer",
+    ) -> None:
+        super().__init__(name=name)
+        self.output_size = output_size
+        self.with_bias = with_bias
+        self.w_init = w_init
 
-    def __call__(self, act, kernel, is_training=None):
+    def __call__(
+        self, act: chex.Array, kernel: chex.Array, is_training: bool | None = None
+    ) -> chex.Array:
         output = jnp.einsum("...V,Vd->...d", kernel, act)
         output = hk.Linear(
             output_size=self.output_size,
@@ -256,15 +299,26 @@ class ScatteringLayer(hk.Module):
         return output
 
 
-@dataclasses.dataclass
 class Attenuation(hk.Module):
     """Attenuation operator module of the tranport equation."""
 
-    config: ConfigDict
-    global_config: ConfigDict
-    name: Optional[str] = "attenuation"
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "attenuation",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
 
-    def __call__(self, coord1, coord2, att_coeff, charc):
+    def __call__(
+        self,
+        coord1: chex.Array,
+        coord2: chex.Array,
+        att_coeff: chex.Array,
+        charc: Characteristics,
+    ) -> chex.Array:
         """Module that describes the attenuation part of RTE equation.
 
         Args:
@@ -302,15 +356,26 @@ class Attenuation(hk.Module):
         return act
 
 
-@dataclasses.dataclass
 class Attention(hk.Module):
     """Multihead Attention."""
 
-    config: ConfigDict
-    global_config: ConfigDict
-    name: Optional[str] = "attention"
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "attention",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
 
-    def __call__(self, query, key, value, mask=None):
+    def __call__(
+        self,
+        query: chex.Array,
+        key: chex.Array,
+        value: chex.Array,
+        mask: chex.Array | None = None,
+    ) -> chex.Array:
         """Computes (optionally masked) MHA with queries, keys & values.
 
         Args:
@@ -374,13 +439,18 @@ class Attention(hk.Module):
         return y.reshape((*leading_dims, self.num_head, head_dim))
 
 
-@dataclasses.dataclass
 class Attention_v2(hk.Module):
     """Multihead Attention."""
 
-    config: ConfigDict
-    global_config: ConfigDict
-    name: Optional[str] = "attention"
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "attention_v2",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
 
     def __call__(self, query, key, value, mask=None):
         """Computes (optionally masked) MHA with queries, keys & values.
