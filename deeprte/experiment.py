@@ -18,6 +18,7 @@ import functools
 import time
 from collections.abc import Generator, Mapping
 
+import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -25,13 +26,13 @@ import optax
 from absl import logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
+from ml_collections import config_dict
 
 from deeprte import input_pipeline, optimizers, utils
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model import modules
 
-OptState = tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
-Scalars = Mapping[str, jax.Array]
+Scalars = dict[str, jax.Array]
 
 
 class Experiment(experiment.AbstractExperiment):
@@ -46,7 +47,9 @@ class Experiment(experiment.AbstractExperiment):
         "_opt_state": "opt_state",
     }
 
-    def __init__(self, mode, init_rng, config):
+    def __init__(
+        self, mode: str, init_rng: chex.PRNGKey, config: config_dict.ConfigDict
+    ) -> None:
         """Initializes solver."""
         super().__init__(mode=mode, init_rng=init_rng)
 
@@ -85,7 +88,9 @@ class Experiment(experiment.AbstractExperiment):
     #  \__|_|  \__,_|_|_| |_|
     #
 
-    def step(self, global_step, rng, *unused_args, **unused_kwargs):
+    def step(
+        self, global_step: chex.Array, rng: chex.PRNGKey, *unused_args, **unused_kwargs
+    ) -> Scalars:
         """See base class."""
         if not self._training:
             self._initialize_training()
@@ -94,27 +99,24 @@ class Experiment(experiment.AbstractExperiment):
         batch = next(self._train_input)
 
         # Update parameters
-        outputs = self.update_fn(
+        self._params, self._state, self._opt_state, scalars = self.train_fn(
             self._params, self._state, self._opt_state, global_step, rng, batch
         )
-        self._params = outputs["params"]
-        self._state = outputs["state"]
-        self._opt_state = outputs["opt_state"]
 
         # We only return the loss scalars on the first devict for logging
-        scalars = jl_utils.get_first(outputs["scalars"])
+        scalars = jl_utils.get_first(scalars)
 
         return scalars
 
-    def _update_fn(
+    def _train_fn(
         self,
         params: hk.Params,
         state: hk.State,
-        opt_state: OptState,
-        global_step: jax.Array,
-        rng: jax.Array,
-        batch: Mapping[str, jax.Array],
-    ):
+        opt_state: optax.OptState,
+        global_step: chex.Array,
+        rng: chex.PRNGKey,
+        batch: Mapping[str, chex.Array],
+    ) -> tuple[hk.Params, hk.State, optax.OptState, Scalars]:
         # Logging dict.
         scalars = {}
 
@@ -145,19 +147,15 @@ class Experiment(experiment.AbstractExperiment):
         scalars["learning_rate"] = learning_rate
 
         # Update params
-        updates, opt_state = self.optimizer.update(grads, opt_state, params)
-        params = optax.apply_updates(params, updates)
+        updates, new_opt_state = self.optimizer.update(grads, opt_state, params)
+        new_params = optax.apply_updates(params, updates)
 
         # Update scalars dict
         loss_scalars = {f"train_{k}": v for k, v in loss_scalars.items()}
         scalars.update(loss_scalars)
         scalars = jax.lax.pmean(scalars, axis_name="i")
-        return {
-            "params": params,
-            "state": new_state,
-            "opt_state": opt_state,
-            "scalars": scalars,
-        }
+
+        return new_params, new_state, new_opt_state, scalars
 
     def _build_train_input(self) -> Generator[FeatureDict, None, None]:
         """Build train input as generator/iterator."""
@@ -183,7 +181,7 @@ class Experiment(experiment.AbstractExperiment):
             batch_repeat=c.training.batch_repeat,
         )
 
-    def _initialize_training(self):
+    def _initialize_training(self) -> None:
         # Less verbose
         c = self.config
 
@@ -253,7 +251,7 @@ class Experiment(experiment.AbstractExperiment):
         # allows JAX (on some backends) to reuse the device memory associated
         # with these inputs to store the outputs of our function (which also
         # start with `params, state, opt_state`).
-        self.update_fn = jax.pmap(self._update_fn, axis_name="i")
+        self.train_fn = jax.pmap(self._train_fn, axis_name="i")
 
         # Set training state to True after initialization
         self._training = True
@@ -265,7 +263,9 @@ class Experiment(experiment.AbstractExperiment):
     #  \___| \_/ \__,_|_|
     #
 
-    def evaluate(self, global_step, rng: jax.Array, **unused_args) -> Scalars:
+    def evaluate(
+        self, global_step: chex.Array, rng: chex.PRNGKey, **unused_args
+    ) -> Scalars:
         """See base class."""
         if not self._evaluating:
             self._initialize_evaluation()
@@ -292,7 +292,9 @@ class Experiment(experiment.AbstractExperiment):
 
         return metrics
 
-    def _eval_epoch(self, params: hk.Params, state: hk.State, rng: jax.Array):
+    def _eval_epoch(
+        self, params: hk.Params, state: hk.State, rng: chex.PRNGKey
+    ) -> Scalars:
         """Evaluates an epoch."""
         num_examples = 0.0
         summed_metrics = None
@@ -325,7 +327,13 @@ class Experiment(experiment.AbstractExperiment):
 
         return metrics
 
-    def _eval_fn(self, params, state, rng, batch):
+    def _eval_fn(
+        self,
+        params: hk.Params,
+        state: hk.State,
+        rng: chex.PRNGKey,
+        batch: Mapping[str, chex.Array],
+    ) -> Scalars:
         """Evaluates a batch."""
         outputs, state = self.model.apply(
             params, state, rng, batch, is_training=False, compute_metrics=True
@@ -335,7 +343,7 @@ class Experiment(experiment.AbstractExperiment):
         # by num_samples.
         return jax.lax.psum(outputs["metrics"], axis_name="i")
 
-    def _initialize_evaluation(self):
+    def _initialize_evaluation(self) -> None:
         def prefetch_and_double_buffer_input():
             # Performs prefetching of elements from an iterable
             # in a separate thread.
