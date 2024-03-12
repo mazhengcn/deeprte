@@ -31,13 +31,13 @@ def make_data_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     """
     # Load reference solutions and sigmas
     psi = np_data["psi_label"]  # [B, I, J, M]
-    sigma_t = np_data["sigma_t"]  # [B, I, J]
-    sigma_a = np_data["sigma_a"]  # [B, I, J]
+    sigma_t = np_data["sigma_t"]  # [B, I', J']
+    sigma_a = np_data["sigma_a"]  # [B, I', J']
     psi_bc = np_data["psi_bc"]  # [B, 2*(I+J), 4]
 
     scattering_kernel_value = np.tile(
         np_data["scattering_kernel"],
-        (1, sigma_t.shape[1] * sigma_t.shape[2], 1),
+        (1, psi.shape[1] * psi.shape[2], 1),
     )
     scattering_kernel = scattering_kernel_value.reshape(*(psi.shape + psi.shape[-1:]))
     nv = int(psi.shape[-1] / 4)
@@ -80,10 +80,11 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
     vx, vy = np_data["ct"], np_data["st"]  # [M, 1]
     v_coords = np.concatenate([vx, vy], axis=-1)
     x, y = np.squeeze(np_data["x"]), np.squeeze(np_data["y"])
+    x_coef, y_coef = np.squeeze(np_data["x_coef"]), np.squeeze(np_data["y_coef"])
 
     features["position_coords"] = utils.cartesian_product(
-        np.expand_dims(x, axis=-1),
-        np.expand_dims(y, axis=-1),
+        np.expand_dims(x_coef, axis=-1),
+        np.expand_dims(y_coef, axis=-1),
     )
     features["velocity_coords"] = v_coords
 
@@ -102,13 +103,15 @@ def make_grid_features(np_data: Mapping[str, np.ndarray]) -> FeatureDict:
 
 
 def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
-    num_x = np.shape(np.squeeze(np_data["x"]))[0]
-    num_y = np.shape(np.squeeze(np_data["y"]))[0]
+    num_x_coef = np.shape(np.squeeze(np_data["x_coef"]))[0]
+    num_y_coef = np.shape(np.squeeze(np_data["y_coef"]))[0]
+    num_x = np.shape(np_data["psi_label"])[1]
+    num_y = np.shape(np_data["psi_label"])[2]
     num_v = np.shape(np.squeeze(np_data["ct"]))[0]
 
     shape_dict = {}
     shape_dict["num_examples"] = np.shape(np_data["psi_label"])[0]
-    shape_dict["num_position_coords"] = num_x * num_y
+    shape_dict["num_position_coords"] = num_x_coef * num_y_coef
     shape_dict["num_velocity_coords"] = num_v
     shape_dict["num_phase_coords"] = num_x * num_y * num_v
     shape_dict["num_boundary_coords"] = (num_x + num_y) * num_v

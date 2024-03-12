@@ -15,11 +15,13 @@
 """rte_dataset dataset."""
 import os
 import pathlib
+import sys
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+sys.path.append("/root/projects/deeprte")
 from deeprte.data import pipeline
 from deeprte.model.tf import rte_dataset, rte_features
 

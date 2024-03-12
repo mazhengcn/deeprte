@@ -19,34 +19,27 @@ UNUSED_KEY_LIST = ["rand_params", "config"]
 
 
 def interpolate(data):
-    list_omega = [
-        data["omega_prime"][41 * i : 41 * (i + 1), :] for i in range(4)
-    ]
+    n = np.squeeze(data["x"]).shape[0]
+
+    list_omega = [data["omega_prime"][n * i : n * (i + 1), :] for i in range(4)]
     list_omega = [(omega[1:] + omega[:-1]) / 2 for omega in list_omega]
-    data["omega_prime"] = np.concatenate(list_omega, axis=0) / 40
+    data["omega_prime"] = np.concatenate(list_omega, axis=0) / (n - 1)
 
     phi = data["phi"]
     phi = (phi[:, :-1, :] + phi[:, 1:, :]) / 2
     data["phi"] = (phi[:, :, :-1] + phi[:, :, 1:]) / 2
 
-    list_psi_bc = [
-        data["psi_bc"][:, 41 * i : 41 * (i + 1), :] for i in range(4)
-    ]
-    list_psi_bc = [
-        (psi_bc[:, 1:, :] + psi_bc[:, :-1, :]) / 2 for psi_bc in list_psi_bc
-    ]
+    list_psi_bc = [data["psi_bc"][:, n * i : n * (i + 1), :] for i in range(4)]
+    list_psi_bc = [(psi_bc[:, 1:, :] + psi_bc[:, :-1, :]) / 2 for psi_bc in list_psi_bc]
     data["psi_bc"] = np.concatenate(list_psi_bc, axis=-2)
 
     psi = data["psi_label"]
     psi = (psi[:, :-1, :, :] + psi[:, 1:, :, :]) / 2
     data["psi_label"] = (psi[:, :, :-1, :] + psi[:, :, 1:, :]) / 2
 
+    list_rv_prime = [data["rv_prime"][n * i : n * (i + 1), :, :] for i in range(4)]
     list_rv_prime = [
-        data["rv_prime"][41 * i : 41 * (i + 1), :, :] for i in range(4)
-    ]
-    list_rv_prime = [
-        (rv_prime[1:, :, :] + rv_prime[:-1, :, :]) / 2
-        for rv_prime in list_rv_prime
+        (rv_prime[1:, :, :] + rv_prime[:-1, :, :]) / 2 for rv_prime in list_rv_prime
     ]
     data["rv_prime"] = np.concatenate(list_rv_prime, axis=0)
 
@@ -62,16 +55,28 @@ def interpolate(data):
     x = (x[1:] + x[:-1]) / 2
     data["x"] = x
 
+    if "x_coef" in data.keys():
+        x_coef = np.squeeze(data["x_coef"])
+        x_coef = (x_coef[1:] + x_coef[:-1]) / 2
+        data["x_coef"] = x_coef
+    else:
+        data["x_coef"] = data["x"]
+
     y = np.squeeze(data["y"])
     y = (y[1:] + y[:-1]) / 2
     data["y"] = y
 
+    if "y_coef" in data.keys():
+        y_coef = np.squeeze(data["y_coef"])
+        y_coef = (y_coef[1:] + y_coef[:-1]) / 2
+        data["y_coef"] = y_coef
+    else:
+        data["y_coef"] = data["y"]
+
     return data
 
 
-def mat_loader(
-    source_dir: str, data_name_list: list[str]
-) -> dict[str, np.ndarray]:
+def mat_loader(source_dir: str, data_name_list: list[str]) -> dict[str, np.ndarray]:
     np_data = {}
 
     dir_path = Path(source_dir)
@@ -89,9 +94,7 @@ def mat_loader(
                             mat_dict[k], np_data[k]
                         ), f"The value of key: {k} are not the same!"
                 else:
-                    np_data[k] = np.concatenate(
-                        [mat_dict[k], np_data[k]], axis=0
-                    )
+                    np_data[k] = np.concatenate([mat_dict[k], np_data[k]], axis=0)
         else:
             np_data = mat_dict.copy()
 
@@ -100,9 +103,7 @@ def mat_loader(
     # for k in unused_keys
     for k in unused_keys:
         del np_data[k]
-    np_data = tree.map_structure(
-        lambda x: np.array(x, dtype=np.float32), np_data
-    )
+    np_data = tree.map_structure(lambda x: np.array(x, dtype=np.float32), np_data)
     np_data = interpolate(np_data)
 
     return np_data

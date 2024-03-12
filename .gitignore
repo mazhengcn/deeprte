@@ -2,11 +2,13 @@
 /data/
 slurm/
 ckpts/
+test/
 archive/
 results/
 CONFIGS.txt
 generator/2d-sweeping/config.m
 generator/remote_list.txt
+figures/
 # notebooks/
 
 # Byte-compiled / optimized / DLL files

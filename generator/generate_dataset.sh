@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Set config and generator paths
-CONFIG_DIR='/workspaces/deeprte/generator/2d-sweeping/configs'
-GENERATOR_PATH='/workspaces/deeprte/generator/2d-sweeping'
+CONFIG_DIR='/nfs/my/projects/deeprte/generator/2d-sweeping/configs'
+GENERATOR_PATH='/nfs/my/projects/deeprte/generator/2d-sweeping'
 
 # Set data save directory and destination host directory
-DATA_SAVE_DIR='/workspaces/deeprte/generator/data/raw_data'
+DATA_SAVE_DIR='/nfs/my/projects/deeprte/generator/data/raw_data'
 DESTINATION_HOST_DIR='matjxt-mz@sydata.hpc.sjtu.edu.cn:/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data'
 
 # Generate data
@@ -38,5 +38,5 @@ sync_data () {
     fi
 }
 
-sync_data "${DATA_SAVE_DIR}" "${DESTINATION_HOST_DIR}/train"
+sync_data "${DATA_SAVE_DIR}" "${DESTINATION_HOST_DIR}"
 # sync_data "${DATA_SAVE_DIR}/isotropic" "${DESTINATION_HOST_DIR}/isotropic"

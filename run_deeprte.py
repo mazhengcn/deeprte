@@ -16,6 +16,7 @@
 import json
 import os
 import pathlib
+import sys
 import time
 from typing import Any
 
@@ -29,6 +30,7 @@ import numpy as np
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
 
+sys.path.append("/root/projects/deeprte")
 from deeprte.data import pipeline
 from deeprte.model import model
 from deeprte.model.utils import flat_params_to_haiku
@@ -46,6 +48,7 @@ flags.DEFINE_string(
     "in the system's temporary directory.",
 )
 flags.DEFINE_bool("benchmark", True, "If True, benchmark the model.")
+flags.DEFINE_integer("num_eval", None, "Number of examples to evaluate.")
 
 
 FLAGS = flags.FLAGS
@@ -53,6 +56,10 @@ FLAGS = flags.FLAGS
 
 def rmse(pred, target):
     return np.sqrt(np.mean((pred - target) ** 2) / np.mean(target**2))
+
+
+def mse(pred, target):
+    return np.mean((pred - target) ** 2)
 
 
 def get_normalization_ratio(psi_range, boundary_range):
@@ -85,7 +92,12 @@ def plot_phi(r, phi_pre, phi_label, save_path):
     cbar = fig.colorbar(cs_1)
     cbar.ax.tick_params(labelsize=16)
 
-    cs_2 = axs[1].contourf(r[..., 0], r[..., 1], phi_pre, cmap=ListedColormap(viridis))
+    cs_2 = axs[1].contourf(
+        r[..., 0],
+        r[..., 1],
+        phi_pre,
+        cmap=ListedColormap(viridis),
+    )
     axs[1].set_title(r"Predict $f(r,\Omega)$", fontsize=20)
     axs[1].tick_params(axis="both", labelsize=15)
     cbar = fig.colorbar(cs_2)
@@ -113,9 +125,12 @@ def predict_radiative_transfer(
     benchmark: bool,
     normalization_ratio,
     random_seed: int,
+    num_eval: int = None,
 ):
     # Get features.
     raw_feature_dict = data_pipeline.process()
+
+    del data_pipeline
     num_examples = raw_feature_dict["shape"]["num_examples"]
 
     logging.info("Predicting %d examples sequentially", num_examples)
@@ -124,7 +139,10 @@ def predict_radiative_transfer(
     if not output_dir_base.exists():
         output_dir_base.mkdir(parents=True)
 
-    for i in range(num_examples):
+    if not num_eval:
+        num_eval = num_examples
+
+    for i in range(num_examples - num_eval, num_examples):
         timings = {}
 
         logging.info("Predicting example %d/%d", i + 1, num_examples)
@@ -199,13 +217,6 @@ def predict_radiative_transfer(
             {"predicted_psi": predicted_psi, "predicted_phi": predicted_phi}
         )
 
-        # Remove jax dependency from results.
-        np_prediction_result = _jnp_to_np(dict(prediction_result))
-        # Save the model outputs.
-        result_output_path = output_dir / "result.dill"
-        with open(result_output_path, "wb") as f:
-            dill.dump(np_prediction_result, f)
-
         # Compute metrics.
         metrics = {}
         psi_label = feature_dict["functions"]["psi_label"]
@@ -214,8 +225,30 @@ def predict_radiative_transfer(
         )
         psi_rmse = rmse(predicted_psi, psi_label)
         phi_rmse = rmse(predicted_phi, phi_label)
-        metrics.update({"psi_rmse": str(psi_rmse), "phi_rmse": str(phi_rmse)})
+        psi_mse = mse(predicted_psi, psi_label)
+        phi_mse = mse(predicted_phi, phi_label)
+
+        metrics.update(
+            {
+                "psi_rmse": str(psi_rmse),
+                "phi_rmse": str(phi_rmse),
+                "psi_mse": str(psi_mse),
+                "phi_mse": str(phi_mse),
+            }
+        )
         logging.info("RMSE of psi: %f, RMSE of phi: %f\n", psi_rmse, phi_rmse)
+
+        # Remove jax dependency from results.
+        np_prediction_result = _jnp_to_np(dict(prediction_result))
+        # Save the model outputs.
+        np_result = {
+            **np_prediction_result,
+            "psi_label": psi_label,
+            "phi_label": phi_label,
+        }
+        result_output_path = output_dir / "result.dill"
+        with open(result_output_path, "wb") as f:
+            dill.dump(np_result, f)
 
         metrics_output_path = output_dir / "metrics.json"
         with open(metrics_output_path, "w") as f:
@@ -225,13 +258,13 @@ def predict_radiative_transfer(
         with open(timings_output_path, "w") as f:
             f.write(json.dumps(timings, indent=4))
 
-        figure_save_path = output_dir / "plot.png"
-        plot_phi(
-            feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
-            predicted_phi[0],
-            phi_label[0],
-            figure_save_path,
-        )
+        # figure_save_path = output_dir / "plot.png"
+        # plot_phi(
+        #     feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
+        #     predicted_phi[0],
+        #     phi_label[0],
+        #     figure_save_path,
+        # )
 
 
 def main(argv):
@@ -271,6 +304,7 @@ def main(argv):
         FLAGS.benchmark,
         normalization_ratio,
         0,
+        FLAGS.num_eval,
     )
 
     logging.info("Writing config file...")
@@ -278,6 +312,7 @@ def main(argv):
     config = {
         "model_dir": FLAGS.model_dir,
         "data_dir": FLAGS.data_dir,
+        "data_filenames": FLAGS.data_filenames,
     }
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)
@@ -287,4 +322,5 @@ if __name__ == "__main__":
     flags.mark_flags_as_required(
         ["data_dir", "data_filenames", "output_dir", "model_dir"]
     )
+    app.run(main)
     app.run(main)
