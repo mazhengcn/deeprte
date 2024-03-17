@@ -1,24 +1,9 @@
 {
     "name": "DeepRTE",
-    // Use pre-built image or use the Dockerfile under .devcontainer folder
-    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
-    // Volume mount data folder
-    "mounts": [
-        {
-            "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data",
-            "type": "volume"
-        }
-    ],
-    // Runtime arguments
-    "runArgs": [
-        "--name=deeprte",
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
-    // Editable install of deeprte
-    "postCreateCommand": "python -m pip install -e .",
-    // Supporting tool 
+    "image": "ghcr.io/nvidia/jax:jax",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -26,11 +11,29 @@
                 "ms-python.vscode-pylance",
                 "charliermarsh.ruff",
                 "ms-toolsai.jupyter"
-            ]
+            ],
+            "settings": {
+                "python.analysis.extraPaths": [
+                    "/opt/jax",
+                    "/opt/flax"
+                ]
+            }
         }
     },
-    // Environment varibles for support tool
+    "runArgs": [
+        "--name=deeprte",
+        "--gpus=all",
+        "--shm-size=1g"
+    ],
     "remoteEnv": {
         "TZ": "Asia/Shanghai"
-    }
+    },
+    "mounts": [
+        {
+            "source": "rte_data",
+            "target": "${containerWorkspaceFolder}/data",
+            "type": "volume"
+        }
+    ],
+    "postCreateCommand": "pip install -e ."
 }
