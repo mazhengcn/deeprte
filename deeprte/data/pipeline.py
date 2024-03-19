@@ -114,7 +114,7 @@ def make_shape_dict(np_data: Mapping[str, np.ndarray]) -> Mapping[str, int]:
     shape_dict["num_position_coords"] = num_x_coef * num_y_coef
     shape_dict["num_velocity_coords"] = num_v
     shape_dict["num_phase_coords"] = num_x * num_y * num_v
-    shape_dict["num_boundary_coords"] = (num_x + num_y) * num_v
+    shape_dict["num_boundary_coords"] = np.multiply(*np.shape(np_data["rv_prime"])[:-1])
 
     return shape_dict
 

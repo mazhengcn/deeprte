@@ -21,27 +21,27 @@ UNUSED_KEY_LIST = ["rand_params", "config"]
 def interpolate(data):
     n = np.squeeze(data["x"]).shape[0]
 
-    list_omega = [data["omega_prime"][n * i : n * (i + 1), :] for i in range(4)]
-    list_omega = [(omega[1:] + omega[:-1]) / 2 for omega in list_omega]
-    data["omega_prime"] = np.concatenate(list_omega, axis=0) / (n - 1)
+    # list_omega = [data["omega_prime"][n * i : n * (i + 1), :] for i in range(4)]
+    # list_omega = [(omega[1:] + omega[:-1]) / 2 for omega in list_omega]
+    # data["omega_prime"] = np.concatenate(list_omega, axis=0) / (n - 1)
 
     phi = data["phi"]
     phi = (phi[:, :-1, :] + phi[:, 1:, :]) / 2
     data["phi"] = (phi[:, :, :-1] + phi[:, :, 1:]) / 2
 
-    list_psi_bc = [data["psi_bc"][:, n * i : n * (i + 1), :] for i in range(4)]
-    list_psi_bc = [(psi_bc[:, 1:, :] + psi_bc[:, :-1, :]) / 2 for psi_bc in list_psi_bc]
-    data["psi_bc"] = np.concatenate(list_psi_bc, axis=-2)
+    # list_psi_bc = [data["psi_bc"][:, n * i : n * (i + 1), :] for i in range(4)]
+    # list_psi_bc = [(psi_bc[:, 1:, :] + psi_bc[:, :-1, :]) / 2 for psi_bc in list_psi_bc]
+    # data["psi_bc"] = np.concatenate(list_psi_bc, axis=-2)
 
     psi = data["psi_label"]
     psi = (psi[:, :-1, :, :] + psi[:, 1:, :, :]) / 2
     data["psi_label"] = (psi[:, :, :-1, :] + psi[:, :, 1:, :]) / 2
 
-    list_rv_prime = [data["rv_prime"][n * i : n * (i + 1), :, :] for i in range(4)]
-    list_rv_prime = [
-        (rv_prime[1:, :, :] + rv_prime[:-1, :, :]) / 2 for rv_prime in list_rv_prime
-    ]
-    data["rv_prime"] = np.concatenate(list_rv_prime, axis=0)
+    # list_rv_prime = [data["rv_prime"][n * i : n * (i + 1), :, :] for i in range(4)]
+    # list_rv_prime = [
+    #     (rv_prime[1:, :, :] + rv_prime[:-1, :, :]) / 2 for rv_prime in list_rv_prime
+    # ]
+    # data["rv_prime"] = np.concatenate(list_rv_prime, axis=0)
 
     sigma_a = data["sigma_a"]
     sigma_a = (sigma_a[:, :-1, :] + sigma_a[:, 1:, :]) / 2
