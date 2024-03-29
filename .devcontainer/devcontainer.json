@@ -1,8 +1,10 @@
 {
-    "name": "DeepRTE",
     "image": "ghcr.io/nvidia/jax:jax",
     "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {}
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": false,
+            "upgradePackages": false
+        }
     },
     "customizations": {
         "vscode": {
@@ -21,7 +23,6 @@
         }
     },
     "runArgs": [
-        "--name=deeprte",
         "--gpus=all",
         "--shm-size=1g"
     ],
