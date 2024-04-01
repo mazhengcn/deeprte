@@ -52,7 +52,7 @@ def get_config(arg_string: str = "8, 5000"):
                 training=dict(
                     num_epochs=num_epochs,
                     batch_size=train_batch_size,
-                    collocation_sizes=[128],
+                    collocation_sizes=[140],
                     batch_repeat=1,
                     accum_grads_steps=1,
                 ),
@@ -84,6 +84,7 @@ def get_config(arg_string: str = "8, 5000"):
     config.training_steps = steps_from_epochs(num_epochs)
 
     config.interval_type = "steps"
+    config.legacy_random_seed_behavior = True
     config.save_checkpoint_interval = steps_from_epochs(10)
     config.log_tensors_interval = steps_from_epochs(1)
     config.log_train_data_interval = steps_from_epochs(1)
