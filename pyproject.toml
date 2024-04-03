@@ -27,6 +27,7 @@ dependencies = [
     "dm-haiku",
     "jax>=0.4.3",
     "jaxline",
+    "matplotlib",
     "ml-collections",
     "numpy",
     "optax",

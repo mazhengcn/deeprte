@@ -3,9 +3,6 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
         },
-        "editor.defaultFormatter": "ms-python.black-formatter",
-    },
-    "python.formatting.provider": "none",
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.typeCheckingMode": "off"
+        "editor.defaultFormatter": "charliermarsh.ruff",
+    }
 }

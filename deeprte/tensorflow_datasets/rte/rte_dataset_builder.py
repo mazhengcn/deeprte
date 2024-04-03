@@ -58,7 +58,7 @@ def _get_config_names(file):
 class Builder(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for rte_dataset dataset."""
 
-    VERSION = tfds.core.Version("0.0.1")
+    VERSION = tfds.core.Version("0.0.2")
     RELEASE_NOTES = {
         "0.0.1": "Initial release.",
     }

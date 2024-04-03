@@ -191,13 +191,13 @@ class GreenFunction(hk.Module):
             batch["velocity_coords"],
             batch["velocity_weights"],
         )
-        kernel = (1 - batch["scattering_kernel"]) * velocity_weights
-        self_kernel = (1 - batch["self_scattering_kernel"]) * velocity_weights
+        kernel = (-batch["scattering_kernel"]) * velocity_weights
+        self_kernel = (-batch["self_scattering_kernel"]) * velocity_weights
 
         self_act = hk.vmap(self_att_fn, split_rng=(not hk.running_init()))(
             velocity_coords
         )
-        output, _ = Scattering(c.scattering, gc)(
+        output = Scattering(c.scattering, gc)(
             act=act,
             self_act=self_act,
             kernel=kernel,
@@ -210,7 +210,7 @@ class GreenFunction(hk.Module):
         return output
 
 
-class Scattering(hk.Module):
+class ScatteringV1(hk.Module):
     """Scattering module."""
 
     def __init__(
@@ -268,6 +268,76 @@ class Scattering(hk.Module):
         act_output, self_act_output = scattering_stack((act, self_act))
 
         return act_output, self_act_output
+
+
+class Scattering(hk.Module):
+    """Scattering module."""
+
+    def __init__(
+        self,
+        config: config_dict.ConfigDict,
+        global_config: config_dict.ConfigDict,
+        name: Optional[str] = "scattering_module",
+    ) -> None:
+        super().__init__(name=name)
+        self.config = config
+        self.global_config = global_config
+
+    def __call__(
+        self,
+        act: chex.Array,
+        self_act: chex.Array,
+        kernel: chex.Array,
+        self_kernel: chex.Array,
+        is_training: bool,
+    ) -> tuple[chex.Array, chex.Array]:
+        c = self.config
+        gc = self.global_config
+        w_init = get_initializer_scale(gc.w_init)
+
+        dropout_wrapper_fn = functools.partial(
+            dropout_wrapper,
+            is_training=is_training,
+            safe_key=None,
+            global_config=gc,
+        )
+
+        def scattering_block(x):
+            self_act, self_act_out = x
+
+            scattering_layer = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)
+            layer_norm = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+
+            out = dropout_wrapper_fn(
+                module=scattering_layer,
+                input_act=self_act_out,
+                kernel=self_kernel,
+                output_act=self_act,
+            )
+            out = layer_norm(out)
+
+            return (self_act, out)
+
+        if c.num_layer == 1:
+            self_act_output = self_act
+        else:
+            scattering_stack = hk.experimental.layer_stack(c.num_layer - 1)(
+                scattering_block
+            )
+            _, self_act_output = scattering_stack((self_act, self_act))
+
+        output_layer = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)
+        output_layer_norm = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+
+        act_out = dropout_wrapper_fn(
+            module=output_layer,
+            input_act=self_act_output,
+            kernel=kernel,
+            output_act=act,
+        )
+        act_out = output_layer_norm(act_out)
+
+        return act_out
 
 
 class ScatteringLayer(hk.Module):

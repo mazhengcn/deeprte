@@ -1,4 +1,5 @@
 """Code to generate processed features."""
+
 from collections.abc import Mapping
 
 import numpy as np
