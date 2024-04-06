@@ -87,6 +87,7 @@ def save_state_from_in_memory_checkpointer(
         f.write(config.to_json_best_effort(indent=4))
 
     logging.info("Saving model.")
+
     for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
         if not checkpoint.history:
             logging.info('Nothing to save in "%s"', checkpoint_name)
@@ -96,10 +97,9 @@ def save_state_from_in_memory_checkpointer(
         global_step = pickle_nest["global_step"]
 
         state_dict = {"global_step": global_step}
+
         for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
-            state_dict[key] = jl_utils.get_first(
-                getattr(pickle_nest["experiment_module"], attribute)
-            )
+            state_dict[key] = pickle_nest["experiment_module"][key]
 
         # Saving directory
         save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)

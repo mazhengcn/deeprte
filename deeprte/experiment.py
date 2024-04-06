@@ -283,12 +283,14 @@ class Experiment(experiment.AbstractExperiment):
         )
         t_diff = time.time() - t_0
 
-        logging.info(
-            "Evaluation time: %.1f at global_step: %d, %s",
-            t_diff,
-            global_step_value,
-            metrics,
-        ),
+        (
+            logging.info(
+                "Evaluation time: %.1f at global_step: %d, %s",
+                t_diff,
+                global_step_value,
+                metrics,
+            ),
+        )
 
         return metrics
 
