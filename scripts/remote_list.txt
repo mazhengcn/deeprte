@@ -1,4 +1,0 @@
-ckpts
-results
-test
-train

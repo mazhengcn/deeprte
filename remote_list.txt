@@ -1,5 +1,0 @@
-g0.1-sigma_a3-sigma_t6
-g0.2-sigma_a3-sigma_t6
-g0.5-sigma_a3-sigma_t6
-g0.8-sigma_a3-sigma_t6
-test.txt
