@@ -30,7 +30,7 @@ fi
 TRAIN_ARGS="--config=deeprte/config.py:${BATCH_SIZE},5000 \
 	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
 	--config.experiment_kwargs.config.training.accum_grads_steps=${ACCUM_GRADS_STEPS} \
-	--jaxline_mode=train_eval_multithreaded \
+	--jaxline_mode=train \
 	--alsologtostderr=true
 	"
 

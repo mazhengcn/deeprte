@@ -47,24 +47,6 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
         pickle_nest = dill.load(f)
     logging.info("Restored checkpoint from %s", python_state_path)
 
-    # Assign state to a dummy experiment instance for the in-memory
-    # checkpointer, broadcasting to devices.
-    # dummy_experiment = Experiment(
-    #     mode="train",
-    #     init_rng=jnp.array([0]),
-    #     config=config.experiment_kwargs.config,
-    # )
-    # for attribute, key in Experiment.CHECKPOINT_ATTRS.items():
-    #     setattr(
-    #         dummy_experiment,
-    #         attribute,
-    #         jl_utils.bcast_local_devices(pretrained_state[key]),
-    #     )
-
-    # jaxline_state = dict(
-    #     global_step=pretrained_state["global_step"],
-    #     experiment_module=dummy_experiment,
-    # )
     snapshot = jl_utils.SnapshotNT(0, pickle_nest)
 
     # Finally, seed the jaxline `utils.InMemoryCheckpointer` global dict.
@@ -87,20 +69,14 @@ def save_state_from_in_memory_checkpointer(
         f.write(config.to_json_best_effort(indent=4))
 
     logging.info("Saving model.")
-
     for checkpoint_name, checkpoint in jl_utils.GLOBAL_CHECKPOINT_DICT.items():
         if not checkpoint.history:
             logging.info('Nothing to save in "%s"', checkpoint_name)
             continue
 
         pickle_nest = checkpoint.history[-1].pickle_nest
-        # global_step = pickle_nest["global_step"]
+        global_step = pickle_nest["global_step"]
 
-        # state_dict = {"global_step": global_step}
-        # state_dict.update(pickle_nest["experiment_module"])
-
-        # for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
-        #     state_dict[key] = pickle_nest["experiment_module"][key]
 
         # Saving directory
         save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)
