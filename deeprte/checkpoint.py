@@ -42,30 +42,30 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
         restore_path = pathlib.Path(restore_path)
 
     # Load pretrained experiment state.
-    python_state_path = restore_path / "checkpoint.dill"
+    python_state_path = restore_path / "checkpoint.pickle"
     with open(python_state_path, "rb") as f:
-        pretrained_state = dill.load(f)
+        pickle_nest = dill.load(f)
     logging.info("Restored checkpoint from %s", python_state_path)
 
     # Assign state to a dummy experiment instance for the in-memory
     # checkpointer, broadcasting to devices.
-    dummy_experiment = Experiment(
-        mode="train",
-        init_rng=jnp.array([0]),
-        config=config.experiment_kwargs.config,
-    )
-    for attribute, key in Experiment.CHECKPOINT_ATTRS.items():
-        setattr(
-            dummy_experiment,
-            attribute,
-            jl_utils.bcast_local_devices(pretrained_state[key]),
-        )
+    # dummy_experiment = Experiment(
+    #     mode="train",
+    #     init_rng=jnp.array([0]),
+    #     config=config.experiment_kwargs.config,
+    # )
+    # for attribute, key in Experiment.CHECKPOINT_ATTRS.items():
+    #     setattr(
+    #         dummy_experiment,
+    #         attribute,
+    #         jl_utils.bcast_local_devices(pretrained_state[key]),
+    #     )
 
-    jaxline_state = dict(
-        global_step=pretrained_state["global_step"],
-        experiment_module=dummy_experiment,
-    )
-    snapshot = jl_utils.SnapshotNT(0, jaxline_state)
+    # jaxline_state = dict(
+    #     global_step=pretrained_state["global_step"],
+    #     experiment_module=dummy_experiment,
+    # )
+    snapshot = jl_utils.SnapshotNT(0, pickle_nest)
 
     # Finally, seed the jaxline `utils.InMemoryCheckpointer` global dict.
     jl_utils.GLOBAL_CHECKPOINT_DICT["latest"] = jl_utils.CheckpointNT(
@@ -94,25 +94,26 @@ def save_state_from_in_memory_checkpointer(
             continue
 
         pickle_nest = checkpoint.history[-1].pickle_nest
-        global_step = pickle_nest["global_step"]
+        # global_step = pickle_nest["global_step"]
 
-        state_dict = {"global_step": global_step}
+        # state_dict = {"global_step": global_step}
+        # state_dict.update(pickle_nest["experiment_module"])
 
-        for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
-            state_dict[key] = pickle_nest["experiment_module"][key]
+        # for attribute, key in experiment_class.CHECKPOINT_ATTRS.items():
+        #     state_dict[key] = pickle_nest["experiment_module"][key]
 
         # Saving directory
         save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)
 
         # Save params and states in a dill file
-        python_state_path = save_dir / "checkpoint.dill"
+        python_state_path = save_dir / "checkpoint.pickle"
         save_dir.mkdir(parents=True, exist_ok=True)
         with open(python_state_path, "wb") as f:
-            dill.dump(state_dict, f)
+            dill.dump(pickle_nest, f)
 
         # Save flat params separately
         numpy_params_path = save_dir / "params.npz"
-        flat_np_params = to_flat_dict(state_dict["params"])
+        flat_np_params = to_flat_dict(pickle_nest["experiment_module"]["params"])
         np.savez(numpy_params_path, **flat_np_params)
 
         # Save model config under the same directory of params
