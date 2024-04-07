@@ -20,13 +20,10 @@ import signal
 import threading
 
 import dill
-import jax.numpy as jnp
 import numpy as np
 from absl import logging
-from jaxline import experiment
 from jaxline import utils as jl_utils
 
-from deeprte.experiment import Experiment
 from deeprte.utils import to_flat_dict
 
 
@@ -55,9 +52,7 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
     )
 
 
-def save_state_from_in_memory_checkpointer(
-    save_path, experiment_class: experiment.AbstractExperiment, config
-):
+def save_state_from_in_memory_checkpointer(save_path, config):
     """Saves experiment state to a checkpoint."""
     if not isinstance(save_path, pathlib.Path):
         save_path = pathlib.Path(save_path)
@@ -77,7 +72,6 @@ def save_state_from_in_memory_checkpointer(
         pickle_nest = checkpoint.history[-1].pickle_nest
         global_step = pickle_nest["global_step"]
 
-
         # Saving directory
         save_dir = save_path / checkpoint_name / _get_step_date_label(global_step)
 
@@ -89,7 +83,9 @@ def save_state_from_in_memory_checkpointer(
 
         # Save flat params separately
         numpy_params_path = save_dir / "params.npz"
-        flat_np_params = to_flat_dict(pickle_nest["experiment_module"]["params"])
+        flat_np_params = to_flat_dict(
+            pickle_nest["experiment_module"]["params"].to_dict()
+        )
         np.savez(numpy_params_path, **flat_np_params)
 
         # Save model config under the same directory of params

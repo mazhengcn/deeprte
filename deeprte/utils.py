@@ -17,7 +17,6 @@ import collections.abc
 
 import jax
 import jax.numpy as jnp
-import ml_collections
 
 
 def accumulate_gradient(grad_fn, params, batch, batch_size, accum_steps):
@@ -65,7 +64,7 @@ def to_flat_dict(d, parent_key="", sep="//"):
     items = []
     for k, v in d.items():
         path = parent_key + sep + k if parent_key else k
-        if isinstance(v, ml_collections.ConfigDict):
+        if isinstance(v, collections.abc.Mapping):
             items.extend(to_flat_dict(v, path, sep=sep).items())
         else:
             items.append((path, v))

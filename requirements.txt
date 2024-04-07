@@ -1,4 +1,0 @@
-jupyterlab
-matplotlib
-ml-collections
-dm-tree

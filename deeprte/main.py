@@ -49,7 +49,6 @@ def main(experiment_class, argv):
         save_model_fn = functools.partial(
             save_state_from_in_memory_checkpointer,
             save_dir,
-            experiment_class,
             FLAGS.config,
         )
     setup_signals(save_model_fn)  # Save on Ctrl+C (continue) or Ctrl+\ (exit).
