@@ -1,9 +1,9 @@
 {
+    "name": "Deep RTE",
     "image": "ghcr.io/nvidia/jax:jax",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": false,
-            "upgradePackages": false
+            "installZsh": false
         }
     },
     "customizations": {
@@ -26,9 +26,6 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
     "mounts": [
         {
             "source": "rte_data",
@@ -36,5 +33,9 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "pip install -e ."
+    "remoteEnv": {
+        "TZ": "Asia/Shanghai"
+    },
+    "postCreateCommand": "pip install -e .",
+    "shutdownAction": "none"
 }
