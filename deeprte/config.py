@@ -19,32 +19,33 @@ from jaxline import base_config
 from deeprte.model.config import model_config
 
 
-def get_config(arg_string: str = "8, 5000"):
-    args = arg_string.split(",")
-    if len(args) != 2:
+def get_config(args_string: str):
+    args = args_string.split(",")
+    if len(args) != 3:
         raise ValueError(
             "You must provide exactly two arguments separated by a "
-            "comma - train_batch_size,num_epochs"
+            "comma - dataset_name,train_batch_size,num_epochs"
         )
-    train_batch_size, num_epochs = args
+    dataset_name, train_batch_size, num_epochs = args
+    dataset_name = str(dataset_name)
     train_batch_size = int(train_batch_size)
     num_epochs = int(num_epochs)
 
-    config = base_config.get_base_config()
-    config.legacy_random_seed_behavior = True
-
     dataset_config = ml_collections.ConfigDict(
-        dict(name="rte", tfds_dir="data/tfds", split_percentage="80%")
+        dict(name=dataset_name, tfds_dir="data/tfds", split_percentage="80%")
     )
     dataset_builder = tfds.builder(
-        dataset_config.name, data_dir=dataset_config.tfds_dir
+        dataset_config.name,
+        data_dir=dataset_config.tfds_dir,
     )
     dataset_config.num_train_examples = dataset_builder.info.splits[
         f"train[:{dataset_config.split_percentage}]"
     ].num_examples
 
-    model = model_config()
-    model.data.normalization_dict = dataset_builder.info.metadata["normalization"]
+    model_cfg = model_config()
+    model_cfg.data.normalization_dict = dataset_builder.info.metadata["normalization"]
+
+    config = base_config.get_base_config()
 
     config.experiment_kwargs = ml_collections.ConfigDict(
         dict(
@@ -66,7 +67,7 @@ def get_config(arg_string: str = "8, 5000"):
                     adam_kwargs=dict(),
                 ),
                 evaluation=dict(batch_size=4),
-                model=model,
+                model=model_cfg,
             )
         )
     )
@@ -83,7 +84,6 @@ def get_config(arg_string: str = "8, 5000"):
         )
 
     config.training_steps = steps_from_epochs(num_epochs)
-
     config.interval_type = "steps"
     config.legacy_random_seed_behavior = True
     config.save_checkpoint_interval = steps_from_epochs(10)
