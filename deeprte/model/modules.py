@@ -295,49 +295,22 @@ class Scattering(hk.Module):
         gc = self.global_config
         w_init = get_initializer_scale(gc.w_init)
 
-        dropout_wrapper_fn = functools.partial(
-            dropout_wrapper,
-            is_training=is_training,
-            safe_key=None,
-            global_config=gc,
-        )
-
-        def scattering_block(x):
-            self_act, self_act_out = x
-
-            scattering_layer = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)
-            layer_norm = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
-
-            out = dropout_wrapper_fn(
-                module=scattering_layer,
-                input_act=self_act_out,
-                kernel=self_kernel,
-                output_act=self_act,
+        self_act_0 = self_act
+        for _ in range(c.num_layer - 1):
+            self_act = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)(
+                self_act, self_kernel, is_training
             )
-            out = layer_norm(out)
-
-            return (self_act, out)
-
-        if c.num_layer == 1:
-            self_act_output = self_act
-        else:
-            scattering_stack = hk.experimental.layer_stack(c.num_layer - 1)(
-                scattering_block
+            self_act = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)(
+                self_act
             )
-            _, self_act_output = scattering_stack((self_act, self_act))
+            self_act += self_act_0
 
-        output_layer = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)
-        output_layer_norm = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
-
-        act_out = dropout_wrapper_fn(
-            module=output_layer,
-            input_act=self_act_output,
-            kernel=kernel,
-            output_act=act,
+        act_res = ScatteringLayer(output_size=c.latent_dim, w_init=w_init)(
+            self_act, kernel
         )
-        act_out = output_layer_norm(act_out)
-
-        return act_out
+        act_res = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)(act_res)
+        act += act_res
+        return act
 
 
 class ScatteringLayer(hk.Module):
