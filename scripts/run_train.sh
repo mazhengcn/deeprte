@@ -27,8 +27,7 @@ else
 	ACCUM_GRADS_STEPS="1"
 fi
 
-TRAIN_ARGS="--config=deeprte/config.py:${BATCH_SIZE},5000 \
-	--config.experiment_kwargs.config.dataset.name=rte/${DATASET_NAME} \
+TRAIN_ARGS="--config=deeprte/config.py:rte/${DATASET_NAME},${BATCH_SIZE},5000 \
 	--config.experiment_kwargs.config.training.accum_grads_steps=${ACCUM_GRADS_STEPS} \
 	--jaxline_mode=train \
 	--alsologtostderr=true
@@ -42,15 +41,6 @@ else
 	CKPT_DIR="${RESTORE_DIR%%/models*}"
 	CKPT_NAME="${CKPT_DIR##ckpts/}"
 	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${CKPT_DIR} --config.restore_dir=${RESTORE_DIR}"
-fi
-
-if ! type screen > /dev/null 2>&1; then
-    sudo apt-get update
-    echo "Installing screen..."
-    sudo apt-get -y install --no-install-recommends screen
-    # Clean up
-    sudo apt-get clean -y
-    sudo rm -rf /var/lib/apt/lists/*
 fi
 
 screen -S "${CKPT_NAME}" python deeprte/main.py ${TRAIN_ARGS}
