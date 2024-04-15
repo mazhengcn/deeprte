@@ -18,9 +18,14 @@ import os
 import pathlib
 import signal
 import threading
+from collections.abc import Mapping
+from typing import Any
 
 import dill
+import ml_collections
 import numpy as np
+import optax
+import orbax.checkpoint as ocp
 from absl import logging
 from jaxline import utils as jl_utils
 
@@ -38,13 +43,34 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
     if not isinstance(restore_path, pathlib.Path):
         restore_path = pathlib.Path(restore_path)
 
-    # Load pretrained experiment state.
-    python_state_path = restore_path / "checkpoint.pickle"
-    with open(python_state_path, "rb") as f:
-        pickle_nest = dill.load(f)
-    logging.info("Restored checkpoint from %s", python_state_path)
+    def restored_opt_state_tree(opt_state: Mapping[str, Any]) -> optax.OptState:
+        opt_state = (
+            optax.ScaleByAdamState(**opt_state[0]),
+            optax.ScaleByScheduleState(**opt_state[1]),
+            optax.EmptyState(),
+        )
+        return opt_state
 
-    snapshot = jl_utils.SnapshotNT(0, pickle_nest)
+    options = ocp.CheckpointManagerOptions()
+    with ocp.CheckpointManager(
+        restore_path / "checkpoints",
+        options=options,
+        item_handlers=ocp.StandardCheckpointHandler(),
+    ) as ckpt_mngr:
+        restored_state = ml_collections.ConfigDict(
+            ckpt_mngr.restore(ckpt_mngr.latest_step())
+        )
+
+    restored_state["experiment_module"]["opt_state"] = restored_opt_state_tree(
+        restored_state["experiment_module"]["opt_state"]
+    )
+    restored_state["train_step_rng"] = jl_utils.bcast_local_devices(
+        restored_state["train_step_rng"]
+    )
+
+    logging.info("Restored checkpoint from %s", restore_path)
+
+    snapshot = jl_utils.SnapshotNT(0, restored_state)
 
     # Finally, seed the jaxline `utils.InMemoryCheckpointer` global dict.
     jl_utils.GLOBAL_CHECKPOINT_DICT["latest"] = jl_utils.CheckpointNT(

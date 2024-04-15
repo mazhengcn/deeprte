@@ -23,7 +23,8 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
-from absl import logging
+import orbax.checkpoint as ocp
+from absl import flags, logging
 from jaxline import experiment
 from jaxline import utils as jl_utils
 from ml_collections import config_dict
@@ -32,6 +33,7 @@ from deeprte import input_pipeline, optimizers, utils
 from deeprte.data.pipeline import FeatureDict
 from deeprte.model import modules
 
+FLAGS = flags.FLAGS
 Scalars = dict[str, jax.Array]
 
 
@@ -72,6 +74,14 @@ class Experiment(experiment.AbstractExperiment):
 
         self.model = hk.transform_with_state(_forward_fn)
 
+        # Checkpoint manager
+        ckpt_options = ocp.CheckpointManagerOptions(
+            save_interval_steps=FLAGS.config.get("save_checkpoint_interval")
+        )
+        self.ckpt_mngr = ocp.CheckpointManager(
+            FLAGS.config.get("checkpoint_dir") + "/checkpoints", options=ckpt_options
+        )
+
         # Initialize train and eval functions
         self._train_input = None
         self._eval_input = None
@@ -105,6 +115,19 @@ class Experiment(experiment.AbstractExperiment):
 
         # We only return the loss scalars on the first devict for logging
         scalars = jl_utils.get_first(scalars)
+
+        global_step = int(jl_utils.get_first(global_step))
+
+        self.ckpt_mngr.save(
+            global_step + 1,
+            args=ocp.args.StandardSave(
+                {
+                    "global_step": global_step,
+                    "experiment_module": self.snapshot_state(),
+                    "train_step_rng": jl_utils.get_first(rng),
+                }
+            ),
+        )
 
         return scalars
 

@@ -36,11 +36,11 @@ TRAIN_ARGS="--config=deeprte/config.py:rte/${DATASET_NAME},${BATCH_SIZE},5000 \
 if [ "${RESTORE_DIR}" = "None" ]; then
 	TIMESTAMP="$(date --iso-8601="seconds")"
 	CKPT_NAME="${DATASET_NAME}_${TIMESTAMP%+*}"
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=ckpts/${CKPT_NAME}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=$(pwd)/ckpts/${CKPT_NAME}"
 else
-	CKPT_DIR="${RESTORE_DIR%%/models*}"
-	CKPT_NAME="${CKPT_DIR##ckpts/}"
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=${CKPT_DIR} --config.restore_dir=${RESTORE_DIR}"
+	# CKPT_DIR="${RESTORE_DIR%%/models*}"
+	CKPT_NAME="${RESTORE_DIR##*ckpts/}"
+	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=$(pwd)/ckpts/${CKPT_NAME} --config.restore_dir=${RESTORE_DIR}"
 fi
 
 screen -S "${CKPT_NAME}" python deeprte/main.py ${TRAIN_ARGS}
