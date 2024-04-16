@@ -43,7 +43,7 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
     if not isinstance(restore_path, pathlib.Path):
         restore_path = pathlib.Path(restore_path)
 
-    def restored_opt_state_tree(opt_state: Mapping[str, Any]) -> optax.OptState:
+    def restore_opt_state_tree(opt_state: list[Mapping[str, Any]]) -> optax.OptState:
         opt_state = (
             optax.ScaleByAdamState(**opt_state[0]),
             optax.ScaleByScheduleState(**opt_state[1]),
@@ -61,7 +61,7 @@ def restore_state_to_in_memory_checkpointer(restore_path, config):
             ckpt_mngr.restore(ckpt_mngr.latest_step())
         )
 
-    restored_state["experiment_module"]["opt_state"] = restored_opt_state_tree(
+    restored_state["experiment_module"]["opt_state"] = restore_opt_state_tree(
         restored_state["experiment_module"]["opt_state"]
     )
     restored_state["train_step_rng"] = jl_utils.bcast_local_devices(
