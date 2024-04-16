@@ -323,4 +323,3 @@ if __name__ == "__main__":
         ["data_dir", "data_filenames", "output_dir", "model_dir"]
     )
     app.run(main)
-    app.run(main)
