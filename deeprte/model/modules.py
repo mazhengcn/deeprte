@@ -52,18 +52,13 @@ class DeepRTE(hk.Module):
         self.config = config
 
     def __call__(
-        self,
-        batch: pipeline.FeatureDict,
-        is_training: bool,
-        compute_loss: bool = False,
-        compute_metrics: bool = False,
+        self, batch: pipeline.FeatureDict, is_training: bool
     ) -> (
         dict[str, dict[str, chex.Array]]
         | tuple[float, dict[str, dict[str, chex.Array]]]
     ):
         c = self.config
         gc = self.config.global_config
-        ret = {}
 
         def rte_op(inputs):
             green_fn = GreenFunction(c.green_function, gc)
@@ -87,50 +82,50 @@ class DeepRTE(hk.Module):
         )
 
         rte_inputs = {k: batch[k] for k in FEATURES}
+
         predictions = batched_rte_op(rte_inputs)
-        ret.update({"predicted_psi": predictions})
 
-        if compute_loss:
-            interior_labels = batch["psi_label"]
-            interior_loss = mean_squared_loss_fn(predictions, interior_labels)
-            total_loss = gc.loss_weights * interior_loss
-            ret["loss"] = {
-                "interior_mse": interior_loss,
-                "interior_rmspe": 100
-                * jnp.sqrt(interior_loss / jnp.mean(interior_labels**2)),
-            }
-            if "sampled_boundary_coords" in batch:
-                rte_inputs["phase_coords"] = batch["sampled_boundary_coords"]
-                rte_inputs["scattering_kernel"] = batch[
-                    "sampled_boundary_scattering_kernel"
-                ]
+        # if compute_loss:
+        #     interior_labels = batch["psi_label"]
+        #     interior_loss = mean_squared_loss_fn(predictions, interior_labels)
+        #     total_loss = gc.loss_weights * interior_loss
+        #     ret["loss"] = {
+        #         "interior_mse": interior_loss,
+        #         "interior_rmspe": 100
+        #         * jnp.sqrt(interior_loss / jnp.mean(interior_labels**2)),
+        #     }
+        #     if "sampled_boundary_coords" in batch:
+        #         rte_inputs["phase_coords"] = batch["sampled_boundary_coords"]
+        #         rte_inputs["scattering_kernel"] = batch[
+        #             "sampled_boundary_scattering_kernel"
+        #         ]
 
-                boundary_labels = batch["sampled_boundary"]
-                boundary_predictions = batched_rte_op(rte_inputs)
-                boundary_loss = mean_squared_loss_fn(
-                    boundary_predictions, boundary_labels
-                )
-                total_loss += gc.bc_loss_weights * boundary_loss
-                ret["loss"].update(
-                    {
-                        "boundary_mse": boundary_loss,
-                        "boundary_rmspe": jnp.sqrt(
-                            boundary_loss / jnp.mean(boundary_labels**2)
-                        ),
-                    }
-                )
-            ret["loss"].update({"total": total_loss})
+        #         boundary_labels = batch["sampled_boundary"]
+        #         boundary_predictions = batched_rte_op(rte_inputs)
+        #         boundary_loss = mean_squared_loss_fn(
+        #             boundary_predictions, boundary_labels
+        #         )
+        #         total_loss += gc.bc_loss_weights * boundary_loss
+        #         ret["loss"].update(
+        #             {
+        #                 "boundary_mse": boundary_loss,
+        #                 "boundary_rmspe": jnp.sqrt(
+        #                     boundary_loss / jnp.mean(boundary_labels**2)
+        #                 ),
+        #             }
+        #         )
+        #     ret["loss"].update({"total": total_loss})
 
-        if compute_metrics:
-            labels = batch["psi_label"]
-            mse = mean_squared_loss_fn(predictions, labels, axis=-1)
-            relative_mse = mse / jnp.mean(labels**2)
-            ret.update({"metrics": {"mse": mse, "rmspe": relative_mse}})
+        # if compute_metrics:
+        #     labels = batch["psi_label"]
+        #     mse = mean_squared_loss_fn(predictions, labels, axis=-1)
+        #     relative_mse = mse / jnp.mean(labels**2)
+        #     ret.update({"metrics": {"mse": mse, "rmspe": relative_mse}})
 
-        if compute_loss:
-            return total_loss, ret
+        # if compute_loss:
+        #     return total_loss, ret
 
-        return ret
+        return predictions
 
 
 class GreenFunction(hk.Module):
