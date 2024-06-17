@@ -12,4 +12,5 @@
         "editor.defaultFormatter": "charliermarsh.ruff",
     },
     "python.analysis.autoImportCompletions": true,
+    "ruff.nativeServer": true
 }
