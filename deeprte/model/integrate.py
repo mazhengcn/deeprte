@@ -41,9 +41,9 @@ def quad(
         in_axes_ = [None] * len(args)
         args.insert(argnum, points)
         in_axes_.insert(argnum, int(0))
-        out = sharded_map(fun, shard_size=shard_size, in_axes=in_axes_, out_axes=-1)(
-            *args
-        )
+        out = sharded_map(
+            fun, shard_size=shard_size, in_axes=tuple(in_axes_), out_axes=-1
+        )(*args)
         if has_aux:
             values, aux = out
             result = jnp.dot(values, weights)
