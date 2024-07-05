@@ -25,7 +25,8 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.data import pipeline
+from deeprte.configs import default
+from deeprte.data import _matlab_data_source
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
@@ -37,8 +38,7 @@ Array = jax.Array
 
 FEATURES = rte_features.FEATURES
 COLLOCATION_AXES = {
-    k: 0 if (rte_features.NUM_PHASE_COORDS in FEATURES[k][1]) else None
-    for k in FEATURES
+    k: 0 if rte_features.NUM_PHASE_COORDS in v[1] else None for k, v in FEATURES.items()
 }
 
 
@@ -49,20 +49,22 @@ class DeepRTEConfig:
     coords_dim: int = 2
     phase_coords_dim: int = 2 * coords_dim
     # Attention / Optical depths
-    num_heads: int = 8
+    num_heads: int = 2
     attention_in_dims: tuple = (phase_coords_dim, coords_dim, 2)
     qkv_dim: int = 64
     optical_depth_dim: int = 2
     # Mlp
-    num_mlp_layers: int = 6
+    num_mlp_layers: int = 4
     mlp_dim: int = 128
     # Scattering
     num_scattering_layers: int = 2
     scattering_dim: int = 16
     # Initializers
-    kernel_init: nnx.Initializer = nnx.initializers.xavier_uniform()
-    bias_init: nnx.Initializer = nnx.initializers.normal(stddev=1e-6)
-    # axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
+    kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
+    bias_init: nnx.Initializer = nnx.initializers.zeros_init()
+    # Mesh rules
+    axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
+    # Subcollocation size
     subcollocation_size: int = 128
 
     def replace(self, **kwargs):
@@ -204,7 +206,7 @@ class MultiHeadAttention(nnx.Module):
 class MlpBlock(nnx.Module):
     """MLP / feed-forward block."""
 
-    def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
+    def __init__(self, config: DeepRTEConfig, *, rngs: nnx.Rngs):
         self.num_layers = config.num_mlp_layers
         self.in_features = 2 * config.phase_coords_dim + config.optical_depth_dim
         self.mlp_dim = config.mlp_dim
@@ -309,9 +311,9 @@ class GreenFunction(nnx.Module):
         self.config = config
         self.attenuation = Attenuation(config, rngs=rngs)
         self.scattering = Scattering(config, rngs=rngs)
-        self.out = nnx.Linear(config.scattering_dim, 1, rngs=rngs)
+        self.out = nnx.Linear(config.scattering_dim, 1, use_bias=False, rngs=rngs)
 
-    def __call__(self, coord1: Array, coord2: Array, batch: pipeline.FeatureDict):
+    def __call__(self, coord1: Array, coord2: Array, batch: _matlab_data_source.FeatureDict):
         charac = Characteristics.from_tensor(batch["position_coords"])
         act = self.attenuation(
             coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
@@ -333,8 +335,8 @@ class GreenFunction(nnx.Module):
             batch["velocity_coords"],
             batch["velocity_weights"],
         )
-        kernel = (-batch["scattering_kernel"]) * velocity_weights
-        self_kernel = (-batch["self_scattering_kernel"]) * velocity_weights
+        kernel = -batch["scattering_kernel"] * velocity_weights
+        self_kernel = -batch["self_scattering_kernel"] * velocity_weights
 
         self_act = nnx.vmap(self_att_fn)(velocity_coords)
         out = self.scattering(act, self_act, kernel, self_kernel)
@@ -354,7 +356,7 @@ class DeepRTE(nnx.Module):
 
         self.green_fn = GreenFunction(config=config, rngs=rngs)
 
-    def __call__(self, batch: pipeline.FeatureDict):
+    def __call__(self, batch: _matlab_data_source.FeatureDict):
         rte_inputs = {k: batch[k] for k in FEATURES}
 
         def rte_op(inputs):
@@ -377,43 +379,3 @@ class DeepRTE(nnx.Module):
         output = batched_rte_op(rte_inputs)
 
         return output
-
-        # if compute_loss:
-        #     interior_labels = batch["psi_label"]
-        #     interior_loss = mean_squared_loss_fn(predictions, interior_labels)
-        #     total_loss = gc.loss_weights * interior_loss
-        #     ret["loss"] = {
-        #         "interior_mse": interior_loss,
-        #         "interior_rmspe": 100
-        #         * jnp.sqrt(interior_loss / jnp.mean(interior_labels**2)),
-        #     }
-        #     if "sampled_boundary_coords" in batch:
-        #         rte_inputs["phase_coords"] = batch["sampled_boundary_coords"]
-        #         rte_inputs["scattering_kernel"] = batch[
-        #             "sampled_boundary_scattering_kernel"
-        #         ]
-
-        #         boundary_labels = batch["sampled_boundary"]
-        #         boundary_predictions = batched_rte_op(rte_inputs)
-        #         boundary_loss = mean_squared_loss_fn(
-        #             boundary_predictions, boundary_labels
-        #         )
-        #         total_loss += gc.bc_loss_weights * boundary_loss
-        #         ret["loss"].update(
-        #             {
-        #                 "boundary_mse": boundary_loss,
-        #                 "boundary_rmspe": jnp.sqrt(
-        #                     boundary_loss / jnp.mean(boundary_labels**2)
-        #                 ),
-        #             }
-        #         )
-        #     ret["loss"].update({"total": total_loss})
-
-        # if compute_metrics:
-        #     labels = batch["psi_label"]
-        #     mse = mean_squared_loss_fn(predictions, labels, axis=-1)
-        #     relative_mse = mse / jnp.mean(labels**2)
-        #     ret.update({"metrics": {"mse": mse, "rmspe": relative_mse}})
-
-        # if compute_loss:
-        #     return total_loss, ret

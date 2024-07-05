@@ -15,12 +15,21 @@
 import enum
 import os
 from collections.abc import Generator, Sequence
-from typing import Optional
+from typing import Any, Optional
 
+import jax
+import ml_collections
 import tensorflow as tf
 import tensorflow_datasets as tfds
+from clu.data import dataset_iterator
 
-from deeprte.data.pipeline import FeatureDict
+DEFAULT_SHUFFLE_BUFFER = 50_000
+VALID_KEY = "__valid__"
+ArraySpec = dataset_iterator.ArraySpec
+ArraySpecDict = dict[str, ArraySpec]
+Data = dict[str, Any]
+DatasetIterator = dataset_iterator.DatasetIterator
+TfDatasetIterator = dataset_iterator.TfDatasetIterator
 
 
 class Split(enum.Enum):
@@ -30,33 +39,97 @@ class Split(enum.Enum):
     TEST = 4
 
 
-def load(
+def get_data_config(
     name: str,
+    split: str,
+    process: str,
+    batch_size: int,
+    shuffle_buffer: Optional[int] = None,
+    cache: Optional[str] = None,
+    data_dir: Optional[str] = None,
+) -> ml_collections.ConfigDict:
+    """Returns dataset parameters."""
+    config = ml_collections.ConfigDict(type_safe=False)
+    config.name = name
+    config.split = split
+    config.process = process
+    config.batch_size = batch_size
+    config.prefetch = "autotune"
+    config.prefetch_device = 2
+    if shuffle_buffer:
+        config.shuffle_buffer = shuffle_buffer
+    if cache:
+        config.cache = cache
+    if data_dir:
+        config.data_dir = data_dir
+    return config
+
+
+def get_datasets(config: ml_collections.ConfigDict) -> dict[str, DatasetIterator]:
+    """Returns a dictionary of datasets to use for different variants."""
+    datasets = {}
+    for variant, variant_config in config.items():
+        if not isinstance(variant_config, ml_collections.ConfigDict):
+            raise TypeError(
+                f"The config for the {variant!r} variant is not a ConfigDict."
+            )
+        variant_config = variant_config.to_dict()
+        _ = variant_config.pop("prefetch_device", None)
+        datasets[variant] = get_dataset(variant=variant, **variant_config)
+    return datasets
+
+
+def get_dataset(
     *,
+    variant: str,
+    name: str,
+    tfds_dir: str | os.PathLike | None = None,
     split: Split,
     split_percentage: str = "",
-    tfds_dir: str | os.PathLike | None = None,
-    is_training: bool = False,
-    # batch_sizes should be:
-    # [device_count, per_device_outer_batch_size]
-    # total_batch_size = device_count * per_device_outer_batch_size
-    batch_sizes: Optional[Sequence[int] | None] = None,
-    # collocation_sizes should be:
-    # [total_collocation_size] or
-    # [interior_size, boundary_size, quadrature_size]
+    batch_size: Optional[int] = None,
     collocation_sizes: Optional[Sequence[int] | None] = None,
-    # repeat number of inner batch, for training the same batch with
-    # {repeat} steps of different collocation points
-    batch_repeat: Optional[int | None] = None,
-) -> Generator[FeatureDict, None, None]:
+    batch_repeat: Optional[int | None] = None
+) -> DatasetIterator:
+    """Returns a dataset iterator.
+
+    Args:
+        variant: Variant (e.g. 'train', 'validation', ...).
+        name: Name of the dataset in TFDS.
+        split: String with the split to use (e.g. 'train', 'validation[:100]', etc).
+        batch_size: (Global) batch size to use. We assume that this batch size is
+        evenly split among all devices.
+        collocation_sizes: collocation_sizes should be: (total_collocation_size) or (interior_size, boundary_size, quadrature_size).
+        batch_repeat: repeat number of inner batch, for training the same batch with
+        {repeat} steps of different collocation points.
+        **extra_builder_kwargs: Additional kwargs passed to the DatasetBuilder.
+
+    Returns:
+        A DatasetIterator.
+    """
+
+    is_training = variant == "train"
+
+    # Compute the batch size per process.
+    if batch_size % jax.process_count() or batch_size % jax.device_count():
+        raise ValueError(
+            f"batch_size must divide the process and device count, "
+            f"but got {batch_size}, {jax.process_count()}, "
+            f"and {jax.device_count()} respectively."
+        )
+    batch_size_per_process = batch_size // jax.process_count()
+
     tfds_split = _to_tfds_split(split, split_percentage)
-    ds, info = tfds.load(
+    tfds_jax_split = tfds.split_for_jax_process(tfds_split, drop_remainder=False)
+
+    # Load dataset
+    dataset, info = tfds.load(
         name,
         data_dir=tfds_dir,
-        split=tfds_split,
+        split=tfds_jax_split,
         shuffle_files=True,
         with_info=True,
     )
+
     # tf.data options
     options = tf.data.Options()
     options.threading.private_threadpool_size = 48
@@ -65,21 +138,20 @@ def load(
     options.experimental_optimization.parallel_batch = True
     if is_training:
         options.deterministic = False
-    ds = ds.with_options(options)
+    dataset = dataset.with_options(options)
 
     if is_training:
-        ds = ds.cache()
-        ds = ds.repeat()
-        ds = ds.shuffle(
-            buffer_size=info.splits[tfds_split].num_examples,
+        dataset = dataset.cache()
+        dataset = dataset.repeat()
+        dataset = dataset.shuffle(
+            buffer_size=info.splits[tfds_jax_split].num_examples,
             reshuffle_each_iteration=True,
         )
 
         if batch_repeat:
-            ds = repeat_batch(batch_sizes, batch_repeat)(ds)
+            dataset = repeat_batch(batch_size_per_process, batch_repeat)(dataset)
 
-    for batch_size in reversed(batch_sizes):
-        ds = ds.batch(batch_size, drop_remainder=True)
+    dataset = dataset.batch(batch_size, drop_remainder=True)
 
     if is_training and collocation_sizes:
         rng = tf.random.Generator.from_seed(seed=0)
@@ -87,14 +159,14 @@ def load(
             info.metadata["phase_feature_axis"],
             info.metadata["boundary_feature_axis"],
         )
-        ds = ds.map(
+        dataset = dataset.map(
             sample_collocation_coords(collocation_sizes, collocation_axis_dict, rng),
             num_parallel_calls=tf.data.AUTOTUNE,
         )
 
-    ds = ds.prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
-    yield from tfds.as_numpy(ds)
+    return TfDatasetIterator(dataset, checkpoint=False)
 
 
 def _to_tfds_split(split: Split, split_percentage: str = ""):
@@ -169,14 +241,13 @@ def sample_collocation_coords(
 
 @curry1
 def repeat_batch(
-    ds: tf.data.Dataset, batch_sizes: int | Sequence[int], repeat: int = 1
+    ds: tf.data.Dataset, batch_size: int | Sequence[int], repeat: int = 1
 ) -> tf.data.Dataset:
     """Tiles the inner most batch dimension."""
     if repeat <= 1:
         return ds
     # Perform regular batching with reduced number of elements.
-    for batch_size in reversed(batch_sizes):
-        ds = ds.batch(batch_size, drop_remainder=True)
+    ds = ds.batch(batch_size, drop_remainder=True)
 
     # Repeat batch.
     repeat_fn = lambda x: tf.tile(  # noqa: E731
@@ -188,6 +259,6 @@ def repeat_batch(
 
     ds = ds.map(repeat_inner_batch, num_parallel_calls=tf.data.AUTOTUNE)
     # Unbatch.
-    for _ in batch_sizes:
-        ds = ds.unbatch()
+    ds = ds.unbatch()
+
     return ds
