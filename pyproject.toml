@@ -23,15 +23,16 @@ classifiers = [
 ]
 dependencies = [
     "absl-py",
+    "clu",
     "dill",
-    "dm-haiku",
-    "jax>=0.4.3",
-    "jaxline",
+    "flax",
+    "jax[cuda12]",
     "matplotlib",
     "ml-collections",
     "numpy",
     "optax",
     "orbax-checkpoint",
+    "penzai",
     "tensorflow-cpu",
     "tensorflow-datasets"
 ]

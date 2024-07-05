@@ -1,25 +1,13 @@
 {
-    "name": "Deep RTE",
-    "image": "ghcr.io/nvidia/jax:jax",
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": false
-        }
-    },
+    "name": "DeepRTE",
+    "image": "mcr.microsoft.com/devcontainers/python:3",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
-                "charliermarsh.ruff",
-                "ms-toolsai.jupyter"
-            ],
-            "settings": {
-                "python.analysis.extraPaths": [
-                    "/opt/jax",
-                    "/opt/flax"
-                ]
-            }
+                "charliermarsh.ruff"
+            ]
         }
     },
     "runArgs": [
@@ -33,9 +21,5 @@
             "type": "volume"
         }
     ],
-    "remoteEnv": {
-        "TZ": "Asia/Shanghai"
-    },
-    "postCreateCommand": "pip install -e .",
-    "shutdownAction": "none"
+    "postCreateCommand": "pip install -e ."
 }
