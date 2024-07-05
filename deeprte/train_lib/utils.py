@@ -10,8 +10,6 @@ from flax.training import train_state
 from jax.experimental import mesh_utils
 from typing_extensions import Protocol, runtime_checkable
 
-from deeprte.configs import default
-
 Mesh = jax.sharding.Mesh
 PyTree = Any
 
@@ -32,9 +30,10 @@ class HasCache(Protocol):
 # -----------------------------------------------------------------------------
 
 
-def create_device_mesh(config: default.Config):
+def create_device_mesh(config, devices=None):
     """Creates a device mesh with each slice in its own data parallel group. If there is only one slice, uses two replicas."""
-    devices = jax.devices()
+    if devices is None:
+        devices = jax.devices()
     num_devices = len(devices)
     try:
         num_slices = 1 + max([d.slice_index for d in devices])
