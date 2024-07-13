@@ -110,7 +110,7 @@ class BadSyntheticDataIterator:
 
 def get_process_loading_real_data(config, mesh):
     """Get list of processes loading data from GCS when expansion_factor_real_data != -1"""
-    sharding = jax.sharding.NamedSharding(mesh, P(*config.data_partitions))
+    sharding = jax.sharding.NamedSharding(mesh, P(*config.data_sharding))
     devices_indices_map = sharding.devices_indices_map(
         (config.global_batch_size_to_load,)
     )

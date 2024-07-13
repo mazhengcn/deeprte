@@ -22,11 +22,11 @@ Shape = tuple[int, ...]
 def get_dataset_shape_dtype_struct(
     iterator: tf.data.Dataset | dataset_iterator.DatasetIterator,
     global_mesh: Mesh,
-    data_partitions: tuple[str, ...],
+    data_pspec: PartitionSpec,
 ) -> PyTree:
     """Returns the jax.ShapeDtypeStruct."""
 
-    sharding = NamedSharding(global_mesh, PartitionSpec(*data_partitions))
+    sharding = NamedSharding(global_mesh, data_pspec)
 
     def fn(x):
         # Dtype and local shape (of this particular process) of the given array x.
@@ -41,21 +41,20 @@ def get_dataset_shape_dtype_struct(
 
 
 def _build_global_shape_and_sharding(
-    local_shape: tuple[int, ...], global_mesh: Mesh, data_partitions: tuple[str, ...]
+    local_shape: tuple[int, ...], global_mesh: Mesh, data_pspec: PartitionSpec
 ) -> tuple[tuple[int, ...], NamedSharding]:
-
-    sharding = NamedSharding(global_mesh, PartitionSpec(*data_partitions))
+    sharding = NamedSharding(global_mesh, data_pspec)
     global_shape = (jax.process_count() * local_shape[0],) + local_shape[1:]
 
     return global_shape, sharding
 
 
 def _form_global_array(
-    path, array: np.ndarray, global_mesh: Mesh, data_partitions: tuple[str, ...]
+    path, array: np.ndarray, global_mesh: Mesh, data_pspec: PartitionSpec
 ) -> jax.Array:
     """Put local sharded array into local devices"""
     global_shape, sharding = _build_global_shape_and_sharding(
-        np.shape(array), global_mesh, data_partitions
+        np.shape(array), global_mesh, data_pspec
     )
 
     try:
@@ -76,7 +75,7 @@ def _form_global_array(
 
 
 def get_next_batch_sharded(
-    local_iterator: Iterator, global_mesh: Mesh, data_partitions: tuple[str, ...]
+    local_iterator: Iterator, global_mesh: Mesh, data_pspec: PartitionSpec
 ) -> jax.Array:
     """Splits the host loaded data equally over all devices."""
 
@@ -99,9 +98,7 @@ def get_next_batch_sharded(
         local_data = next(local_iterator)
 
     input_gdas = jtu.tree_map_with_path(
-        partial(
-            _form_global_array, global_mesh=global_mesh, data_partitions=data_partitions
-        ),
+        partial(_form_global_array, global_mesh=global_mesh, data_pspec=data_pspec),
         local_data,
     )
 
@@ -115,11 +112,14 @@ class MultiHostDataLoadIterator:
         self,
         dataloader: tf.data.Dataset,
         global_mesh: Mesh,
-        data_partitions: tuple[str, ...],
+        data_pspec: PartitionSpec | None = None,
     ):
         self.global_mesh = global_mesh
         self.dataloader = dataloader
-        self.data_partitions = data_partitions
+        if data_pspec:
+            self.data_pspec = data_pspec
+        else:
+            self.data_pspec = PartitionSpec(global_mesh.axis_names)
         if isinstance(self.dataloader, tf.data.Dataset):
             self.local_iterator = self.dataloader.as_numpy_iterator()
         elif isinstance(self.dataloader, Iterable):
@@ -145,7 +145,7 @@ class MultiHostDataLoadIterator:
 
     def __next__(self):
         return get_next_batch_sharded(
-            self.local_iterator, self.global_mesh, self.data_partitions
+            self.local_iterator, self.global_mesh, self.data_pspec
         )
 
 
