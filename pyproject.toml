@@ -26,16 +26,18 @@ dependencies = [
     "clu",
     "dill",
     "flax",
+    "grain",
     "jax[cuda12]",
-    "matplotlib",
-    "ml-collections",
     "numpy",
     "optax",
     "orbax-checkpoint",
-    "penzai",
     "tensorflow-cpu",
     "tensorflow-datasets"
 ]
+
+[project.optional-dependencies]
+dev = ["matplotlib", "ml-collections", "penzai", "jupyter"]
+
 
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
