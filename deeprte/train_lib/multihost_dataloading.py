@@ -1,8 +1,9 @@
 import collections
 import itertools
 import time
+from collections.abc import Iterable, Iterator
 from functools import partial  # pylint: disable=g-importing-member
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import jax
 import jax.tree_util as jtu
@@ -19,11 +20,13 @@ Shape = tuple[int, ...]
 
 
 def get_dataset_shape_dtype_struct(
-    iterator: tf.data.Dataset | dataset_iterator.DatasetIterator, global_mesh: Mesh
+    iterator: tf.data.Dataset | dataset_iterator.DatasetIterator,
+    global_mesh: Mesh,
+    data_partitions: tuple[str, ...],
 ) -> PyTree:
     """Returns the jax.ShapeDtypeStruct."""
 
-    sharding = NamedSharding(global_mesh, PartitionSpec(global_mesh.axis_names))
+    sharding = NamedSharding(global_mesh, PartitionSpec(*data_partitions))
 
     def fn(x):
         # Dtype and local shape (of this particular process) of the given array x.
@@ -38,19 +41,21 @@ def get_dataset_shape_dtype_struct(
 
 
 def _build_global_shape_and_sharding(
-    local_shape: tuple[int, ...], global_mesh: Mesh
+    local_shape: tuple[int, ...], global_mesh: Mesh, data_partitions: tuple[str, ...]
 ) -> tuple[tuple[int, ...], NamedSharding]:
-    sharding = NamedSharding(global_mesh, PartitionSpec(global_mesh.axis_names))
 
+    sharding = NamedSharding(global_mesh, PartitionSpec(*data_partitions))
     global_shape = (jax.process_count() * local_shape[0],) + local_shape[1:]
 
     return global_shape, sharding
 
 
-def _form_global_array(path, array: np.ndarray, global_mesh: Mesh) -> jax.Array:
+def _form_global_array(
+    path, array: np.ndarray, global_mesh: Mesh, data_partitions: tuple[str, ...]
+) -> jax.Array:
     """Put local sharded array into local devices"""
     global_shape, sharding = _build_global_shape_and_sharding(
-        np.shape(array), global_mesh
+        np.shape(array), global_mesh, data_partitions
     )
 
     try:
@@ -70,7 +75,9 @@ def _form_global_array(path, array: np.ndarray, global_mesh: Mesh) -> jax.Array:
     )
 
 
-def get_next_batch_sharded(local_iterator: Iterator, global_mesh: Mesh) -> jax.Array:
+def get_next_batch_sharded(
+    local_iterator: Iterator, global_mesh: Mesh, data_partitions: tuple[str, ...]
+) -> jax.Array:
     """Splits the host loaded data equally over all devices."""
 
     SLEEP_TIME = 10
@@ -92,7 +99,10 @@ def get_next_batch_sharded(local_iterator: Iterator, global_mesh: Mesh) -> jax.A
         local_data = next(local_iterator)
 
     input_gdas = jtu.tree_map_with_path(
-        partial(_form_global_array, global_mesh=global_mesh), local_data
+        partial(
+            _form_global_array, global_mesh=global_mesh, data_partitions=data_partitions
+        ),
+        local_data,
     )
 
     return input_gdas
@@ -101,9 +111,15 @@ def get_next_batch_sharded(local_iterator: Iterator, global_mesh: Mesh) -> jax.A
 class MultiHostDataLoadIterator:
     """fold get_next_batch_sharded into a iterator class"""
 
-    def __init__(self, dataloader: tf.data.Dataset, global_mesh: Mesh):
+    def __init__(
+        self,
+        dataloader: tf.data.Dataset,
+        global_mesh: Mesh,
+        data_partitions: tuple[str, ...],
+    ):
         self.global_mesh = global_mesh
         self.dataloader = dataloader
+        self.data_partitions = data_partitions
         if isinstance(self.dataloader, tf.data.Dataset):
             self.local_iterator = self.dataloader.as_numpy_iterator()
         elif isinstance(self.dataloader, Iterable):
@@ -128,7 +144,9 @@ class MultiHostDataLoadIterator:
         return self
 
     def __next__(self):
-        return get_next_batch_sharded(self.local_iterator, self.global_mesh)
+        return get_next_batch_sharded(
+            self.local_iterator, self.global_mesh, self.data_partitions
+        )
 
 
 def prefetch_to_device(iterator: MultiHostDataLoadIterator, size: int):

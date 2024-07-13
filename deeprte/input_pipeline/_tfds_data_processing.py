@@ -21,6 +21,7 @@ import jax
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from clu.data import dataset_iterator
+from jax.sharding import Mesh
 
 from deeprte.train_lib import multihost_dataloading
 
@@ -62,7 +63,8 @@ def preprocessing_pipeline(
     global_batch_size: int,
     collocation_sizes: Optional[Sequence[int]] = None,
     batch_repeat: Optional[int] = None,
-    global_mesh,
+    global_mesh: Mesh,
+    data_partitions: tuple[str, ...],
     dataloading_host_index,
     dataloading_host_count,
     shuffle: bool = False,
@@ -108,7 +110,7 @@ def preprocessing_pipeline(
         dataset = dataset.prefetch(prefetch_size)
 
     multihost_gen = multihost_dataloading.MultiHostDataLoadIterator(
-        dataset, global_mesh
+        dataset, global_mesh, data_partitions
     )
 
     # Return multi-host jax.Array prep iterator
@@ -136,6 +138,7 @@ def make_tfds_iterator(config, global_mesh, process_indices):
         collocation_sizes=config.collocation_sizes,
         batch_repeat=config.repeat_batch,
         global_mesh=global_mesh,
+        data_partitions=config.data_partitions,
         dataloading_host_index=process_indices.index(jax.process_index()),
         dataloading_host_count=len(process_indices),
         shuffle=config.enable_data_shuffling,
@@ -158,6 +161,7 @@ def make_tfds_iterator(config, global_mesh, process_indices):
             dataset=eval_ds,
             global_batch_size=eval_batch_size,
             global_mesh=global_mesh,
+            data_partitions=config.data_partitions,
             dataloading_host_index=process_indices.index(jax.process_index()),
             dataloading_host_count=len(process_indices),
             shuffle=False,
