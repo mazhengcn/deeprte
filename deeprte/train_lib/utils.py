@@ -1,3 +1,5 @@
+import functools
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -6,9 +8,10 @@ import jax.numpy as jnp
 import numpy as np
 from absl import logging
 from flax import nnx
-from flax.training import train_state
 from jax.experimental import mesh_utils
 from typing_extensions import Protocol, runtime_checkable
+
+from deeprte.train_lib import checkpointing
 
 Mesh = jax.sharding.Mesh
 PyTree = Any
@@ -17,13 +20,39 @@ Dtype = Any
 Shape = tuple[int, ...]
 
 
-class TrainState(train_state.TrainState):
-    graphdef: nnx.GraphDef
+TrainState = nnx.TrainState
 
 
 @runtime_checkable
 class HasCache(Protocol):
     def init_cache(self, input_shape: Shape, dtype: Dtype = jnp.float32): ...
+
+
+def close_summary_writer(summary_writer):
+    if jax.process_index() == 0:
+        summary_writer.close()
+
+
+def _prepare_metrics_for_json(metrics, step, run_name):
+    """Converts metric dictionary into json supported types (e.g. float)"""
+    metrics_dict = {}
+    for val in metrics["scalar"]:
+        metrics_dict[val] = float(metrics["scalar"][val])
+    metrics_dict["step"] = float(step)
+    metrics_dict["run_name"] = run_name
+    return metrics_dict
+
+
+def write_metrics_locally(metrics, step, config, file):
+    """Writes metrics locally for testing"""
+    if step == 0:
+        file.truncate(0)
+
+    metrics_dict = _prepare_metrics_for_json(metrics, step, config.run_name)
+    file.write(str(json.dumps(metrics_dict)) + "\n")
+
+    if step == config.steps - 1:
+        file.close()
 
 
 # Mesh utils.
@@ -110,9 +139,7 @@ def _to_array(x):
     return x
 
 
-def setup_initial_state(
-    constructor: Callable, tx, config, rng: jax.Array, mesh: jax.sharding.Mesh
-) -> tuple[TrainState, TrainState]:
+def init_train_state(constructor: Callable, tx, config, rng):
     """We initialize the model and optimizer state, and optionally load from a
     checkpoint as necessary.
 
@@ -129,16 +156,80 @@ def setup_initial_state(
     """
 
     # Initialization
+    model = constructor(config, rng)
+    graphdef, params = nnx.split(model, nnx.Param)
+    state = TrainState.create(graphdef=graphdef, params=params, tx=tx)
+    state = jax.tree.map(_to_array, state)
 
-    with mesh:
-        model = constructor(config, rng)
-        graphdef, params = nnx.split(model, nnx.Param)
-        state = TrainState.create(
-            apply_fn=graphdef.apply, params=params, tx=tx, graphdef=graphdef
+    return state
+
+
+def setup_initial_state(
+    constructor, data_iterator, tx, config, rng, mesh, checkpoint_manager
+):
+    """We initialize the model and optimizer state, and optionally load from a
+    checkpoint as necessary.
+
+    Args:
+      model: the flax model to initialize
+      tx: the optax.GradientTransformation
+      config: config object
+      rng: jax.prng key
+      mesh: jax.devices() mesh
+      checkpoint_manager: an Orbax checkpointing.CheckpointManager object
+      is_training: True to initialize training state, False for decode state
+
+    Returns:
+      state: the initialized train state
+      state_mesh_annotations: the mesh annotations for the train state
+    """
+
+    abstract_sharded_state, state_shardings = get_abstract_state(
+        constructor, tx, config, rng, mesh
+    )
+
+    # Initialization
+    restored, raw_params = checkpointing.load_state_if_possible(
+        checkpoint_manager,
+        data_iterator,
+        config.load_parameters_path,
+        config.load_full_state_path,
+        abstract_sharded_state,
+        config.enable_single_replica_ckpt_restoring,
+        config.dataset_type,
+    )
+
+    if restored:
+        if isinstance(
+            checkpoint_manager,
+            checkpointing.emergency_checkpoint_manager.CheckpointManager,
+        ):
+            state = restored
+        else:
+            if "iter" in restored and restored["iter"] is not None:
+                data_iterator.local_iterator = restored["iter"]
+            state = restored["items"]
+    else:
+        init_train_state_partial = functools.partial(
+            init_train_state, constructor, tx, config
         )
-        state = jax.tree_util.tree_map(_to_array, state)
-        state_spec = nnx.get_partition_spec(state)
-        state = jax.lax.with_sharding_constraint(state, state_spec)
+        state = jax.jit(init_train_state_partial, out_shardings=state_shardings)(rng)
+        if raw_params:  # If we loaded a partial state, we need to merge it.
+            state = state.replace(params=raw_params)
 
-    state_sharding = nnx.get_named_sharding(state, mesh)
-    return state, state_sharding
+    return state, data_iterator
+
+
+def get_abstract_state(constructor, tx, config, rng, mesh):
+    """Get a shaped abstraction of the state (including optimizer)"""
+
+    def init_fn():
+        return init_train_state(constructor, tx, config, rng)
+
+    abstract_state = jax.eval_shape(init_fn)
+    state_shardings = nnx.get_named_sharding(abstract_state, mesh)
+    abstract_sharded_state = jax.jit(
+        init_fn, out_shardings=state_shardings
+    ).eval_shape()
+
+    return abstract_sharded_state, state_shardings
