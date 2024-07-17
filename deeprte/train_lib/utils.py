@@ -15,6 +15,8 @@ from deeprte.train_lib import checkpointing
 
 Mesh = jax.sharding.Mesh
 PyTree = Any
+PartitionSpec = jax.sharding.PartitionSpec
+Sharding = jax.sharding.Sharding
 
 Dtype = Any
 Shape = tuple[int, ...]
@@ -184,7 +186,7 @@ def setup_initial_state(
       state_mesh_annotations: the mesh annotations for the train state
     """
 
-    abstract_sharded_state, state_shardings = get_abstract_state(
+    abstract_sharded_state, state_sharding = get_abstract_state(
         constructor, tx, config, rng, mesh
     )
 
@@ -207,17 +209,17 @@ def setup_initial_state(
             state = restored
         else:
             if "iter" in restored and restored["iter"] is not None:
-                data_iterator.local_iterator = restored["iter"]
-            state = restored["items"]
+                data_iterator.local_iterator = restored["data_iter"]
+            state = restored["train_state"]
     else:
         init_train_state_partial = functools.partial(
             init_train_state, constructor, tx, config
         )
-        state = jax.jit(init_train_state_partial, out_shardings=state_shardings)(rng)
+        state = jax.jit(init_train_state_partial, out_shardings=state_sharding)(rng)
         if raw_params:  # If we loaded a partial state, we need to merge it.
             state = state.replace(params=raw_params)
 
-    return state, data_iterator
+    return state, state_sharding, data_iterator
 
 
 def get_abstract_state(constructor, tx, config, rng, mesh):
@@ -227,9 +229,53 @@ def get_abstract_state(constructor, tx, config, rng, mesh):
         return init_train_state(constructor, tx, config, rng)
 
     abstract_state = jax.eval_shape(init_fn)
-    state_shardings = nnx.get_named_sharding(abstract_state, mesh)
-    abstract_sharded_state = jax.jit(
-        init_fn, out_shardings=state_shardings
-    ).eval_shape()
+    state_sharding = nnx.get_named_sharding(abstract_state, mesh)
+    abstract_sharded_state = jax.jit(init_fn, out_shardings=state_sharding).eval_shape()
 
-    return abstract_sharded_state, state_shardings
+    return abstract_sharded_state, state_sharding
+
+
+def accumulate_gradients_and_metrics(
+    grad_and_metrics_fn,
+    global_batch_size: int,
+    microsteps: int,
+    data_sharding: Sharding,
+):
+    """Wraps a function that computes gradients and metrics to use microsteps."""
+
+    if not microsteps or microsteps < 0:
+        return grad_and_metrics_fn
+
+    batch_size_per_device = global_batch_size // jax.device_count()
+    assert batch_size_per_device % microsteps == 0
+
+    def new_grad_and_metrics_fn(params, batch):
+        # Note: we need this reshape because dynamic_index/dynamic_index_in_dim do
+        # not work with strides, and we need to make sure that all acc steps cover
+        # all devices.
+        batch = jax.tree.map(lambda x: x.reshape((-1, microsteps) + x.shape[1:]), batch)
+        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
+
+        def accum_fn(i, state):
+            grad, metrics = state
+            microbatch = jax.tree.map(
+                lambda x: jax.lax.dynamic_index_in_dim(x, i, axis=1, keepdims=False),
+                batch,
+            )
+            new_grad, new_metrics = grad_and_metrics_fn(params, microbatch)
+            new_grad, new_metrics = jax.tree.map(
+                lambda x, y: x + y, (grad, metrics), (new_grad, new_metrics)
+            )
+            return new_grad, new_metrics
+
+        # Accumulate (sum) gradients and metrics through many microsteps.
+        microbatch = jax.tree.map(
+            lambda x: jax.lax.dynamic_index_in_dim(x, 0, axis=1, keepdims=False), batch
+        )
+        grads, metrics = grad_and_metrics_fn(params, microbatch)
+        grads, metrics = jax.lax.fori_loop(1, microsteps, accum_fn, (grads, metrics))
+        # Average gradients and metrics through all the microsteps.
+        grads, metrics = jax.tree.map(lambda x: x / microsteps, (grads, metrics))
+        return grads, metrics
+
+    return new_grad_and_metrics_fn

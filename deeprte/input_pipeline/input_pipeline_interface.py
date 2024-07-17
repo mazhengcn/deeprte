@@ -1,7 +1,6 @@
 """Input pipeline"""
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 import tensorflow as tf
 from jax.sharding import PartitionSpec as P
@@ -119,12 +118,12 @@ def get_process_loading_real_data(config, mesh):
     for p, indices in devices_indices_map.items():
         if indices[0].stop <= batch_cutoff:
             process_loading_real_data.add(p.process_index)
-    return list(process_loading_real_data)
+    return list(process_loading_real_data), sharding
 
 
 def make_mixed_train_iterator(config, mesh):
     """Return iterators according to dataset_type"""
-    process_indices = get_process_loading_real_data(config, mesh)
+    process_indices, sharding = get_process_loading_real_data(config, mesh)
     if (
         config.expansion_factor_real_data != -1
     ):  # assert number of hosts loading real data
@@ -134,7 +133,7 @@ def make_mixed_train_iterator(config, mesh):
         )
     if jax.process_index() in process_indices:
         if config.dataset_type == "tfds":
-            return make_tfds_iterator(config, mesh, process_indices)
+            return make_tfds_iterator(config, mesh, process_indices), sharding
     else:
         return BadSyntheticDataIterator(config, mesh), None
 
@@ -146,17 +145,3 @@ def create_data_iterator(config, mesh):
         return make_mixed_train_iterator(config, mesh)
     else:
         assert False, f"Unknown dataset_type {config.dataset_type}, dataset_type must be synthetic, tfds"
-
-
-def get_shaped_batch(config):
-    """Return the shape of the batch - this is what eval_shape would return for the
-    output of create_data_iterator, but eval_shape doesn't work, see b/306901078."""
-    batch_shape = (config.global_batch_size_to_load, config.max_target_length)
-    shaped_batch = {}
-    shaped_batch["inputs"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    shaped_batch["inputs_position"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    shaped_batch["inputs_segmentation"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    shaped_batch["targets"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    shaped_batch["targets_position"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    shaped_batch["targets_segmentation"] = jax.ShapeDtypeStruct(batch_shape, jnp.int32)
-    return shaped_batch

@@ -44,13 +44,12 @@ COLLOCATION_AXES = {
 
 @dataclasses.dataclass(unsafe_hash=True)
 class DeepRTEConfig:
-    """Global hyperparameters used to minimize obnoxious kwarg plumbing."""
-
-    coords_dim: int = 2
-    phase_coords_dim: int = 2 * coords_dim
+    # Physical dimensions
+    position_coords_dim: int = 2
+    velocity_coords_dim: int = 2
     # Attention / Optical depths
+    coeffs_fn_dim: int = 2
     num_heads: int = 2
-    attention_in_dims: tuple = (phase_coords_dim, coords_dim, 2)
     qkv_dim: int = 64
     optical_depth_dim: int = 2
     # Mlp
@@ -59,11 +58,10 @@ class DeepRTEConfig:
     # Scattering
     num_scattering_layers: int = 2
     scattering_dim: int = 16
-    # Initializers
-    kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
-    bias_init: nnx.Initializer = nnx.initializers.zeros_init()
     # Mesh rules
-    axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
+    logical_axis_rules: default.MeshRules = dataclasses.field(
+        default_factory=default.MeshRules
+    )
     # Subcollocation size
     subcollocation_size: int = 128
 
@@ -208,7 +206,10 @@ class MlpBlock(nnx.Module):
 
     def __init__(self, config: DeepRTEConfig, *, rngs: nnx.Rngs):
         self.num_layers = config.num_mlp_layers
-        self.in_features = 2 * config.phase_coords_dim + config.optical_depth_dim
+        self.in_features = (
+            2 * (config.position_coords_dim + config.velocity_coords_dim)
+            + config.optical_depth_dim
+        )
         self.mlp_dim = config.mlp_dim
         self.out_dim = config.scattering_dim
 
@@ -237,9 +238,15 @@ class Attenuation(nnx.Module):
     def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
         self.config = config
 
+        attention_in_dims = [
+            config.position_coords_dim + config.velocity_coords_dim,
+            config.position_coords_dim,
+            config.coeffs_fn_dim,
+        ]
+
         self.attention = MultiHeadAttention(
             config.num_heads,
-            config.attention_in_dims,
+            attention_in_dims,
             config.qkv_dim,
             config.optical_depth_dim,
             rngs=rngs,
@@ -309,11 +316,13 @@ class GreenFunction(nnx.Module):
 
     def __init__(self, config, rngs: nnx.Rngs):
         self.config = config
-        self.attenuation = Attenuation(config, rngs=rngs)
-        self.scattering = Scattering(config, rngs=rngs)
-        self.out = nnx.Linear(config.scattering_dim, 1, use_bias=False, rngs=rngs)
+        self.attenuation = Attenuation(self.config, rngs=rngs)
+        self.scattering = Scattering(self.config, rngs=rngs)
+        self.out = nnx.Linear(self.config.scattering_dim, 1, use_bias=False, rngs=rngs)
 
-    def __call__(self, coord1: Array, coord2: Array, batch: _matlab_data_source.FeatureDict):
+    def __call__(
+        self, coord1: Array, coord2: Array, batch: _matlab_data_source.FeatureDict
+    ):
         charac = Characteristics.from_tensor(batch["position_coords"])
         act = self.attenuation(
             coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
@@ -354,7 +363,7 @@ class DeepRTE(nnx.Module):
         self.config = config
         self.low_memory = low_memory
 
-        self.green_fn = GreenFunction(config=config, rngs=rngs)
+        self.green_fn = GreenFunction(config=self.config, rngs=rngs)
 
     def __call__(self, batch: _matlab_data_source.FeatureDict):
         rte_inputs = {k: batch[k] for k in FEATURES}

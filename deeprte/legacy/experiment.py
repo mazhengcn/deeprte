@@ -20,6 +20,7 @@ from collections.abc import Generator, Mapping
 
 import chex
 import haiku as hk
+from deeprte.input_pipeline import _tfds_data_processing
 import jax
 import jax.numpy as jnp
 import optax
@@ -29,8 +30,8 @@ from jaxline import experiment
 from jaxline import utils as jl_utils
 from ml_collections import config_dict
 
-from deeprte import input_pipeline, optimizers, utils
-from deeprte.data.pipeline import FeatureDict
+from deeprte import optimizers, utils
+from deeprte.data._matlab_data_source import FeatureDict
 from deeprte.model import modules
 
 FLAGS = flags.FLAGS
@@ -193,9 +194,9 @@ class Experiment(experiment.AbstractExperiment):
                 f"Global batch size {global_batch_size} must be divisible by "
                 f"number of devices {jax.local_device_count()}"
             )
-        return input_pipeline.load(
+        return _tfds_data_processing.load(
             name=c.dataset.name,
-            split=input_pipeline.Split.TRAIN,
+            split=_tfds_data_processing.Split.TRAIN,
             split_percentage=c.dataset.split_percentage,
             tfds_dir=c.dataset.tfds_dir,
             is_training=True,
@@ -399,9 +400,9 @@ class Experiment(experiment.AbstractExperiment):
                 f"Global batch size {global_batch_size} must be divisible by "
                 f"number of devices {jax.local_device_count()}"
             )
-        return input_pipeline.load(
+        return _tfds_data_processing.load(
             name=c.dataset.name,
-            split=input_pipeline.Split.VALID,
+            split=_tfds_data_processing.Split.VALID,
             split_percentage=c.dataset.split_percentage,
             tfds_dir=c.dataset.tfds_dir,
             batch_sizes=[jax.local_device_count(), per_device_batch_size],

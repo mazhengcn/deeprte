@@ -267,7 +267,6 @@ def setup_checkpoint_logger(config) -> composite_logger.CompositeLogger | None:
     Returns:
       CompositeLogger
     """
-    orbax_cloud_logger = None
     orbax_standard_logger = None
     logging.info("Setting up checkpoint logger...")
 
@@ -275,14 +274,7 @@ def setup_checkpoint_logger(config) -> composite_logger.CompositeLogger | None:
         orbax_standard_logger = standard_logger.StandardLogger()
         logging.info("Successfully set up checkpoint standard logger.")
 
-    orbax_logger = None
-    if orbax_cloud_logger is not None and orbax_standard_logger is not None:
-        orbax_logger = composite_logger.CompositeLogger(
-            orbax_cloud_logger, orbax_standard_logger
-        )
-        logging.info("Successfully set up checkpoint composite logger.")
-
-    return orbax_logger
+    return orbax_standard_logger
 
 
 def load_params_from_path(load_parameters_from_path, abstract_params):

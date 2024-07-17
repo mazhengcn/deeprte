@@ -143,23 +143,20 @@ def make_tfds_iterator(config, global_mesh, process_indices):
         dataloading_host_count=len(process_indices),
         shuffle=config.enable_data_shuffling,
         data_shuffle_seed=config.data_shuffle_seed,
+        num_epochs=-1,
     )
 
-    if config.eval_interval > 0:
+    if config.eval_every_steps > 0:
         eval_ds = get_datasets(
             dataset_name=config.dataset_name,
+            data_dir=config.data_dir,
             data_split=config.eval_split,
             shuffle_files=False,
         )
 
-        if config.eval_per_device_batch_size > 0:
-            eval_batch_size = config.eval_per_device_batch_size * global_mesh.size
-        else:
-            eval_batch_size = config.global_batch_size_to_load
-
         eval_iter = preprocessing_pipeline(
             dataset=eval_ds,
-            global_batch_size=eval_batch_size,
+            global_batch_size=config.eval_batch_size,
             global_mesh=global_mesh,
             data_pspec=PartitionSpec(*config.data_sharding),
             dataloading_host_index=process_indices.index(jax.process_index()),
