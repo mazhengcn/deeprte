@@ -57,7 +57,7 @@ class Config:
     # Train
     global_batch_size_to_train_on: int = global_batch_size_to_load
     # Train
-    collocation_sizes: tuple[int] = (128,)
+    collocation_sizes: tuple[int] = (140,)
     # Train
     repeat_batch: int = 1
     # expansion_factor_real_data
@@ -68,10 +68,11 @@ class Config:
     eval_every_steps: int = 1_000
     # Number of steps to take during evaluation.
     micro_steps: int = -1
-    # Large enough to evaluate all samples: 306_688 / (32 * 8) = 1198
-    num_eval_steps: int = 2_000
     # Base learning rate.
     learning_rate: float = 0.001
+    lr_schedule: str = "exponential_decay"
+    decay_rate: float = 0.96
+    transition_steps: int = 10_000
     # Linear learning rate warmup.
     warmup_steps: int = 1000
     # Decay factor for AdamW style weight decay.

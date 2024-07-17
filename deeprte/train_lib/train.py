@@ -152,12 +152,19 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     # Build Model and Optimizer
     # ---------------------------------------------------------------------------
-    logging.info("Initializing model, optimizer, and checkpointer.")
+    logging.info("Initializing optimizer, model and checkpointer.")
+
+    learning_rate_dict = {
+        "schedule": config.lr_schedule,
+        "init_value": config.learning_rate,
+        "decay_rate": config.decay_rate,
+        "transition_steps": config.transition_steps,
+    }
 
     lr_schedule, tx = optimizers.create_optimizer(
         name="adam",
         total_steps=config.num_train_steps,
-        learning_rate=config.learning_rate,
+        learning_rate=learning_rate_dict,
     )
 
     def constructor(config: modules.DeepRTEConfig, key: jax.Array):
