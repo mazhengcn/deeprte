@@ -251,7 +251,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # ---------------------------------------------------------------------------
     logging.info("Initializing train state.")
 
-    state, state_sharding, train_iter = train_utils.setup_initial_state(
+    state, state_sharding, train_iter = train_utils.setup_training_state(
         constructor, train_iter, tx, config, init_rng, mesh, checkpoint_manager
     )
     start_step = get_first_step(state)

@@ -2,7 +2,6 @@ import functools
 import os
 import socket
 import time
-from collections.abc import Callable
 from typing import Any
 
 import jax
@@ -112,7 +111,19 @@ def _to_array(x):
     return x
 
 
-def init_train_state(constructor: Callable, tx, config, rng):
+def init_infer_state(graphdef, params):
+    """Init train state with null opt state for decode."""
+    state = TrainState(graphdef=graphdef, params=params, opt_state={}, step=0, tx=None)
+    return state
+
+
+def init_training_state(graphdef, params, tx):
+    """Init train state with null opt state for decode."""
+    state = TrainState.create(graphdef=graphdef, params=params, tx=tx)
+    return state
+
+
+def init_initial_state(constructor, tx, config, key, is_training):
     """We initialize the model and optimizer state, and optionally load from a
     checkpoint as necessary.
 
@@ -129,16 +140,16 @@ def init_train_state(constructor: Callable, tx, config, rng):
     """
 
     # Initialization
-    model = constructor(config, rng)
+    model = constructor(config, key)
     graphdef, params = nnx.split(model, nnx.Param)
-    state = TrainState.create(graphdef=graphdef, params=params, tx=tx)
-    state = jax.tree.map(_to_array, state)
-
-    return state
+    if is_training:
+        state = init_training_state(graphdef, params, tx)
+        return jax.tree.map(_to_array, state)
+    return init_infer_state(graphdef, params)
 
 
 def setup_initial_state(
-    constructor, data_iterator, tx, config, rng, mesh, checkpoint_manager
+    constructor, data_iterator, tx, config, rng, mesh, checkpoint_manager, is_training
 ):
     """We initialize the model and optimizer state, and optionally load from a
     checkpoint as necessary.
@@ -157,7 +168,7 @@ def setup_initial_state(
     """
 
     abstract_sharded_state, state_sharding = get_abstract_state(
-        constructor, tx, config, rng, mesh
+        constructor, tx, config, rng, mesh, is_training
     )
 
     # Initialization
@@ -183,7 +194,7 @@ def setup_initial_state(
             state = restored["train_state"]
     else:
         init_train_state_partial = functools.partial(
-            init_train_state, constructor, tx, config
+            init_initial_state, constructor, tx, config, is_training=is_training
         )
         state = jax.jit(init_train_state_partial, out_shardings=state_sharding)(rng)
         if raw_params:  # If we loaded a partial state, we need to merge it.
@@ -192,11 +203,59 @@ def setup_initial_state(
     return state, state_sharding, data_iterator
 
 
-def get_abstract_state(constructor, tx, config, rng, mesh):
+def setup_training_state(
+    constructor, data_iterator, tx, config, rng, mesh, checkpoint_manager
+):
+    return setup_initial_state(
+        constructor,
+        data_iterator,
+        tx,
+        config,
+        rng,
+        mesh,
+        checkpoint_manager,
+        is_training=True,
+    )
+
+
+def setup_infer_state(constructor, config, rng, mesh, checkpoint_manager):
+    """Setup decode state by loading params from a checkpoint.
+    Args:
+      model: the flax model to initialize
+      config: config object
+      rng: jax.prng key
+      mesh: jax.devices() mesh
+      checkpoint_manager: Checkpoint manager
+
+    Returns:
+      state: state with decode params loaded from the checkpoint
+      state_mesh_annotations: the mesh annotations for the state
+    """
+    if not config.load_parameters_path:
+        # generate random params
+        logging.info("No decode checkpoint specified - generating random weights.")
+        state, state_sharding, _ = setup_initial_state(
+            constructor, None, None, config, rng, mesh, checkpoint_manager, False
+        )
+    else:
+        # Load params from checkpoint
+        logging.info(f"Loading decode params from {config.load_parameters_path}")
+        abstract_sharded_state, state_sharding = get_abstract_state(
+            constructor, None, config, rng, mesh, False
+        )
+        params = checkpointing.load_params_from_path(
+            config.load_parameters_path, abstract_sharded_state.params
+        )
+        state = init_infer_state(None, params)
+
+    return state, state_sharding
+
+
+def get_abstract_state(constructor, tx, config, rng, mesh, is_training):
     """Get a shaped abstraction of the state (including optimizer)"""
 
     def init_fn():
-        return init_train_state(constructor, tx, config, rng)
+        return init_initial_state(constructor, tx, config, rng, is_training)
 
     abstract_state = jax.eval_shape(init_fn)
     state_sharding = nnx.get_named_sharding(abstract_state, mesh)
