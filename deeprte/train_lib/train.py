@@ -1,4 +1,4 @@
-# import dataclasses
+import dataclasses
 import functools
 
 import grain.python as grain
@@ -14,7 +14,7 @@ from jax.sharding import Mesh, Sharding
 
 from deeprte.configs import default
 from deeprte.input_pipeline import input_pipeline_interface
-from deeprte.model import modules
+from deeprte.model.modules import constructor
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 from deeprte.train_lib.checkpointing import emergency_checkpoint_manager
@@ -214,9 +214,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
         learning_rate=learning_rate_dict,
     )
 
-    def constructor(config: modules.DeepRTEConfig, key: jax.Array):
-        return modules.DeepRTE(config, rngs=nnx.Rngs(params=key))
-
     if config.enable_emergency_checkpoint:
         abstract_state, _ = train_utils.get_abstract_state(
             constructor, tx, config, init_rng, mesh
@@ -249,6 +246,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     if config.prefetch_to_device:
         train_iter = prefetch_to_device(train_iter, prefetch_size=2)
         eval_iter = prefetch_to_device(eval_iter, prefetch_size=2)
+
     # Initialize train state
     # ---------------------------------------------------------------------------
     logging.info("Initializing train state.")
@@ -258,8 +256,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
     )
     start_step = get_first_step(state)
 
-    # if start_step == 0:
-    #     writer.write_hparams(dataclasses.asdict(config))
+    if start_step == 0:
+        writer.write_hparams(dataclasses.asdict(config))
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------

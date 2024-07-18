@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import dataclasses
 
-from flax import nnx
-
 
 @dataclasses.dataclass(unsafe_hash=True)
 class MeshRules:
@@ -108,9 +106,6 @@ class Config:
     num_scattering_layers: int = 2
     # Scattering dimension.
     scattering_dim: int = 16
-    # Initializers
-    kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
-    bias_init: nnx.Initializer = nnx.initializers.zeros_init()
     # Subcollocation size for evaluation or inference
     subcollocation_size: int = 128
 

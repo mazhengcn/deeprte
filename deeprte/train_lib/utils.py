@@ -1,5 +1,4 @@
 import functools
-import json
 import os
 import socket
 import time
@@ -151,7 +150,6 @@ def setup_initial_state(
       rng: jax.prng key
       mesh: jax.devices() mesh
       checkpoint_manager: an Orbax checkpointing.CheckpointManager object
-      is_training: True to initialize training state, False for decode state
 
     Returns:
       state: the initialized train state
