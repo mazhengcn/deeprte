@@ -104,7 +104,7 @@ def create_optimizer(
     ops.append(_scale_by_learning_rate(lr_schedule))
 
     # Chain all operations on the gradients.
-    return lr_schedule, optax.chain(*ops)
+    return optax.chain(*ops), lr_schedule
 
 
 def trace_momentum(momentum: Optional[float] = None, **kwargs):

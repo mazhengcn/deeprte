@@ -110,10 +110,8 @@ class BadSyntheticDataIterator:
 def get_process_loading_real_data(config, mesh):
     """Get list of processes loading data from GCS when expansion_factor_real_data != -1"""
     sharding = jax.sharding.NamedSharding(mesh, P(*config.data_sharding))
-    devices_indices_map = sharding.devices_indices_map(
-        (config.global_batch_size_to_load,)
-    )
-    batch_cutoff = config.global_batch_size_to_train_on
+    devices_indices_map = sharding.devices_indices_map((config.global_batch_size,))
+    batch_cutoff = config.global_batch_size
     process_loading_real_data = set()
     for p, indices in devices_indices_map.items():
         if indices[0].stop <= batch_cutoff:
@@ -124,13 +122,6 @@ def get_process_loading_real_data(config, mesh):
 def make_mixed_train_iterator(config, mesh):
     """Return iterators according to dataset_type"""
     process_indices, sharding = get_process_loading_real_data(config, mesh)
-    if (
-        config.expansion_factor_real_data != -1
-    ):  # assert number of hosts loading real data
-        assert (
-            len(process_indices)
-            == jax.process_count() // config.expansion_factor_real_data
-        )
     if jax.process_index() in process_indices:
         if config.dataset_type == "tfds":
             return make_tfds_iterator(config, mesh, process_indices), sharding

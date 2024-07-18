@@ -1,3 +1,4 @@
+# import dataclasses
 import functools
 
 import grain.python as grain
@@ -9,7 +10,7 @@ from absl import logging
 from clu import metric_writers, periodic_actions
 from etils import epath
 from flax import nnx
-from jax.sharding import Mesh
+from jax.sharding import Mesh, Sharding
 
 from deeprte.configs import default
 from deeprte.input_pipeline import input_pipeline_interface
@@ -17,6 +18,53 @@ from deeprte.model import modules
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 from deeprte.train_lib.checkpointing import emergency_checkpoint_manager
+from deeprte.train_lib.multihost_dataloading import prefetch_to_device
+
+
+def accumulate_gradients_and_metrics(
+    grad_and_metrics_fn,
+    global_batch_size: int,
+    microsteps: int,
+    data_sharding: Sharding,
+):
+    """Wraps a function that computes gradients and metrics to use microsteps."""
+
+    if not microsteps or microsteps < 0:
+        return grad_and_metrics_fn
+
+    batch_size_per_device = global_batch_size // jax.device_count()
+    assert batch_size_per_device % microsteps == 0
+
+    def new_grad_and_metrics_fn(params, batch):
+        # Note: we need this reshape because dynamic_index/dynamic_index_in_dim do
+        # not work with strides, and we need to make sure that all acc steps cover
+        # all devices.
+        batch = jax.tree.map(lambda x: x.reshape((-1, microsteps) + x.shape[1:]), batch)
+        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
+
+        def accum_fn(i, state):
+            grad, metrics = state
+            microbatch = jax.tree.map(
+                lambda x: jax.lax.dynamic_index_in_dim(x, i, axis=1, keepdims=False),
+                batch,
+            )
+            new_grad, new_metrics = grad_and_metrics_fn(params, microbatch)
+            new_grad, new_metrics = jax.tree.map(
+                lambda x, y: x + y, (grad, metrics), (new_grad, new_metrics)
+            )
+            return new_grad, new_metrics
+
+        # Accumulate (sum) gradients and metrics through many microsteps.
+        microbatch = jax.tree.map(
+            lambda x: jax.lax.dynamic_index_in_dim(x, 0, axis=1, keepdims=False), batch
+        )
+        grads, metrics = grad_and_metrics_fn(params, microbatch)
+        grads, metrics = jax.lax.fori_loop(1, microsteps, accum_fn, (grads, metrics))
+        # Average gradients and metrics through all the microsteps.
+        grads, metrics = jax.tree.map(lambda x: x / microsteps, (grads, metrics))
+        return grads, metrics
+
+    return new_grad_and_metrics_fn
 
 
 def get_first_step(state):
@@ -80,7 +128,7 @@ def train_step(state, batch, config, data_sharding):
         return loss, metrics
 
     grad_fn = jax.grad(loss_fn, has_aux=True)
-    grads_and_metrics = train_utils.accumulate_gradients_and_metrics(
+    grads_and_metrics = accumulate_gradients_and_metrics(
         grad_fn, config.global_batch_size, config.micro_steps, data_sharding
     )
     grads, metrics = grads_and_metrics(state.params, batch)
@@ -108,7 +156,7 @@ def evaluate(jit_eval_step, state, eval_iter):
         metrics = jit_eval_step(state.params, eval_batch, state.graphdef)
         eval_metrics = jax.tree.map(lambda x, y: x + float(y), eval_metrics, metrics)
         eval_batch_count += 1
-    eval_metrics = jax.tree.map(lambda x: x / eval_batch_count, eval_metrics)
+    # eval_metrics = jax.tree.map(lambda x: x / eval_batch_count, eval_metrics)
     denominator = eval_metrics.pop("evaluation/denominator")
     eval_metrics["evaluation/rmse"] = jnp.sqrt(
         eval_metrics["evaluation/mse"] / denominator
@@ -154,13 +202,13 @@ def train_and_evaluate(config: default.Config, workdir: str):
     logging.info("Initializing optimizer, model and checkpointer.")
 
     learning_rate_dict = {
-        "schedule": config.lr_schedule,
+        "schedule": config.schedule,
         "init_value": config.learning_rate,
         "decay_rate": config.decay_rate,
         "transition_steps": config.transition_steps,
     }
 
-    lr_schedule, tx = optimizers.create_optimizer(
+    tx, lr_schedule = optimizers.create_optimizer(
         name="adam",
         total_steps=config.num_train_steps,
         learning_rate=learning_rate_dict,
@@ -198,7 +246,9 @@ def train_and_evaluate(config: default.Config, workdir: str):
     (train_iter, eval_iter), data_sharding = (
         input_pipeline_interface.create_data_iterator(config, mesh)
     )
-
+    if config.prefetch_to_device:
+        train_iter = prefetch_to_device(train_iter, prefetch_size=2)
+        eval_iter = prefetch_to_device(eval_iter, prefetch_size=2)
     # Initialize train state
     # ---------------------------------------------------------------------------
     logging.info("Initializing train state.")
@@ -258,12 +308,13 @@ def train_and_evaluate(config: default.Config, workdir: str):
                 h(step)
 
             # Periodic metric handling.
-            if step % config.eval_every_steps == 0 or is_last_step:
+            if step % config.log_every_steps == 0 or is_last_step:
                 with report_progress.timed("training_metrics"):
                     logging.info("Gathering training metrics.")
                     train_metrics["learning_rate"] = lr_schedule(step)
                     writer.write_scalars(step, train_metrics)
 
+            if step % config.eval_every_steps == 0 or is_last_step:
                 with report_progress.timed("eval"):
                     eval_metrics = evaluate(
                         jit_eval_step=jit_eval_step, state=state, eval_iter=eval_iter

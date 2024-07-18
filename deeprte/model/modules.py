@@ -46,26 +46,33 @@ COLLOCATION_AXES = {
 
 @dataclasses.dataclass(unsafe_hash=True)
 class DeepRTEConfig:
-    # Physical dimensions
+    # Physical position dimensions.
     position_coords_dim: int = 2
+    # Physical velocity dimensions.
     velocity_coords_dim: int = 2
-    # Attention / Optical depths
+    # Dimensions of (scattering) coefficient functions.
     coeffs_fn_dim: int = 2
+    # Number of attention heads.
     num_heads: int = 2
+    # Attention dimension.
     qkv_dim: int = 64
+    # Output dimensions of attention.
     optical_depth_dim: int = 2
-    # Mlp
+    # Number of MLP layers.
     num_mlp_layers: int = 4
+    # MLP dimension.
     mlp_dim: int = 128
-    # Scattering
+    # Number of scattering layers.
     num_scattering_layers: int = 2
+    # Scattering dimension.
     scattering_dim: int = 16
+    # Initializers
     kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
     bias_init: nnx.Initializer = nnx.initializers.zeros_init()
+    # Subcollocation size for evaluation or inference
+    subcollocation_size: int = 128
     # Mesh rules
     axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
-    # Subcollocation size
-    subcollocation_size: int = 128
 
     def replace(self, **kwargs):
         return dataclasses.replace(self, **kwargs)

@@ -72,7 +72,7 @@ def preprocessing_pipeline(
     num_epochs: Optional[int] = 1,
     shuffle_buffer_size: int = 1024,
     drop_remainder: bool = True,
-    prefetch_size=tf.data.experimental.AUTOTUNE,
+    prefetch_size=tf.data.AUTOTUNE,
 ):
     """pipeline for preprocessing TFDS dataset."""
     dataset = dataset.shard(

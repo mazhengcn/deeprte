@@ -1,15 +1,19 @@
 import functools
 import json
+import os
+import socket
+import time
 from collections.abc import Callable
 from typing import Any
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+import orbax.checkpoint as ocp
 from absl import logging
+from etils import epath
 from flax import nnx
 from jax.experimental import mesh_utils
-from typing_extensions import Protocol, runtime_checkable
 
 from deeprte.train_lib import checkpointing
 
@@ -23,38 +27,6 @@ Shape = tuple[int, ...]
 
 
 TrainState = nnx.TrainState
-
-
-@runtime_checkable
-class HasCache(Protocol):
-    def init_cache(self, input_shape: Shape, dtype: Dtype = jnp.float32): ...
-
-
-def close_summary_writer(summary_writer):
-    if jax.process_index() == 0:
-        summary_writer.close()
-
-
-def _prepare_metrics_for_json(metrics, step, run_name):
-    """Converts metric dictionary into json supported types (e.g. float)"""
-    metrics_dict = {}
-    for val in metrics["scalar"]:
-        metrics_dict[val] = float(metrics["scalar"][val])
-    metrics_dict["step"] = float(step)
-    metrics_dict["run_name"] = run_name
-    return metrics_dict
-
-
-def write_metrics_locally(metrics, step, config, file):
-    """Writes metrics locally for testing"""
-    if step == 0:
-        file.truncate(0)
-
-    metrics_dict = _prepare_metrics_for_json(metrics, step, config.run_name)
-    file.write(str(json.dumps(metrics_dict)) + "\n")
-
-    if step == config.steps - 1:
-        file.close()
 
 
 # Mesh utils.
@@ -235,47 +207,156 @@ def get_abstract_state(constructor, tx, config, rng, mesh):
     return abstract_sharded_state, state_sharding
 
 
-def accumulate_gradients_and_metrics(
-    grad_and_metrics_fn,
-    global_batch_size: int,
-    microsteps: int,
-    data_sharding: Sharding,
-):
-    """Wraps a function that computes gradients and metrics to use microsteps."""
+# Distributed system initialization.
+# -----------------------------------------------------------------------------
 
-    if not microsteps or microsteps < 0:
-        return grad_and_metrics_fn
 
-    batch_size_per_device = global_batch_size // jax.device_count()
-    assert batch_size_per_device % microsteps == 0
+def maybe_initialize_jax_distributed_system(config):
+    """The best recipe to initialize the Jax Distributed System has varied over time. We keep a layer of
+    indirection to avoid breaking the call sites unnecessarily.
 
-    def new_grad_and_metrics_fn(params, batch):
-        # Note: we need this reshape because dynamic_index/dynamic_index_in_dim do
-        # not work with strides, and we need to make sure that all acc steps cover
-        # all devices.
-        batch = jax.tree.map(lambda x: x.reshape((-1, microsteps) + x.shape[1:]), batch)
-        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
+    Currently jax.distributed.initialize() fully works as expected!
 
-        def accum_fn(i, state):
-            grad, metrics = state
-            microbatch = jax.tree.map(
-                lambda x: jax.lax.dynamic_index_in_dim(x, i, axis=1, keepdims=False),
-                batch,
-            )
-            new_grad, new_metrics = grad_and_metrics_fn(params, microbatch)
-            new_grad, new_metrics = jax.tree.map(
-                lambda x, y: x + y, (grad, metrics), (new_grad, new_metrics)
-            )
-            return new_grad, new_metrics
-
-        # Accumulate (sum) gradients and metrics through many microsteps.
-        microbatch = jax.tree.map(
-            lambda x: jax.lax.dynamic_index_in_dim(x, 0, axis=1, keepdims=False), batch
+    For CPUs, we call jax.distributed.initialize() explicitly, with the specified arguments.
+    """
+    if is_gpu_backend(config):
+        logging.info(
+            "Attempting to initialize the jax distributed system for GPU backend..."
         )
-        grads, metrics = grad_and_metrics_fn(params, microbatch)
-        grads, metrics = jax.lax.fori_loop(1, microsteps, accum_fn, (grads, metrics))
-        # Average gradients and metrics through all the microsteps.
-        grads, metrics = jax.tree.map(lambda x: x / microsteps, (grads, metrics))
-        return grads, metrics
+        initialize_jax_for_gpu()
+        logging.info("Jax distributed system initialized on GPU!")
+    elif is_cpu_backend(config):
+        logging.info(
+            "Attempting to initialize the jax distributed system for CPU backend..."
+        )
+        initialize_jax_for_cpu()
+        logging.info("Jax distributed system initialized on CPUs!")
+    elif (
+        config.enable_checkpointing
+        and config.async_checkpointing
+        and config.compile_topology_num_slices == -1
+        and not config.enable_single_controller
+    ) or config.hardware == "gpu_multiprocess":
+        logging.info("Attempting to initialize the jax distributed system...")
+        if not config.enable_emergency_checkpoint:
+            jax.distributed.initialize()
+        else:
+            initialize_jax_for_tpu_with_emergency_checkpointing(config)
+        logging.info("Jax distributed system initialized!")
 
-    return new_grad_and_metrics_fn
+
+def initialize_jax_for_gpu():
+    """Jax distributed initialize for GPUs."""
+    if os.environ.get("JAX_COORDINATOR_IP") is not None:
+        coordinator_ip = str(os.getenv("JAX_COORDINATOR_IP"))
+        coordinator_port = str(os.getenv("JAX_COORDINATOR_PORT"))
+        jax.distributed.initialize(
+            coordinator_address=f"{coordinator_ip}:{coordinator_port}",
+            num_processes=int(os.getenv("NNODES")),
+            process_id=int(os.getenv("NODE_RANK")),
+        )
+        logging.info(f"JAX global devices: {jax.devices()}")
+
+
+def initialize_jax_for_cpu():
+    """Jax distributed initialize for CPUs. Includes retries until the coordinator is ready."""
+    coordinator_ip_address = get_coordinator_ip_address()
+    coordinator_address = (
+        coordinator_ip_address + ":1234"
+    )  # JAX coordinator port used in XPK
+    # Env variables to be set in XPK or otherwise
+    job_index = int(os.environ.get("JOB_INDEX"))
+    job_completion_index = int(os.environ.get("JOB_COMPLETION_INDEX"))
+    processes_in_job = int(os.environ.get("PROCESSES_IN_JOB"))
+    pid = job_index * processes_in_job + job_completion_index
+    logging.info(f" Jax process id is {pid} ")
+    # Explicit initialize is needed only for CPUs
+    jax.distributed.initialize(
+        coordinator_address=coordinator_address,
+        process_id=pid,
+        num_processes=int(os.environ.get("JAX_PROCESS_COUNT")),
+    )
+
+
+def initialize_jax_for_tpu_with_emergency_checkpointing(config):
+    """Initialize JAX distributed runtime for TPUs when emergency checkpointing is used.
+    The information required to initialize JAX distributed runtime will be written by GKE to
+    the local checkpoint directory. This function retrieves that information and initializes
+    JAX distributed runtime.
+    """
+    process_id, coordinator_address = _retrieve_jax_init_info(config)
+
+    if process_id != "" and coordinator_address != "":
+        logging.info(
+            f"Using {process_id} as the process_id and {coordinator_address} as the"
+            " coordinator_address to initialize JAX distributed runtime..."
+        )
+        jax.distributed.initialize(
+            coordinator_address=coordinator_address, process_id=int(process_id)
+        )
+    else:
+        logging.info(
+            "Initializing JAX distributed runtime without args when emergency checkpointing is"
+            " enabled. This should not happen and your workload may have unexpected behavior."
+        )
+        jax.distributed.initialize()
+
+    ocp.multihost.utils.initialize_runtime_to_distributed_ids()
+
+
+def _retrieve_jax_init_info(config):
+    """Retrieve JAX init info from a local file."""
+    JAX_INIT_INFO_FILE = "jax-init-info.txt"
+    local_jax_init_info_file = (
+        epath.Path(config.local_checkpoint_directory) / JAX_INIT_INFO_FILE
+    )
+    # Allow time for the JAX init info file to be populated by GKE. This is needed because the file is
+    # only populated when the worker with process id of 0 is determined. After a disruption, although some
+    # workers might be up and running, the init info file won't be populated until the node with process id
+    # of 0 is known and this could take time. Using 900 seconds for now and it needs to be increased if the
+    # "repair" time is longer.
+    for i in range(900):
+        if local_jax_init_info_file.exists():
+            return local_jax_init_info_file.read_text().split("\n")[:2]
+        logging.info(
+            f"Unable to locate {JAX_INIT_INFO_FILE} after {i} seconds, sleeping for 1 second before retrying..."
+        )
+        time.sleep(1)
+    logging.info(
+        f"Unable to locate {JAX_INIT_INFO_FILE} after 900 seconds,"
+        "returning empty process id and coordinator address."
+    )
+    return "", ""
+
+
+def is_cpu_backend(config):
+    """Determine whether Maxtext is intended to run on a CPU backend."""
+    return config.hardware == "cpu"
+
+
+def is_gpu_backend(config):
+    """Determine whether Maxtext is intended to run on a GPU backend."""
+    return config.hardware == "gpu"
+
+
+def get_coordinator_ip_address():
+    """Get coordinator IP Address with retries"""
+    coordinator_address = ""
+    coordinator_ip_address = ""
+    if os.environ.get("JAX_COORDINATOR_ADDRESS") is not None:
+        coordinator_address = os.environ.get("JAX_COORDINATOR_ADDRESS")
+        coordinator_found = False
+        lookup_attempt = 1
+        max_coordinator_lookups = 50
+        while not coordinator_found and lookup_attempt <= max_coordinator_lookups:
+            try:
+                coordinator_ip_address = socket.gethostbyname(coordinator_address)
+                coordinator_found = True
+            except socket.gaierror:
+                logging.info(
+                    f"Failed to recognize coordinator address {coordinator_address} on attempt {lookup_attempt}, retrying..."
+                )
+                lookup_attempt += 1
+                time.sleep(5)
+    logging.info(f"Coordinator IP address: {coordinator_ip_address}")
+    return coordinator_ip_address
