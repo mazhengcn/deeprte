@@ -26,7 +26,6 @@ import jax.numpy as jnp
 from flax import nnx
 
 from deeprte.configs import default
-from deeprte.data import _matlab_data_source
 from deeprte.model import integrate, mapping
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
@@ -35,13 +34,19 @@ Shape = tuple[int, ...]
 Dtype = Any
 Array = jax.Array
 
-kernerl_init = nnx.initializers.xavier_uniform()
+kernel_init = nnx.initializers.glorot_uniform()
+bias_init = nnx.initializers.zeros_init()
 
 
 FEATURES = rte_features.FEATURES
 COLLOCATION_AXES = {
     k: 0 if rte_features.NUM_PHASE_COORDS in v[1] else None for k, v in FEATURES.items()
 }
+
+
+def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
+    """A wrapper function to create the DeepRTE."""
+    return DeepRTE(config, rngs=nnx.Rngs(params=key))
 
 
 @dataclasses.dataclass(unsafe_hash=True)
@@ -66,9 +71,6 @@ class DeepRTEConfig:
     num_scattering_layers: int = 2
     # Scattering dimension.
     scattering_dim: int = 16
-    # Initializers
-    kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
-    bias_init: nnx.Initializer = nnx.initializers.zeros_init()
     # Subcollocation size for evaluation or inference
     subcollocation_size: int = 128
     # Mesh rules
@@ -137,8 +139,6 @@ class MultiHeadAttention(nnx.Module):
         qkv_features: int | None = None,
         out_features: int | None = None,
         *,
-        kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform(),
-        bias_init: nnx.Initializer = nnx.initializers.zeros_init(),
         attention_fn: Callable[..., Array] = dot_product_attention,
         rngs: nnx.Rngs,
     ):
@@ -237,8 +237,8 @@ class MlpBlock(nnx.Module):
                 nnx.Linear(
                     in_features,
                     out_features,
-                    kernel_init=config.kernel_init,
-                    bias_init=config.bias_init,
+                    kernel_init=kernel_init,
+                    bias_init=bias_init,
                     rngs=rngs,
                 )
             )
@@ -273,8 +273,6 @@ class Attenuation(nnx.Module):
             attention_in_dims,
             config.qkv_dim,
             config.optical_depth_dim,
-            kernel_init=config.kernel_init,
-            bias_init=config.bias_init,
             rngs=rngs,
         )
         self.mlp = MlpBlock(config=config, rngs=rngs)
@@ -301,8 +299,6 @@ class ScatteringLayer(nnx.Module):
         in_features: int,
         out_features: int,
         *,
-        kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform(),
-        bias_init: nnx.Initializer = nnx.initializers.zeros_init(),
         rngs: nnx.Rngs,
     ):
         self.in_features = in_features
@@ -331,13 +327,7 @@ class Scattering(nnx.Module):
         scattering_layers, lns = [], []
         for _ in range(config.num_scattering_layers):
             scattering_layers.append(
-                ScatteringLayer(
-                    config.scattering_dim,
-                    config.scattering_dim,
-                    kernel_init=config.kernel_init,
-                    bias_init=config.bias_init,
-                    rngs=rngs,
-                )
+                ScatteringLayer(config.scattering_dim, config.scattering_dim, rngs=rngs)
             )
             lns.append(nnx.LayerNorm(config.scattering_dim, rngs=rngs))
 
@@ -367,14 +357,12 @@ class GreenFunction(nnx.Module):
         self.out = nnx.Linear(
             self.config.scattering_dim,
             1,
-            kernel_init=config.kernel_init,
+            kernel_init=kernel_init,
             use_bias=False,
             rngs=rngs,
         )
 
-    def __call__(
-        self, coord1: Array, coord2: Array, batch: _matlab_data_source.FeatureDict
-    ):
+    def __call__(self, coord1: Array, coord2: Array, batch):
         charac = Characteristics.from_tensor(batch["position_coords"])
         act = self.attenuation(
             coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
@@ -417,7 +405,7 @@ class DeepRTE(nnx.Module):
 
         self.green_fn = GreenFunction(config=self.config, rngs=rngs)
 
-    def __call__(self, batch: _matlab_data_source.FeatureDict):
+    def __call__(self, batch):
         rte_inputs = {k: batch[k] for k in FEATURES}
 
         def rte_op(inputs):
