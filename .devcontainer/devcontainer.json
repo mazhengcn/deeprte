@@ -30,5 +30,5 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "pip install -U pip && pip install --user -e .[dev]"
+    "postCreateCommand": "pip install --user -e .[dev]"
 }
