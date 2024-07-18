@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 
 import grain.python as grain
@@ -209,8 +208,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
     )
     start_step = get_first_step(state)
 
-    if start_step == 0:
-        writer.write_hparams(dataclasses.asdict(config))
+    # if start_step == 0:
+    #     writer.write_hparams(dataclasses.asdict(config))
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------

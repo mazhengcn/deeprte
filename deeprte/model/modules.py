@@ -35,6 +35,8 @@ Shape = tuple[int, ...]
 Dtype = Any
 Array = jax.Array
 
+kernerl_init = nnx.initializers.xavier_uniform()
+
 
 FEATURES = rte_features.FEATURES
 COLLOCATION_AXES = {
@@ -58,10 +60,10 @@ class DeepRTEConfig:
     # Scattering
     num_scattering_layers: int = 2
     scattering_dim: int = 16
+    kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform()
+    bias_init: nnx.Initializer = nnx.initializers.zeros_init()
     # Mesh rules
-    logical_axis_rules: default.MeshRules = dataclasses.field(
-        default_factory=default.MeshRules
-    )
+    axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
     # Subcollocation size
     subcollocation_size: int = 128
 
@@ -128,6 +130,8 @@ class MultiHeadAttention(nnx.Module):
         qkv_features: int | None = None,
         out_features: int | None = None,
         *,
+        kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform(),
+        bias_init: nnx.Initializer = nnx.initializers.zeros_init(),
         attention_fn: Callable[..., Array] = dot_product_attention,
         rngs: nnx.Rngs,
     ):
@@ -149,7 +153,10 @@ class MultiHeadAttention(nnx.Module):
         self.head_dim = self.qkv_features // self.num_heads
 
         linear_general = functools.partial(
-            nnx.LinearGeneral, out_features=(self.num_heads, self.head_dim)
+            nnx.LinearGeneral,
+            out_features=(self.num_heads, self.head_dim),
+            kernel_init=kernel_init,
+            bias_init=bias_init,
         )
         # project inputs_q to multi-headed q/k/v
         # dimensions are then [batch..., length, n_heads, n_features_per_head]
@@ -161,6 +168,8 @@ class MultiHeadAttention(nnx.Module):
             in_features=(self.num_heads, self.head_dim),
             out_features=self.out_features,
             axis=(-2, -1),
+            kernel_init=kernel_init,
+            bias_init=bias_init,
             rngs=rngs,
         )
 
@@ -217,7 +226,15 @@ class MlpBlock(nnx.Module):
         for idx in range(self.num_layers):
             in_features = self.in_features if idx == 0 else self.mlp_dim
             out_features = self.out_dim if idx == self.num_layers - 1 else self.mlp_dim
-            linears.append(nnx.Linear(in_features, out_features, rngs=rngs))
+            linears.append(
+                nnx.Linear(
+                    in_features,
+                    out_features,
+                    kernel_init=config.kernel_init,
+                    bias_init=config.bias_init,
+                    rngs=rngs,
+                )
+            )
 
         self.linears = linears
 
@@ -249,6 +266,8 @@ class Attenuation(nnx.Module):
             attention_in_dims,
             config.qkv_dim,
             config.optical_depth_dim,
+            kernel_init=config.kernel_init,
+            bias_init=config.bias_init,
             rngs=rngs,
         )
         self.mlp = MlpBlock(config=config, rngs=rngs)
@@ -270,10 +289,24 @@ class Attenuation(nnx.Module):
 class ScatteringLayer(nnx.Module):
     "A single layer describing scattering action."
 
-    def __init__(self, in_features: int, out_features: int, rngs: nnx.Rngs):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        *,
+        kernel_init: nnx.Initializer = nnx.initializers.glorot_uniform(),
+        bias_init: nnx.Initializer = nnx.initializers.zeros_init(),
+        rngs: nnx.Rngs,
+    ):
         self.in_features = in_features
         self.out_features = out_features
-        self.linear = nnx.Linear(in_features, out_features, rngs=rngs)
+        self.linear = nnx.Linear(
+            in_features,
+            out_features,
+            kernel_init=kernel_init,
+            bias_init=bias_init,
+            rngs=rngs,
+        )
 
     def __call__(self, inputs: Array, kernel: Array):
         x = jnp.einsum("...V,Vd->...d", kernel, inputs)
@@ -291,7 +324,13 @@ class Scattering(nnx.Module):
         scattering_layers, lns = [], []
         for _ in range(config.num_scattering_layers):
             scattering_layers.append(
-                ScatteringLayer(config.scattering_dim, config.scattering_dim, rngs=rngs)
+                ScatteringLayer(
+                    config.scattering_dim,
+                    config.scattering_dim,
+                    kernel_init=config.kernel_init,
+                    bias_init=config.bias_init,
+                    rngs=rngs,
+                )
             )
             lns.append(nnx.LayerNorm(config.scattering_dim, rngs=rngs))
 
@@ -318,7 +357,13 @@ class GreenFunction(nnx.Module):
         self.config = config
         self.attenuation = Attenuation(self.config, rngs=rngs)
         self.scattering = Scattering(self.config, rngs=rngs)
-        self.out = nnx.Linear(self.config.scattering_dim, 1, use_bias=False, rngs=rngs)
+        self.out = nnx.Linear(
+            self.config.scattering_dim,
+            1,
+            kernel_init=config.kernel_init,
+            use_bias=False,
+            rngs=rngs,
+        )
 
     def __call__(
         self, coord1: Array, coord2: Array, batch: _matlab_data_source.FeatureDict
