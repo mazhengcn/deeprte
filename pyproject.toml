@@ -28,6 +28,7 @@ dependencies = [
     "flax",
     "grain",
     "jax",
+    "ml-collections",
     "numpy",
     "optax",
     "orbax-checkpoint",
@@ -36,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["matplotlib", "ml-collections", "penzai", "jupyter"]
+dev = ["matplotlib", "penzai"]
 
 
 [project.urls]

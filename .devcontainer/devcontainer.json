@@ -1,19 +1,13 @@
 {
     "name": "DeepRTE",
-    "image": "ghcr.io/nvidia/jax:jax",
+    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "charliermarsh.ruff"
-            ],
-            "settings": {
-                "python.analysis.extraPaths": [
-                    "/opt/jax",
-                    "/opt/flax"
-                ]
-            }
+            ]
         }
     },
     "runArgs": [
