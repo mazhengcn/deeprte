@@ -134,7 +134,7 @@ def make_tfds_iterator(config, global_mesh, process_indices):
     train_iter = preprocessing_pipeline(
         dataset=train_ds,
         dataset_info=ds_info,
-        global_batch_size=config.global_batch_size_to_load,
+        global_batch_size=config.global_batch_size,
         collocation_sizes=config.collocation_sizes,
         batch_repeat=config.repeat_batch,
         global_mesh=global_mesh,

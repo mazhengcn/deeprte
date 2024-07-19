@@ -32,8 +32,6 @@ class Config:
     enable_data_shuffling: bool = True
     # Seed for data shuffling.
     data_shuffle_seed: int = 42
-    # Whether to enable data prefetching.
-    prefetch_to_device: bool = True
     # Global batch size for training.
     global_batch_size: int = 8
     # Number of collocation points to sample from phase space for training.

@@ -147,25 +147,3 @@ class MultiHostDataLoadIterator:
         return get_next_batch_sharded(
             self.local_iterator, self.global_mesh, self.data_pspec
         )
-
-
-def prefetch_to_device(iterator: MultiHostDataLoadIterator, size: int):
-    """Prefetches data to the devices in the global mesh."""
-
-    if size and size > 0:
-        # We fill items to this queue, and pop from it when a new item is yielded.
-        queue = collections.deque()
-
-        def enqueue(n):
-            for data in itertools.islice(iterator, n):
-                queue.append(data)
-
-        enqueue(size)
-        while queue:
-            yield queue.popleft()
-            enqueue(1)
-    else:
-        # If size is None, 0 or negative, simply create jax.Arrays without
-        # prefetching.
-        for data in iterator:
-            yield data

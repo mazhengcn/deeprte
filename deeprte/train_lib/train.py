@@ -18,7 +18,6 @@ from deeprte.model.modules import constructor
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 from deeprte.train_lib.checkpointing import emergency_checkpoint_manager
-from deeprte.train_lib.multihost_dataloading import prefetch_to_device
 
 
 def accumulate_gradients_and_metrics(
@@ -243,9 +242,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
     (train_iter, eval_iter), data_sharding = (
         input_pipeline_interface.create_data_iterator(config, mesh)
     )
-    if config.prefetch_to_device:
-        train_iter = prefetch_to_device(train_iter, prefetch_size=2)
-        eval_iter = prefetch_to_device(eval_iter, prefetch_size=2)
 
     # Initialize train state
     # ---------------------------------------------------------------------------
