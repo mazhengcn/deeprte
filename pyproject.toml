@@ -27,7 +27,7 @@ dependencies = [
     "dill",
     "flax",
     "grain",
-    "jax",
+    "jax[cuda12]",
     "ml-collections",
     "numpy",
     "optax",
