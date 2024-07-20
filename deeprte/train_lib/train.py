@@ -323,3 +323,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
                 logging.info("Saving checkpoint step %d.", step)
                 with report_progress.timed("checkpoint"):
                     save_checkpoint(ckpt_mngr, step, state)
+
+            if is_last_step:
+                logging.info("Saving params for final step %d.", step)
+                with report_progress.timed("save_params"):
+                    checkpointing.save_params_to_path(f"{workdir}/params", state.params)
