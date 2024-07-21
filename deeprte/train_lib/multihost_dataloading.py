@@ -1,8 +1,6 @@
-import collections
-import itertools
 import time
 from collections.abc import Iterable, Iterator
-from functools import partial  # pylint: disable=g-importing-member
+from functools import partial
 from typing import Any
 
 import jax
