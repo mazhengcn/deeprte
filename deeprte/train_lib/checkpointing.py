@@ -165,8 +165,7 @@ def load_state_if_possible(
         latest_step = checkpoint_manager.latest_step()
         if latest_step is not None:
             logging.info(
-                f"restoring from this run's directory latest step \
-          {latest_step}"
+                f"restoring from this run's directory latest step {latest_step}"
             )
 
             def map_to_pspec(data):

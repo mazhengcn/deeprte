@@ -1,5 +1,6 @@
 import dataclasses
 import functools
+from collections.abc import Callable
 
 import grain.python as grain
 import jax
@@ -10,7 +11,7 @@ from absl import logging
 from clu import metric_writers, periodic_actions
 from etils import epath
 from flax import nnx
-from jax.sharding import Mesh, Sharding
+from jax.sharding import Mesh
 
 from deeprte.configs import default
 from deeprte.input_pipeline import input_pipeline_interface
@@ -18,52 +19,6 @@ from deeprte.model.modules import constructor
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 from deeprte.train_lib.checkpointing import emergency_checkpoint_manager
-
-
-def accumulate_gradients_and_metrics(
-    grad_and_metrics_fn,
-    global_batch_size: int,
-    microsteps: int,
-    data_sharding: Sharding,
-):
-    """Wraps a function that computes gradients and metrics to use microsteps."""
-
-    if not microsteps or microsteps < 0:
-        return grad_and_metrics_fn
-
-    batch_size_per_device = global_batch_size // jax.device_count()
-    assert batch_size_per_device % microsteps == 0
-
-    def new_grad_and_metrics_fn(params, batch):
-        # Note: we need this reshape because dynamic_index/dynamic_index_in_dim do
-        # not work with strides, and we need to make sure that all acc steps cover
-        # all devices.
-        batch = jax.tree.map(lambda x: x.reshape((-1, microsteps) + x.shape[1:]), batch)
-        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
-
-        def accum_fn(i, state):
-            grad, metrics = state
-            microbatch = jax.tree.map(
-                lambda x: jax.lax.dynamic_index_in_dim(x, i, axis=1, keepdims=False),
-                batch,
-            )
-            new_grad, new_metrics = grad_and_metrics_fn(params, microbatch)
-            new_grad, new_metrics = jax.tree.map(
-                lambda x, y: x + y, (grad, metrics), (new_grad, new_metrics)
-            )
-            return new_grad, new_metrics
-
-        # Accumulate (sum) gradients and metrics through many microsteps.
-        microbatch = jax.tree.map(
-            lambda x: jax.lax.dynamic_index_in_dim(x, 0, axis=1, keepdims=False), batch
-        )
-        grads, metrics = grad_and_metrics_fn(params, microbatch)
-        grads, metrics = jax.lax.fori_loop(1, microsteps, accum_fn, (grads, metrics))
-        # Average gradients and metrics through all the microsteps.
-        grads, metrics = jax.tree.map(lambda x: x / microsteps, (grads, metrics))
-        return grads, metrics
-
-    return new_grad_and_metrics_fn
 
 
 def get_first_step(state):
@@ -112,7 +67,7 @@ def compute_metrics(predictions, labels):
 
 # Primary training / eval / decode step functions.
 # -----------------------------------------------------------------------------
-def train_step(state, batch, config, data_sharding):
+def train_step(state, batch, accumulate_grads: Callable = None):
     """Perform a single training step."""
 
     def loss_fn(params, batch):
@@ -126,17 +81,16 @@ def train_step(state, batch, config, data_sharding):
         metrics = {"training/loss": loss, "training/rmse": rmse}
         return loss, metrics
 
-    grad_fn = jax.grad(loss_fn, has_aux=True)
-    grads_and_metrics = accumulate_gradients_and_metrics(
-        grad_fn, config.global_batch_size, config.micro_steps, data_sharding
-    )
-    grads, metrics = grads_and_metrics(state.params, batch)
+    grads_and_metrics_fn = jax.grad(loss_fn, has_aux=True)
+    if accumulate_grads:
+        grads_and_metrics_fn = accumulate_grads(grads_and_metrics_fn)
+    grads, metrics = grads_and_metrics_fn(state.params, batch)
     new_state = state.apply_gradients(grads=grads)
 
     return new_state, metrics
 
 
-def eval_step(params, batch, graphdef):
+def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
     """Calculate evaluation metrics on a batch."""
     labels = batch["psi_label"]
     module = nnx.merge(graphdef, params)
@@ -246,7 +200,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # Initialize train state
     # ---------------------------------------------------------------------------
     logging.info("Initializing train state.")
-
     state, state_sharding, train_iter = train_utils.setup_training_state(
         constructor, train_iter, tx, config, init_rng, mesh, checkpoint_manager
     )
@@ -257,9 +210,17 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------
-    train_step_fn = functools.partial(
-        train_step, config=config, data_sharding=data_sharding
-    )
+    if config.microsteps:
+        accum_grads = functools.partial(
+            train_utils.accumulate_gradients_and_metrics,
+            microsteps=config.microsteps,
+            global_batch_size=config.global_batch_size,
+            data_sharding=data_sharding,
+        )
+        train_step_fn = functools.partial(train_step, accum_grads_fn=accum_grads)
+    else:
+        train_step_fn = train_step
+
     jit_train_step = jax.jit(
         train_step_fn,
         in_shardings=(state_sharding, data_sharding),  # type: ignore
@@ -323,8 +284,3 @@ def train_and_evaluate(config: default.Config, workdir: str):
                 logging.info("Saving checkpoint step %d.", step)
                 with report_progress.timed("checkpoint"):
                     save_checkpoint(ckpt_mngr, step, state)
-
-            if is_last_step:
-                logging.info("Saving params for final step %d.", step)
-                with report_progress.timed("save_params"):
-                    checkpointing.save_params_to_path(f"{workdir}/params", state.params)

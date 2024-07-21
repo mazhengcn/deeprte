@@ -29,8 +29,6 @@ TrainState = nnx.TrainState
 
 # Mesh utils.
 # -----------------------------------------------------------------------------
-
-
 def create_device_mesh(config, devices=None):
     """Creates a device mesh with each slice in its own data parallel group. If there is only one slice, uses two replicas."""
     if devices is None:
@@ -103,8 +101,6 @@ def fill_unspecified_mesh_axes(parallelism_vals, target_product, parallelism_typ
 
 # State initialization utils.
 # -----------------------------------------------------------------------------
-
-
 def _to_array(x):
     if not isinstance(x, jax.Array):
         x = jnp.asarray(x)
@@ -264,10 +260,54 @@ def get_abstract_state(constructor, tx, config, rng, mesh, is_training):
     return abstract_sharded_state, state_sharding
 
 
+def accumulate_gradients_and_metrics(
+    grad_and_metrics_fn,
+    microsteps: int,
+    global_batch_size: int,
+    data_sharding: Sharding,
+):
+    """Wraps a function that computes gradients and metrics to use microsteps."""
+
+    if not microsteps or microsteps < 0:
+        return grad_and_metrics_fn
+
+    batch_size_per_device = global_batch_size // jax.device_count()
+    assert batch_size_per_device % microsteps == 0
+
+    def new_grad_and_metrics_fn(params, batch):
+        # Note: we need this reshape because dynamic_index/dynamic_index_in_dim do
+        # not work with strides, and we need to make sure that all acc steps cover
+        # all devices.
+        batch = jax.tree.map(lambda x: x.reshape((-1, microsteps) + x.shape[1:]), batch)
+        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
+
+        def accum_fn(i, state):
+            grad, metrics = state
+            microbatch = jax.tree.map(
+                lambda x: jax.lax.dynamic_index_in_dim(x, i, axis=1, keepdims=False),
+                batch,
+            )
+            new_grad, new_metrics = grad_and_metrics_fn(params, microbatch)
+            new_grad, new_metrics = jax.tree.map(
+                lambda x, y: x + y, (grad, metrics), (new_grad, new_metrics)
+            )
+            return new_grad, new_metrics
+
+        # Accumulate (sum) gradients and metrics through many microsteps.
+        microbatch = jax.tree.map(
+            lambda x: jax.lax.dynamic_index_in_dim(x, 0, axis=1, keepdims=False), batch
+        )
+        grads, metrics = grad_and_metrics_fn(params, microbatch)
+        grads, metrics = jax.lax.fori_loop(1, microsteps, accum_fn, (grads, metrics))
+        # Average gradients and metrics through all the microsteps.
+        grads, metrics = jax.tree.map(lambda x: x / microsteps, (grads, metrics))
+        return grads, metrics
+
+    return new_grad_and_metrics_fn
+
+
 # Distributed system initialization.
 # -----------------------------------------------------------------------------
-
-
 def maybe_initialize_jax_distributed_system(config):
     """The best recipe to initialize the Jax Distributed System has varied over time. We keep a layer of
     indirection to avoid breaking the call sites unnecessarily.
