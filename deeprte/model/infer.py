@@ -13,28 +13,27 @@
 # limitations under the License.
 
 from collections.abc import Mapping
-from typing import Any, Optional
+from typing import Any
 
-import haiku as hk
 import jax
 import ml_collections
 from absl import logging
+from flax import nnx
 
 from deeprte.model import features, modules
+from deeprte.train_lib import utils
 
 
-class RunModel:
+class DeepRTEEngine:
     """Container for JAX model."""
 
-    def __init__(
-        self,
-        config: ml_collections.ConfigDict,
-        params: Optional[Mapping[str, Mapping[str, jax.Array]]] = None,
-        multi_devices: bool = False,
-    ):
+    def __init__(self, config):
         self.config = config
-        self.params = params
-        self.multi_devices = multi_devices
+        self.rng = jax.random.key(0)
+
+        # Mesh definition
+        devices_array = utils.create_device_mesh(config)
+        self._mesh = jax.sharding.Mesh(devices_array, config.mesh_axes)
 
         def _forward_fn(batch):
             model = modules.DeepRTE(self.config)
@@ -64,6 +63,10 @@ class RunModel:
             )
         else:
             self.apply = jax.jit(hk.transform(_forward_fn).apply)
+
+    def load_params(self, *args, **kwargs):
+        """Loads model parameters from a checkpoint."""
+        raise NotImplementedError
 
     def init_params(self, feat: features.FeatureDict, random_seed: int = 0):
         """Initializes the model parameters."""

@@ -47,6 +47,8 @@ class Config:
     log_every_steps: int = 1_000
     # Frequency of eval during training, e.g. every 1_000 steps.
     eval_every_steps: int = 1_000
+    # Optimizer
+    optimizer: str = "adam"
     # Initial learning rate.
     learning_rate: float = 0.001
     # Learning rate schedule.
