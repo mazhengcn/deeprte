@@ -107,6 +107,13 @@ def _to_array(x):
     return x
 
 
+def calculate_num_params_from_pytree(params):
+    params_sizes = jax.tree.map(jax.numpy.size, params)
+    total_parameters = jax.tree.reduce(lambda x, y: x + y, params_sizes)
+    assert total_parameters >= 0
+    return total_parameters
+
+
 def init_infer_state(graphdef, params):
     """Init train state with null opt state for decode."""
     state = TrainState(graphdef=graphdef, params=params, opt_state={}, step=0, tx=None)

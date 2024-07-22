@@ -150,7 +150,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
             epath.Path(workdir), mesh
         )
 
-    # Build Model and Optimizer
+    # Build model constructor, optimizer and checkpoint manager
     # ---------------------------------------------------------------------------
     logging.info("Initializing optimizer, model and checkpointer.")
 
@@ -162,7 +162,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     }
 
     lr_schedule, tx = optimizers.create_optimizer(
-        name="adam",
+        name=config.optimizer,
         total_steps=config.num_train_steps,
         learning_rate=learning_rate_dict,
     )
@@ -203,8 +203,9 @@ def train_and_evaluate(config: default.Config, workdir: str):
     state, state_sharding, train_iter = train_utils.setup_training_state(
         constructor, train_iter, tx, config, init_rng, mesh, checkpoint_manager
     )
+    num_params = train_utils.calculate_num_params_from_pytree(state.params)
+    logging.info(f"Number of model params={num_params}")
     start_step = get_first_step(state)
-
     if start_step == 0:
         writer.write_hparams(dataclasses.asdict(config))
 
