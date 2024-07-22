@@ -1,7 +1,5 @@
 """Default Hyperparameter configuration."""
 
-from __future__ import annotations
-
 import dataclasses
 
 

@@ -161,7 +161,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
         "transition_steps": config.transition_steps,
     }
 
-    tx, lr_schedule = optimizers.create_optimizer(
+    lr_schedule, tx = optimizers.create_optimizer(
         name="adam",
         total_steps=config.num_train_steps,
         learning_rate=learning_rate_dict,
