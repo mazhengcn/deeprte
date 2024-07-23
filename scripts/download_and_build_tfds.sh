@@ -16,19 +16,20 @@ set -e
 
 RAW_DATA_DIR=${1:-"data/raw_data"}
 TFDS_DIR=${2:-"data/tfds"}
-REMOTE_HOST=${3:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
-REMOTE_DIR=${4:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"}
-OVERWRITE=${5:-"True"}
+FILE_FORMAT=${3:-"tfrecord"}
+REMOTE_HOST=${4:-"matjxt-mz@sydata.hpc.sjtu.edu.cn"}
+REMOTE_DIR=${5:-"/dssg/home/acct-matjxt/matjxt-mz/data/rte_data/raw_data"}
+OVERWRITE=${6:-"True"}
 
 # Use rsync to copy data to destination host
 rsync -rlptzv --archive --progress "${REMOTE_HOST}:${REMOTE_DIR}/" "${RAW_DATA_DIR}"
 
 find "${RAW_DATA_DIR}/train" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > deeprte/data/tfds/rte/CONFIGS.txt
 
-TFDS_ARGS="--data_dir=${TFDS_DIR} --manual_dir=${RAW_DATA_DIR}/train"
+TFDS_ARGS="--data_dir=${TFDS_DIR} --manual_dir=${RAW_DATA_DIR}/train --file_format=${FILE_FORMAT}"
 
 if [ "${OVERWRITE}" = "True" ]; then
 	TFDS_ARGS="${TFDS_ARGS} --overwrite"
 fi
 
-tfds build deeprte/data/tfds/rte ${TFDS_ARGS} --file_format="array_record"
+tfds build deeprte/data/tfds/rte ${TFDS_ARGS}
