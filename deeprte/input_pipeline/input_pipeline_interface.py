@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from jax.sharding import PartitionSpec as P
 
+from deeprte.input_pipeline._grain_data_processing import make_grain_iterator
 from deeprte.input_pipeline._tfds_data_processing import make_tfds_iterator
 from deeprte.train_lib import multihost_dataloading
 
@@ -125,6 +126,8 @@ def make_mixed_train_iterator(config, mesh):
     if jax.process_index() in process_indices:
         if config.dataset_type == "tfds":
             return make_tfds_iterator(config, mesh, process_indices), sharding
+        elif config.dataset_type == "grain":
+            return make_grain_iterator(config, mesh, process_indices), sharding
     else:
         return BadSyntheticDataIterator(config, mesh), None
 
@@ -132,7 +135,7 @@ def make_mixed_train_iterator(config, mesh):
 def create_data_iterator(config, mesh):
     if config.dataset_type == "synthetic":
         return SyntheticDataIterator(config, mesh), None
-    elif config.dataset_type in ("tfds"):
+    elif config.dataset_type in ("tfds", "grain"):
         return make_mixed_train_iterator(config, mesh)
     else:
         assert False, f"Unknown dataset_type {config.dataset_type}, dataset_type must be synthetic, tfds"

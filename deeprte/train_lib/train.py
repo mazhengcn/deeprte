@@ -284,4 +284,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
             if config.save_checkpoints and is_saving_checkpoint:
                 logging.info("Saving checkpoint step %d.", step)
                 with report_progress.timed("checkpoint"):
-                    save_checkpoint(ckpt_mngr, step, state)
+                    save_checkpoint(
+                        ckpt_mngr, step, state, config.dataset_type, train_iter
+                    )
