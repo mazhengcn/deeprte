@@ -12,7 +12,7 @@
     },
     "runArgs": [
         "--gpus=all",
-        "--shm-size=1g"
+        "--shm-size=32g"
     ],
     "mounts": [
         {
