@@ -18,6 +18,12 @@ class Config:
     seed: int = 42
     # Dataset type.
     dataset_type: str = "tfds"
+    # Number of child processes launched to parallelize the transformations among.
+    # Zero means processing runs in the same process. None lets the python backend choose the value.
+    grain_worker_count: int | None = 4
+    # Count of output batches to produce in advance per worker.
+    # This ensures batches are ready when the consumer requests them.
+    grain_worker_buffer_size: int | None = 1
     # Name of TFDS dataset to use.
     dataset_name: str = "rte"
     # Path to directory where TFDS data is stored.
@@ -33,7 +39,7 @@ class Config:
     # Global batch size for training.
     global_batch_size: int = 8
     # Number of collocation points to sample from phase space for training.
-    collocation_sizes: tuple[int] = (140,)
+    collocation_size: int | None = 140
     # Number of same batch with different collocation points (in order to
     # increase collocation sizes for training).
     repeat_batch: int = 1
@@ -109,7 +115,6 @@ class Config:
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")
-    axis_rules: MeshRules = MeshRules(mlp="fsdp", kv="fsdp")
     data_sharding: tuple[str, ...] = (("data", "fsdp", "tensor"),)
     # One axis for each parallelism type may hold a placeholder (-1)
     # value to auto-shard based on available slices and devices.
