@@ -281,9 +281,15 @@ def load_params_from_path(load_parameters_from_path, abstract_params):
     assert load_parameters_from_path, "load_parameters_from_path is not defined."
     logging.info(f"restoring params from {load_parameters_from_path}")
     ckpt = epath.Path(load_parameters_from_path)
-    ckptr = ocp.StandardCheckpointer()
+    ckptr = ocp.PyTreeCheckpointer()
+    restore_args = ocp.checkpoint_utils.construct_restore_args(abstract_params)
     restored = ckptr.restore(
-        ckpt, args=ocp.args.StandardRestore({"params": abstract_params})
+        ckpt,
+        args=ocp.args.PyTreeRestore(
+            item={"params": abstract_params},
+            restore_args={"params": restore_args},
+            transforms={},
+        ),
     )
     return restored["params"]
 
