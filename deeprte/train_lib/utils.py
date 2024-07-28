@@ -236,7 +236,7 @@ def setup_infer_state(constructor, config, rng, mesh, checkpoint_manager):
     """
     if not config.load_parameters_path:
         # generate random params
-        logging.info("No decode checkpoint specified - generating random weights.")
+        logging.info("No infer checkpoint specified - generating random weights.")
         state, state_sharding, _ = setup_initial_state(
             constructor, None, None, config, rng, mesh, checkpoint_manager, False
         )

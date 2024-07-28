@@ -14,7 +14,7 @@ PHASE_FEATURES = {
 }
 
 
-def np_data_to_features(raw_data: FeatureDict, num_devices=None) -> FeatureDict:
+def np_data_to_features(raw_data: FeatureDict) -> FeatureDict:
     """Preprocesses NumPy feature dict using TF pipeline."""
 
     num_examples = raw_data["functions"]["boundary"].shape[0]
@@ -24,16 +24,11 @@ def np_data_to_features(raw_data: FeatureDict, num_devices=None) -> FeatureDict:
         tensor_dict = rte_dataset.np_to_tensor_dict(
             raw_example, raw_data["shape"], rte_features.FEATURES.keys()
         )
-        if num_devices:
-            for k in PHASE_FEATURES:
-                v = tensor_dict[k].shape
-                new_shape = [num_devices, v[0] // num_devices] + v[1:]
-                tensor_dict[k] = tf.reshape(tensor_dict[k], new_shape)
         return tensor_dict
 
     dataset = (
         tf.data.Dataset.from_tensor_slices(raw_data["functions"])
-        .map(to_features, num_parallel_calls=num_examples)
+        .map(to_features, tf.data.AUTOTUNE)
         .batch(num_examples)
     )
     processed_features = dataset.get_single_element()
