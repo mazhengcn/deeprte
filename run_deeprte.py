@@ -25,19 +25,24 @@ import jax
 import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
-import ml_collections
 import numpy as np
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
+from ml_collections import config_flags
 
 sys.path.append("/root/projects/deeprte")
 from deeprte.data import pipeline
-from deeprte.model import model
-from deeprte.model.utils import flat_params_to_haiku
+from deeprte.model.engine import RteEngine
 
 logging.set_verbosity(logging.INFO)
 
 
+config_flags.DEFINE_config_file(
+    "config",
+    "configs/default.py",
+    "File path to the configuration.",
+    lock_config=True,
+)
 flags.DEFINE_string("data_dir", None, "Path to directory containing the data.")
 flags.DEFINE_list("data_filenames", None, "List of data filenames.")
 flags.DEFINE_string("model_dir", None, "Path to directory containing the model.")
@@ -121,10 +126,9 @@ def plot_phi(r, phi_pre, phi_label, save_path):
 def predict_radiative_transfer(
     output_dir_base: str,
     data_pipeline: pipeline.DataPipeline,
-    model_runner: model.RunModel,
+    engine: RteEngine,
     benchmark: bool,
     normalization_ratio,
-    random_seed: int,
     num_eval: int = None,
 ):
     # Get features.
@@ -165,15 +169,13 @@ def predict_radiative_transfer(
             dill.dump(feature_dict, f)
 
         # Run the model.
-        logging.info("Running model...")
+        logging.info("Running rte engine...")
         t_0 = time.time()
-        processed_feature_dict = model_runner.process_features(feature_dict)
+        processed_feature_dict = engine.process_features(feature_dict)
         timings["process_features"] = time.time() - t_0
 
         t_0 = time.time()
-        prediction_result = model_runner.predict(
-            processed_feature_dict, random_seed=random_seed
-        )
+        prediction = engine.predict(processed_feature_dict)
         t_diff = time.time() - t_0
         timings["predict_and_compile"] = t_diff
 
@@ -185,7 +187,7 @@ def predict_radiative_transfer(
             )
             if benchmark:
                 t_0 = time.time()
-                model_runner.predict(processed_feature_dict, random_seed=random_seed)
+                engine.predict(processed_feature_dict)
                 t_diff = time.time() - t_0
                 timings["predict_benchmark"] = t_diff
                 logging.info(
@@ -198,11 +200,9 @@ def predict_radiative_transfer(
 
         psi_shape = feature_dict["functions"]["psi_label"].shape
         t_0 = time.time()
-        predicted_psi = (
-            prediction_result["predicted_psi"]
-            .reshape(1, -1)  # reshape multi_devices to single device
-            .reshape(psi_shape)
-        )
+        predicted_psi = prediction.reshape(1, -1).reshape(
+            psi_shape
+        )  # reshape multi_devices to single device
         if normalization_ratio:
             predicted_psi = predicted_psi * normalization_ratio
 
@@ -213,9 +213,10 @@ def predict_radiative_transfer(
         t_diff = time.time() - t_0
         timings["compute_psi_and_phi"] = t_diff
 
-        prediction_result.update(
-            {"predicted_psi": predicted_psi, "predicted_phi": predicted_phi}
-        )
+        prediction_result = {
+            "predicted_psi": predicted_psi,
+            "predicted_phi": predicted_phi,
+        }
 
         # Compute metrics.
         metrics = {}
@@ -258,13 +259,13 @@ def predict_radiative_transfer(
         with open(timings_output_path, "w") as f:
             f.write(json.dumps(timings, indent=4))
 
-        # figure_save_path = output_dir / "plot.png"
-        # plot_phi(
-        #     feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
-        #     predicted_phi[0],
-        #     phi_label[0],
-        #     figure_save_path,
-        # )
+        figure_save_path = output_dir / "plot.png"
+        plot_phi(
+            feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
+            predicted_phi[0],
+            phi_label[0],
+            figure_save_path,
+        )
 
 
 def main(argv):
@@ -274,42 +275,33 @@ def main(argv):
     data_pipeline = pipeline.DataPipeline(FLAGS.data_dir, FLAGS.data_filenames)
     logging.info("Data pipeline created from %s", FLAGS.data_dir)
 
-    model_config_path = os.path.join(FLAGS.model_dir, "model.json")
-    logging.info("Loading model config from %s", model_config_path)
-    with open(model_config_path) as f:
-        str = f.read()
-        model_config = ml_collections.ConfigDict(json.loads(str))
-    logging.info("Model config:\n%s", model_config)
+    config = FLAGS.config
+    config.load_parameters_path = FLAGS.model_dir
+    rte_engine = RteEngine(config)
 
-    params_path = os.path.join(FLAGS.model_dir, "params.npz")
-    np_params = np.load(params_path, allow_pickle=True)
-    params = flat_params_to_haiku(np_params)
-    logging.info("Model params loaded from %s", params_path)
-
-    model_runner = model.RunModel(model_config, params, multi_devices=True)
-    if model_config.data.is_normalization:
-        normalization_dict = model_config.data.normalization_dict
-        normalization_ratio = get_normalization_ratio(
-            normalization_dict["psi_range"],
-            normalization_dict["boundary_range"],
-        )
-    else:
-        normalization_ratio = None
+    # if model_config.data.is_normalization:
+    #     normalization_dict = model_config.data.normalization_dict
+    #     normalization_ratio = get_normalization_ratio(
+    #         normalization_dict["psi_range"],
+    #         normalization_dict["boundary_range"],
+    #     )
+    # else:
+    #     normalization_ratio = None
 
     logging.info("Running prediction...")
     predict_radiative_transfer(
         FLAGS.output_dir,
         data_pipeline,
-        model_runner,
+        rte_engine,
         FLAGS.benchmark,
-        normalization_ratio,
-        0,
+        None,
         FLAGS.num_eval,
     )
 
     logging.info("Writing config file...")
     config_path = os.path.join(FLAGS.output_dir, "config.json")
     config = {
+        "config": FLAGS.config,
         "model_dir": FLAGS.model_dir,
         "data_dir": FLAGS.data_dir,
         "data_filenames": FLAGS.data_filenames,
@@ -320,6 +312,6 @@ def main(argv):
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["data_dir", "data_filenames", "output_dir", "model_dir"]
+        ["config", "data_dir", "data_filenames", "output_dir", "model_dir"]
     )
     app.run(main)
