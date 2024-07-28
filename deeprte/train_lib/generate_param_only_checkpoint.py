@@ -33,7 +33,7 @@ flags.mark_flags_as_required(["checkpoint_dir"])
 def _read_train_checkpoint(config, checkpoint_manager, mesh):
     """Read training checkpoint at path defined by load_full_state_path."""
     # Model and Optimizer definition
-    rng = jax.random.key(0)
+    key = jax.random.key(0)
     learning_rate_dict = {
         "schedule": config.schedule,
         "init_value": config.learning_rate,
@@ -46,30 +46,29 @@ def _read_train_checkpoint(config, checkpoint_manager, mesh):
         learning_rate=learning_rate_dict,
     )
     state, state_sharding, _ = train_utils.setup_training_state(
-        constructor, None, tx, config, rng, mesh, checkpoint_manager
+        constructor, None, tx, config, key, mesh, checkpoint_manager
     )
     num_params = train_utils.calculate_num_params_from_pytree(state.params)
-    logging.info(
-        f"In input checkpoint Number of model params={num_params/1e9:.3f} billion"
-    )
+    logging.info(f"In input checkpoint Number of model params={num_params}.")
     return state, state_sharding
 
 
 def _save_infer_checkpoint(state, checkpoint_manager):
-    """Generate checkpoint for decode from the training_state."""
+    """Generate checkpoint for inference from the training_state."""
     with jax.spmd_mode("allow_all"):
         infer_state = train_utils.init_infer_state(None, state.params)
     if checkpoint_manager is not None:
         if save_checkpoint(checkpoint_manager, 0, infer_state):
-            logging.info("saved an inference checkpoint at.")
+            logging.info("Saved an inference checkpoint at.")
     checkpoint_manager.wait_until_finished()
 
 
 def generate_infer_checkpoint(config, checkpoint_dir):
     """
-    Generate an inference checkpoint from a given training checkpoint.
+    Generate an inference checkpoint and params checkpoint from a given training checkpoint.
     - Training checkpoint is loaded from config.load_full_state_path.
-    - Inference checkpoint will be saved at the config's checkpoint directory.
+    - Inference checkpoint will be saved at the checkpoint directory under 0/train_state folder.
+    - Params checkpoint will be saved at the checkpoint driectory under params folder.
     """
 
     devices_array = train_utils.create_device_mesh(config)
@@ -82,7 +81,7 @@ def generate_infer_checkpoint(config, checkpoint_dir):
         if jax.process_index() == 0:
             path.rmtree()
 
-    # Create a checkpoint manager to save decode checkpoint at config.checkpoint_dir
+    # Create a checkpoint manager to save infer checkpoint at config.checkpoint_dir
     checkpoint_manager = checkpointing.create_orbax_checkpoint_manager(
         checkpoint_dir,
         config.save_checkpoints,
@@ -94,12 +93,18 @@ def generate_infer_checkpoint(config, checkpoint_dir):
     training_state, _ = _read_train_checkpoint(config, checkpoint_manager, mesh)
     assert training_state.opt_state != {}, "missing opt_state in training checkpoint"
 
-    # Save decode state to config's checkpoint directory at step 0
+    # Save infer state to checkpoint directory at step 0
     logging.info(f"Save decode checkpoint at: {checkpoint_dir}")
     _save_infer_checkpoint(training_state, checkpoint_manager)
     logging.info(
-        f"Successfully generated inference checkpoint at: {checkpoint_dir}0/items"
+        f"Successfully generated inference checkpoint at: {checkpoint_dir}/0/train_state"
     )
+    # Save params to checkpoint directory under params folder
+    checkpointing.save_params_to_path(f"{checkpoint_dir}/params", training_state.params)
+    logging.info(
+        f"Successfully generated params checkpoint at: {checkpoint_dir}/params"
+    )
+
     return True
 
 

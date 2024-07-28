@@ -277,7 +277,7 @@ def setup_checkpoint_logger(config) -> composite_logger.CompositeLogger | None:
 
 
 def load_params_from_path(load_parameters_from_path, abstract_params):
-    """Load decode params from checkpoint at specified path."""
+    """Load inference params from checkpoint at specified path."""
     assert load_parameters_from_path, "load_parameters_from_path is not defined."
     logging.info(f"restoring params from {load_parameters_from_path}")
     ckpt = epath.Path(load_parameters_from_path)
@@ -295,7 +295,7 @@ def load_params_from_path(load_parameters_from_path, abstract_params):
 
 
 def save_params_to_path(checkpoint_dir, params):
-    """Save decode params in checkpoint at specified path."""
+    """Save params in checkpoint at specified path."""
     assert checkpoint_dir, "checkpoint_dir is not defined."
     ckptr = ocp.StandardCheckpointer()
     ckptr.save(
