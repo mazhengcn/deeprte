@@ -1,14 +1,13 @@
 {
     "notebook.formatOnSave.enabled": true,
     "notebook.codeActionsOnSave": {
-        "notebook.source.organizeImports": "explicit",
-        "source.fixAll": "explicit"
+        "notebook.source.organizeImports": "explicit"
     },
     "[python]": {
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit",
-            "source.fixAll": "explicit"
+            "source.organizeImports": "explicit"
         },
         "editor.defaultFormatter": "charliermarsh.ruff",
-    }
+    },
+    "ruff.nativeServer": true,
 }
