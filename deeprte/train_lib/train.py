@@ -27,7 +27,7 @@ def get_first_step(state):
 
 
 def save_checkpoint(
-    checkpoint_manager: ocp.Checkpointer,
+    checkpoint_manager: ocp.CheckpointManager,
     step,
     state,
     dataset_type="tfds",
@@ -180,14 +180,12 @@ def train_and_evaluate(config: default.Config, workdir: str):
             config.checkpoint_every_steps,
         )
     else:
-        logger = checkpointing.setup_checkpoint_logger(config)
         checkpoint_manager = checkpointing.create_orbax_checkpoint_manager(
             workdir,
             config.save_checkpoints,
             config.async_checkpointing,
             config.checkpoint_every_steps,
             config.dataset_type,
-            logger,
         )
 
     # Load Dataset
@@ -253,7 +251,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
         for step in range(start_step, config.num_train_steps):
             is_last_step = step == config.num_train_steps - 1
 
-            # Shard data to devices and do a training step.
             with jax.profiler.StepTraceAnnotation("train", step_num=step):
                 batch = next(train_iter)
                 state, train_metrics = jit_train_step(state, batch)
@@ -277,12 +274,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
                     )
                     writer.write_scalars(step, eval_metrics)
 
-            # Save a checkpoint on one host after every checkpoint_freq steps.
-            is_saving_checkpoint = (
-                step % config.checkpoint_every_steps == 0 or is_last_step
-            )
-            if config.save_checkpoints and is_saving_checkpoint:
-                logging.info("Saving checkpoint step %d.", step)
+            if config.save_checkpoints:
                 with report_progress.timed("checkpoint"):
                     save_checkpoint(
                         ckpt_mngr, step, state, config.dataset_type, train_iter

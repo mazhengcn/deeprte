@@ -259,23 +259,6 @@ def load_state_if_possible(
         return None, None
 
 
-def setup_checkpoint_logger(config) -> composite_logger.CompositeLogger | None:
-    """Setup checkpoint logger.
-    Args:
-      config
-    Returns:
-      CompositeLogger
-    """
-    orbax_standard_logger = None
-    logging.info("Setting up checkpoint logger...")
-
-    if config.enable_checkpoint_standard_logger:
-        orbax_standard_logger = standard_logger.StandardLogger()
-        logging.info("Successfully set up checkpoint standard logger.")
-
-    return orbax_standard_logger
-
-
 def load_params_from_path(load_parameters_from_path, abstract_params):
     """Load inference params from checkpoint at specified path."""
     assert load_parameters_from_path, "load_parameters_from_path is not defined."

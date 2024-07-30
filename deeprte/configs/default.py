@@ -46,7 +46,7 @@ class Config:
     # Global batch size for evaluation.
     eval_batch_size: int = 8
     # Number of steps to train for.
-    num_train_steps: int = 500_000
+    num_train_steps: int = 500_001
     # Number of micro steps for grads accumulation, None for no accumulation.
     microsteps: int | None = None
     # Frequency of logging metrics during training, e.g. every 1_000 steps.
