@@ -26,7 +26,7 @@ import jax.numpy as jnp
 from flax import nnx
 
 from deeprte.configs import default
-from deeprte.model import integrate, mapping
+from deeprte.model import integrate, utils
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
 
@@ -39,9 +39,9 @@ bias_init = nnx.initializers.zeros_init()
 
 
 FEATURES = rte_features.FEATURES
-COLLOCATION_AXES = {
-    k: 0 if rte_features.NUM_PHASE_COORDS in v[1] else None for k, v in FEATURES.items()
-}
+PHASE_COORDS_FEATURES = [
+    k for k in FEATURES if rte_features.NUM_PHASE_COORDS in FEATURES[k][1]
+]
 
 
 def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
@@ -406,7 +406,7 @@ class DeepRTE(nnx.Module):
         self.green_fn = GreenFunction(config=self.config, rngs=rngs)
 
     def __call__(self, batch):
-        rte_inputs = {k: batch[k] for k in FEATURES}
+        inputs = {k: batch[k] for k in FEATURES}
 
         def rte_op(inputs):
             quadratures = (
@@ -419,12 +419,22 @@ class DeepRTE(nnx.Module):
             return rte_sol
 
         batched_rte_op = jax.vmap(
-            mapping.sharded_map(
+            jax.vmap(
                 rte_op,
-                shard_size=self.config.subcollocation_size if self.low_memory else None,
-                in_axes=(COLLOCATION_AXES,),
+                in_axes=(
+                    {k: 0 if k in PHASE_COORDS_FEATURES else None for k in inputs},
+                ),
             )
         )
-        output = batched_rte_op(rte_inputs)
 
+        batched_inputs = {k: inputs.pop(k) for k in PHASE_COORDS_FEATURES}
+
+        output = utils.inference_subbatch(
+            module=batched_rte_op,
+            subbatch_size=self.config.subcollocation_size,
+            batched_args=batched_inputs,
+            nonbatched_args=inputs,
+            low_memory=self.low_memory,
+            input_subbatch_dim=1,
+        )
         return output

@@ -111,7 +111,7 @@ class Config:
     # Scattering dimension.
     scattering_dim: int = 16
     # Subcollocation size for evaluation or inference
-    subcollocation_size: int = 128
+    subcollocation_size: int = 4096
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")

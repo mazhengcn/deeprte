@@ -40,11 +40,11 @@ class RteEngine:
         self.mesh = jax.sharding.Mesh(devices_array, config.mesh_axes)
 
         replicated_sharding = jax.sharding.NamedSharding(self.mesh, P(None))
-        data_sharding = jax.sharding.NamedSharding(
+        self.data_sharding = jax.sharding.NamedSharding(
             self.mesh, P(None, *config.data_sharding)
         )
         self.feature_sharding = {
-            k: data_sharding if k in PHASE_FEATURES else replicated_sharding
+            k: self.data_sharding if k in PHASE_FEATURES else replicated_sharding
             for k in rte_features.FEATURES
         }
 
@@ -62,7 +62,7 @@ class RteEngine:
         self.jit_predict_fn = jax.jit(
             predict_fn,
             in_shardings=(self.state_sharding.params, self.feature_sharding),
-            out_shardings=data_sharding,
+            out_shardings=self.data_sharding,
         )
 
     def load_params(self):
