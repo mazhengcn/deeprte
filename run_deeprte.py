@@ -156,7 +156,7 @@ def predict_radiative_transfer(
             output_dir.mkdir(parents=True)
 
         feature_dict = {
-            "functions": jax.tree_map(
+            "functions": jax.tree.map(
                 lambda x: x[i : i + 1], raw_feature_dict["functions"]
             ),
             "grid": raw_feature_dict["grid"],
@@ -182,7 +182,7 @@ def predict_radiative_transfer(
         if i == 0:
             logging.info(
                 "Total JAX model predict time "
-                "(includes compilation time, see --benchmark): %.1fs",
+                "(includes compilation time, see --benchmark): %.6fs",
                 t_diff,
             )
             if benchmark:
@@ -192,11 +192,11 @@ def predict_radiative_transfer(
                 timings["predict_benchmark"] = t_diff
                 logging.info(
                     "Total JAX model predict time "
-                    "(excludes compilation time): %.1fs",
+                    "(excludes compilation time): %.6fs",
                     t_diff,
                 )
         else:
-            logging.info("Total JAX model predict time: %.1fs", t_diff)
+            logging.info("Total JAX model predict time: %.6fs", t_diff)
 
         psi_shape = feature_dict["functions"]["psi_label"].shape
         t_0 = time.time()
