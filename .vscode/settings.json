@@ -9,5 +9,5 @@
         },
         "editor.defaultFormatter": "charliermarsh.ruff",
     },
-    "ruff.nativeServer": true,
+    "ruff.nativeServer": true
 }
