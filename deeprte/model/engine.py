@@ -55,9 +55,9 @@ class RteEngine:
         )
 
         def predict_fn(params, features):
-            model = nnx.merge(self.graphdef, params)
-            model.set_attributes(low_memory=True)
-            return model(features)
+            module = nnx.merge(self.graphdef, params)
+            module.set_attributes(low_memory=True)
+            return module(features)
 
         self.jit_predict_fn = jax.jit(
             predict_fn,

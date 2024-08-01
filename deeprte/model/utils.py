@@ -74,11 +74,9 @@ def sharded_apply(
         in_size = max(flat_sizes)
         assert all(i in {in_size, -1} for i in flat_sizes)
 
-        num_extra_shards = (in_size - 1) // shard_size
-
+        num_shards = in_size // shard_size
         # Fix Up if necessary
         last_shard_size = in_size % shard_size
-        last_shard_size = shard_size if last_shard_size == 0 else last_shard_size
 
         def apply_fun_to_slice(slice_start, slice_size):
             input_slice = jax.tree.map(
@@ -89,9 +87,10 @@ def sharded_apply(
             return fun(*input_slice)
 
         outputs_list = []
-        for i in range(num_extra_shards):
+        for i in range(num_shards):
             outputs_list.append(apply_fun_to_slice(i * shard_size, shard_size))
-        if last_shard_size != shard_size:
+
+        if last_shard_size != 0:
             remainder_start = in_size - last_shard_size
             outputs_list.append(apply_fun_to_slice(remainder_start, last_shard_size))
 
