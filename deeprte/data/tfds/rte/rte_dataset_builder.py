@@ -61,7 +61,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     VERSION = tfds.core.Version("0.0.2")
     RELEASE_NOTES = {
-        "0.0.1": "Initial release.",
+        "0.0.2": "Fix weights",
     }
     BUILDER_CONFIGS = [
         tfds.core.BuilderConfig(name=name) for name in _get_config_names("CONFIGS.txt")
