@@ -23,7 +23,7 @@ def interpolate(data):
 
     list_omega = [data["omega_prime"][n * i : n * (i + 1), :] for i in range(4)]
     list_omega = [(omega[1:] + omega[:-1]) / 2 for omega in list_omega]
-    data["omega_prime"] = np.concatenate(list_omega, axis=0) / (n - 1)
+    data["omega_prime"] = np.concatenate(list_omega, axis=0) / 2
 
     phi = data["phi"]
     phi = (phi[:, :-1, :] + phi[:, 1:, :]) / 2
