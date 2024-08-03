@@ -117,7 +117,7 @@ def preprocessing_pipeline(
 def make_tfds_iterator(config, global_mesh, process_indices):
     """load dataset, preprocess and return iterators"""
     read_config = tfds.ReadConfig(
-        shuffle_seed=config.data_shuffle_seed,
+        shuffle_seed=config.data_shuffle_seed, skip_prefetch=True
     )
 
     train_ds, ds_info = get_datasets(
