@@ -1,6 +1,4 @@
 import dataclasses
-import functools
-from collections.abc import Callable
 
 import grain.python as grain
 import jax
@@ -67,25 +65,24 @@ def compute_metrics(predictions, labels):
 
 # Primary training / eval / decode step functions.
 # -----------------------------------------------------------------------------
-def train_step(state, batch, accumulate_grads: Callable = None):
+def train_step(state, batch):
     """Perform a single training step."""
+    labels = batch["psi_label"]
 
-    def loss_fn(params, batch):
+    def loss_fn(params):
         """loss function used for training."""
         module = nnx.merge(state.graphdef, params)
         module.set_attributes(low_memory=False)
         predictions = module(batch)
-        labels = batch["psi_label"]
         loss = compute_mean_squared_error(predictions, labels)
-        rmse = jnp.sqrt(loss / jnp.mean(labels**2))
-        metrics = {"training/loss": loss, "training/rmse": rmse}
-        return loss, metrics
+        return loss
 
-    grads_and_metrics_fn = jax.grad(loss_fn, has_aux=True)
-    if accumulate_grads:
-        grads_and_metrics_fn = accumulate_grads(grads_and_metrics_fn)
-    grads, metrics = grads_and_metrics_fn(state.params, batch)
+    grad_fn = jax.value_and_grad(loss_fn)
+    loss, grads = grad_fn(state.params)
     new_state = state.apply_gradients(grads=grads)
+
+    rmse = jnp.sqrt(loss / jnp.mean(labels**2))
+    metrics = {"training/loss": loss, "training/rmse": rmse}
 
     return new_state, metrics
 
@@ -160,6 +157,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
         "decay_rate": config.decay_rate,
         "transition_steps": config.transition_steps,
     }
+    # learning_rate_dict = {"schedule": config.schedule, "value": config.learning_rate}
 
     lr_schedule, tx = optimizers.create_optimizer(
         name=config.optimizer,
@@ -209,19 +207,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------
-    if config.microsteps:
-        accum_grads = functools.partial(
-            train_utils.accumulate_gradients_and_metrics,
-            microsteps=config.microsteps,
-            global_batch_size=config.global_batch_size,
-            data_sharding=data_sharding,
-        )
-        train_step_fn = functools.partial(train_step, accum_grads_fn=accum_grads)
-    else:
-        train_step_fn = train_step
-
     jit_train_step = jax.jit(
-        train_step_fn,
+        train_step,
         in_shardings=(state_sharding, data_sharding),  # type: ignore
         out_shardings=(state_sharding, None),  # type: ignore
         donate_argnums=0,
