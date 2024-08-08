@@ -25,7 +25,6 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.configs import default
 from deeprte.model import integrate, utils
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
@@ -35,6 +34,7 @@ Dtype = Any
 Array = jax.Array
 
 kernel_init = nnx.initializers.glorot_uniform()
+# kernel_init = nnx.initializers.variance_scaling(0.1, "fan_avg", "uniform")
 bias_init = nnx.initializers.zeros_init()
 
 
@@ -47,6 +47,15 @@ PHASE_COORDS_FEATURES = [
 def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
     """A wrapper function to create the DeepRTE."""
     return DeepRTE(config, rngs=nnx.Rngs(params=key))
+
+
+@dataclasses.dataclass(unsafe_hash=True)
+class MeshRules:
+    mlp: str | None = None
+    kv: str | None = None
+
+    def __call__(self, *keys: str) -> tuple[str, ...]:
+        return tuple(getattr(self, key) for key in keys)
 
 
 @dataclasses.dataclass(unsafe_hash=True)
@@ -72,9 +81,9 @@ class DeepRTEConfig:
     # Scattering dimension.
     scattering_dim: int = 16
     # Subcollocation size for evaluation or inference
-    subcollocation_size: int = 128
+    subcollocation_size: int = 512
     # Mesh rules
-    axis_rules: default.MeshRules = dataclasses.field(default_factory=default.MeshRules)
+    axis_rules: MeshRules = MeshRules(mlp="tensor", kv="tensor")
 
     def replace(self, **kwargs):
         return dataclasses.replace(self, **kwargs)
@@ -368,8 +377,8 @@ class GreenFunction(nnx.Module):
             coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
         )
         if self.config.num_scattering_layers == 0:
-            out = jnp.exp(self.out(act))
-            out = jnp.squeeze(out, axis=-1)
+            out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
+            return out
 
         position, _ = jnp.split(coord1, 2, axis=-1)
 
@@ -387,12 +396,10 @@ class GreenFunction(nnx.Module):
         kernel = -batch["scattering_kernel"] * velocity_weights
         self_kernel = -batch["self_scattering_kernel"] * velocity_weights
 
-        self_act = nnx.vmap(self_att_fn)(velocity_coords)
-        out = self.scattering(act, self_act, kernel, self_kernel)
+        self_act = jax.vmap(self_att_fn)(velocity_coords)
+        act = self.scattering(act, self_act, kernel, self_kernel)
 
-        out = jnp.exp(self.out(act))
-        out = jnp.squeeze(out, axis=-1)
-
+        out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
         return out
 
 
