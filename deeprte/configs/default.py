@@ -2,6 +2,8 @@
 
 import dataclasses
 
+import jax
+
 
 @dataclasses.dataclass(unsafe_hash=True)
 class MeshRules:
@@ -25,7 +27,7 @@ class Config:
     # This ensures batches are ready when the consumer requests them.
     grain_worker_buffer_size: int | None = 1
     # Name of TFDS dataset to use.
-    dataset_name: str = "rte"
+    dataset_name: str = "rte/g0.5-sigma_a3-sigma_t6"
     # Path to directory where TFDS data is stored.
     data_dir: str = "/workspaces/deeprte/data/tfds"
     # TFDS split for training dataset.
@@ -36,37 +38,35 @@ class Config:
     enable_data_shuffling: bool = True
     # Seed for data shuffling.
     data_shuffle_seed: int = 42
+    # per_device_batch_size for training.
+    per_device_batch_size: int = 1
     # Global batch size for training.
     global_batch_size: int = 8
     # Number of collocation points to sample from phase space for training.
-    collocation_size: int | None = 140
+    collocation_size: int | None = 128
     # Number of same batch with different collocation points (in order to
     # increase collocation sizes for training).
     repeat_batch: int = 1
     # Global batch size for evaluation.
-    eval_batch_size: int = 8
+    eval_batch_size: int = 4
     # Number of steps to train for.
     num_train_steps: int = 500_001
     # Number of micro steps for grads accumulation, None for no accumulation.
-    microsteps: int | None = None
+    micro_steps: int = int(
+        global_batch_size / per_device_batch_size / jax.device_count()
+    )
     # Frequency of logging metrics during training, e.g. every 1_000 steps.
     log_every_steps: int = 1_000
     # Frequency of eval during training, e.g. every 1_000 steps.
-    eval_every_steps: int = 1_000
+    eval_every_steps: int = 50_000
     # Optimizer
     optimizer: str = "adam"
     # Initial learning rate.
     learning_rate: float = 0.001
     # Learning rate schedule.
-    schedule: str = "exponential_decay"
-    # Decay rate of learning rate scheduler.
-    decay_rate: float = 0.96
-    # After how many steps to start annealing.
-    transition_steps: int = 10_000
-    # Linear learning rate warmup.
-    warmup_steps: int = 1000
-    # Decay factor for AdamW style weight decay.
-    weight_decay: float = 0.1
+    schedule: str = "cosine_decay"
+    # Decay steps for cosine decay scheduler.
+    decay_steps: int = num_train_steps
     # Whether to save model checkpoints.
     save_checkpoints: bool = True
     # Save a checkpoint every these number of steps.
@@ -111,7 +111,7 @@ class Config:
     # Scattering dimension.
     scattering_dim: int = 16
     # Subcollocation size for evaluation or inference
-    subcollocation_size: int = 512
+    subcollocation_size: int = 128
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")
