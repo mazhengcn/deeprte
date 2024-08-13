@@ -50,6 +50,9 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         self.collocation_axes = collocation_axes
 
     def random_map(self, data, rng: np.random.Generator):
+        if "boundary_scattering_kernel" in data:
+            del data["boundary_scattering_kernel"]
+
         for k, axis in self.collocation_axes.items():
             data[k] = rng.choice(
                 data[k],
@@ -58,6 +61,7 @@ class SampleCollocationCoords(grain.RandomMapTransform):
                 replace=True,
                 shuffle=False,
             )
+
         return data
 
 
