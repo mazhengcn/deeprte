@@ -201,6 +201,9 @@ def sample_collocation_coords(
         if k in batch:
             batch[k] = tf.gather(batch[k], phase_coords_indices, axis=axis)
 
+    if "boundary_scattering_kernel" in batch:
+        del batch["boundary_scattering_kernel"]
+
     return batch
 
 
