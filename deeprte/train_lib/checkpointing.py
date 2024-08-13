@@ -10,11 +10,7 @@ import orbax.checkpoint.experimental.emergency.checkpoint_manager as emergency_c
 from absl import flags, logging
 from etils import epath
 from flax import nnx
-from orbax.checkpoint.logging import (
-    abstract_logger,
-    composite_logger,
-    standard_logger,
-)
+from orbax.checkpoint.logging import abstract_logger
 
 from deeprte.train_lib.multihost_dataloading import MultiHostDataLoadIterator
 
