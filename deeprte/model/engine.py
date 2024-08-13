@@ -23,10 +23,10 @@ from jax.sharding import PartitionSpec as P
 
 from deeprte.configs import default
 from deeprte.model import features
+from deeprte.model.mapping import inference_subbatch
 from deeprte.model.modules import constructor as model_constructor
 from deeprte.model.tf import rte_features
 from deeprte.train_lib import utils
-from deeprte.model.mapping import inference_subbatch
 
 
 class RteEngine:
@@ -94,12 +94,12 @@ class RteEngine:
             "Running predict with shape(feat) = %s",
             jax.tree_map(lambda x: x.shape, feat),
         )
-        batched_feat, unbatched_feat = features.split_feature(feat)
+        phase_feat, other_feat = features.split_feature(feat)
         result = inference_subbatch(
             module=lambda x: self.jit_predict_fn(self.params, x, self.graphdef),
             subbatch_size=self.config.subcollocation_size,
-            batched_args=batched_feat,
-            nonbatched_args=unbatched_feat,
+            batched_args=phase_feat,
+            nonbatched_args=other_feat,
             low_memory=True,
             input_subbatch_dim=1,
         )

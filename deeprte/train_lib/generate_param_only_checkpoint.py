@@ -1,23 +1,14 @@
-# pylint: disable=g-bad-todo, abstract-method, consider-using-with, ungrouped-imports
-"""Transforms a "full state" including optimizer state to a bfloat16 "parameter state" without optimizer state.
-This typically used for turning a state output by training.py into a state than can be consumed by decode.py.
-
-The input "fullstate" is passed in via:
-  load_full_state_path.
-The output "parameter state" is output to the checkpoint directory. Additionally it is cast down to bf16.
-"""
-
-import checkpointing
 import jax
+import optax
 from absl import app, flags, logging
 from etils import epath
 from jax.sharding import Mesh
 from ml_collections import config_flags
-from train import save_checkpoint
 
 from deeprte.model.modules import constructor
-from deeprte.train_lib import optimizers
+from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
+from deeprte.train_lib.train import save_checkpoint
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint_dir", None, "Directory to store model params.")
@@ -34,19 +25,10 @@ def _read_train_checkpoint(config, checkpoint_manager, mesh):
     """Read training checkpoint at path defined by load_full_state_path."""
     # Model and Optimizer definition
     key = jax.random.key(0)
-    learning_rate_dict = {
-        "schedule": config.schedule,
-        "init_value": config.learning_rate,
-        # "decay_rate": config.decay_rate,
-        # "transition_steps": config.transition_steps,
-        "decay_steps": config.decay_steps,
-    }
-    _, tx = optimizers.create_optimizer(
-        name=config.optimizer,
-        total_steps=config.num_train_steps,
-        learning_rate=learning_rate_dict,
-        micro_steps=config.micro_steps,
-    )
+    lr_schedule = optimizers.create_learning_rate_schedule(config)
+    tx = optimizers.create_optimizer(config, lr_schedule)
+    tx = optax.MultiSteps(tx, every_k_schedule=config.micro_steps)
+
     state, state_sharding, _ = train_utils.setup_training_state(
         constructor, None, tx, config, key, mesh, checkpoint_manager
     )

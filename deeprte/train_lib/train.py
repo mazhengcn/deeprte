@@ -3,6 +3,7 @@ import dataclasses
 import grain.python as grain
 import jax
 import jax.numpy as jnp
+import optax
 import orbax.checkpoint as ocp
 import tensorflow as tf
 from absl import logging
@@ -140,7 +141,7 @@ def evaluate(jit_eval_step, state, eval_iter):
         eval_metrics.append(jax.tree.map(jnp.mean, metrics))
     eval_metrics = train_utils.collect_pytrees(
         eval_metrics,
-        collective_fn=lambda xs, axis: jnp.mean(jnp.asarray(xs)),
+        collective_fn=lambda xs, _: jnp.mean(jnp.asarray(xs)),
     )
     denominator = eval_metrics.pop("evaluation/mean_squared_labels")
     eval_metrics["evaluation/rmse"] = jnp.sqrt(
@@ -186,21 +187,9 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # ---------------------------------------------------------------------------
     logging.info("Initializing optimizer, model and checkpointer.")
 
-    learning_rate_dict = {
-        "schedule": config.schedule,
-        "init_value": config.learning_rate,
-        # "decay_rate": config.decay_rate,
-        # "transition_steps": config.transition_steps,
-        "decay_steps": config.decay_steps,
-    }
-    # learning_rate_dict = {"schedule": config.schedule, "value": config.learning_rate}
-
-    lr_schedule, tx = optimizers.create_optimizer(
-        name=config.optimizer,
-        total_steps=config.num_train_steps,
-        learning_rate=learning_rate_dict,
-        micro_steps=config.micro_steps,
-    )
+    lr_schedule = optimizers.create_learning_rate_schedule(config)
+    tx = optimizers.create_optimizer(config, lr_schedule)
+    tx = optax.MultiSteps(tx, every_k_schedule=config.micro_steps)
 
     if config.enable_emergency_checkpoint:
         abstract_state, _ = train_utils.get_abstract_state(
@@ -295,7 +284,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
                     logging.info("Gathering training metrics.")
                     train_metrics = train_utils.collect_pytrees(
                         train_metrics,
-                        collective_fn=lambda xs, axis: jnp.mean(jnp.asarray(xs)),
+                        collective_fn=lambda xs, _: jnp.mean(jnp.asarray(xs)),
                     )
                     demoninator = train_metrics.pop("training/mean_squared_labels")
                     train_metrics["training/rmse"] = jnp.sqrt(
