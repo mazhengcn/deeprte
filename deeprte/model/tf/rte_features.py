@@ -55,11 +55,9 @@ FEATURES = {
 FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
 FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
 
+PHASE_COORDS_FEATURES = [k for k in FEATURES if NUM_PHASE_COORDS in FEATURES[k][1]]
+
 # Extra features for training
-# "boundary_scattering_kernel": (
-#     tf.float32,
-#     [NUM_BOUNDARY_COORDS, NUM_VELOCITY_COORDS],
-# ),
 # "psi_label": (tf.float32, [NUM_PHASE_COORDS]),
 
 

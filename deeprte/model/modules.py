@@ -25,7 +25,7 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.model import integrate, utils
+from deeprte.model import integrate
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.tf import rte_features
 
@@ -34,14 +34,7 @@ Dtype = Any
 Array = jax.Array
 
 kernel_init = nnx.initializers.glorot_uniform()
-# kernel_init = nnx.initializers.variance_scaling(0.1, "fan_avg", "uniform")
 bias_init = nnx.initializers.zeros_init()
-
-
-FEATURES = rte_features.FEATURES
-PHASE_COORDS_FEATURES = [
-    k for k in FEATURES if rte_features.NUM_PHASE_COORDS in FEATURES[k][1]
-]
 
 
 def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
@@ -406,14 +399,17 @@ class GreenFunction(nnx.Module):
 class DeepRTE(nnx.Module):
     """Deep RTE model."""
 
-    def __init__(self, config: DeepRTEConfig, *, low_memory=False, rngs: nnx.Rngs):
+    def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
         self.config = config
-        self.low_memory = low_memory
-
+        self.features = rte_features.FEATURES
+        self.phase_coords_axes = {
+            k: 0 if k in rte_features.PHASE_COORDS_FEATURES else None
+            for k in self.features
+        }
         self.green_fn = GreenFunction(config=self.config, rngs=rngs)
 
     def __call__(self, batch):
-        inputs = {k: batch[k] for k in FEATURES}
+        rte_inputs = {k: batch[k] for k in self.features}
 
         def rte_op(inputs):
             quadratures = (
@@ -425,23 +421,5 @@ class DeepRTE(nnx.Module):
             )
             return rte_sol
 
-        batched_rte_op = jax.vmap(
-            jax.vmap(
-                rte_op,
-                in_axes=(
-                    {k: 0 if k in PHASE_COORDS_FEATURES else None for k in inputs},
-                ),
-            )
-        )
-
-        batched_inputs = {k: inputs.pop(k) for k in PHASE_COORDS_FEATURES}
-
-        output = utils.inference_subbatch(
-            module=batched_rte_op,
-            subbatch_size=self.config.subcollocation_size,
-            batched_args=batched_inputs,
-            nonbatched_args=inputs,
-            low_memory=self.low_memory,
-            input_subbatch_dim=1,
-        )
-        return output
+        batched_rte_op = jax.vmap(jax.vmap(rte_op, in_axes=(self.phase_coords_axes,)))
+        return batched_rte_op(rte_inputs)

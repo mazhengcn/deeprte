@@ -1,6 +1,6 @@
 """Code to generate processed features."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 import numpy as np
 import tensorflow as tf
@@ -8,10 +8,6 @@ import tensorflow as tf
 from deeprte.model.tf import rte_dataset, rte_features
 
 FeatureDict = Mapping[str, Mapping[str, np.ndarray]]
-
-PHASE_FEATURES = {
-    k for k, v in rte_features.FEATURES.items() if rte_features.NUM_PHASE_COORDS in v[1]
-}
 
 
 def np_data_to_features(raw_data: FeatureDict) -> FeatureDict:
@@ -34,3 +30,17 @@ def np_data_to_features(raw_data: FeatureDict) -> FeatureDict:
     processed_features = dataset.get_single_element()
 
     return tf.nest.map_structure(lambda x: x.numpy(), processed_features)
+
+
+def split_feature(
+    features,
+    filter: Callable[..., bool] = lambda key: key in rte_features.PHASE_COORDS_FEATURES,
+):
+    feat1, feat2 = {}, {}
+    for k, v in features.items():
+        if filter(k):
+            feat1[k] = v
+        else:
+            feat2[k] = v
+
+    return feat1, feat2
