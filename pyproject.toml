@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["matplotlib", "penzai"]
+dev = ["matplotlib", "penzai", "jupyter"]
 
 
 [project.urls]

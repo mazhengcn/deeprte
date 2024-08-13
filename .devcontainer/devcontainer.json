@@ -1,6 +1,6 @@
 {
     "name": "Deep RTE",
-    "image": "mcr.microsoft.com/devcontainers/python:1-3.10",
+    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -22,5 +22,6 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "pip install -e .[dev]"
+    "postCreateCommand": "pip install -e .[dev]",
+    "remoteUser": "jax"
 }
