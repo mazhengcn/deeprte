@@ -1,7 +1,7 @@
 """Specialized mapping functions."""
 
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any, Optional
 
 import jax
@@ -12,6 +12,21 @@ PYTREE_JAX_ARRAY = Any
 
 partial = functools.partial
 PROXY = object()
+
+
+def collect_pytrees(
+    pytrees: Sequence[PYTREE],
+    axes: PYTREE | int = 0,
+    collective_fn: Callable[[Sequence, int], PYTREE] | None = None,
+):
+    axes_ = _expand_axes(axes, pytrees[0])
+
+    if collective_fn:
+        collect_args = lambda *args: collective_fn(args[:-1], args[-1])  # noqa
+    else:
+        collect_args = lambda *args: list(args[:-1])  # noqa
+
+    return jax.tree.map(collect_args, *pytrees, axes_)
 
 
 def _maybe_slice(array, i, slice_size, axis):
@@ -36,30 +51,19 @@ def _expand_axes(axes, values, name="sharded_apply"):
     return jax.tree.unflatten(values_tree_def, flat_axes)
 
 
+def _concat_or_stack_arrays(arrays, axis):
+    if arrays[0].ndim == 0:
+        return jnp.stack(arrays)
+    else:
+        return jnp.concatenate(arrays, axis=axis)
+
+
 def sharded_apply(
     fun: Callable[..., PYTREE_JAX_ARRAY],  # pylint: disable=g-bare-generic
     shard_size: int | None = 1,
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
-) -> Callable[..., PYTREE_JAX_ARRAY]:
-    """Sharded apply.
-
-    Applies `fun` over shards to axes, in a way similar to vmap,
-    but does so in shards of `shard_size`. Shards are stacked after.
-    This allows a smooth trade-off between
-    memory usage (as in a plain map) vs higher throughput (as in a vmap).
-
-    Args:
-      fun: Function to apply smap transform to.
-      shard_size: Integer denoting shard size.
-      in_axes: Either integer or pytree describing which axis to map over for
-        each input to `fun`, None denotes broadcasting.
-      out_axes: integer or pytree denoting to what axis in the output the
-        mapped over axis maps.
-
-    Returns:
-      function with smap applied.
-    """
+) -> Callable[..., PYTREE]:
     docstr = (
         "Mapped version of {fun}. Takes similar arguments to {fun} "
         "but with additional array axes over which {fun} is mapped."
@@ -78,7 +82,7 @@ def sharded_apply(
         # Fix Up if necessary
         last_shard_size = in_size % shard_size
 
-        def apply_fun_to_slice(slice_start, slice_size):
+        def compute_shard(slice_start, slice_size):
             input_slice = jax.tree.map(
                 lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis),
                 args,
@@ -86,55 +90,21 @@ def sharded_apply(
             )
             return fun(*input_slice)
 
-        outputs_list = []
+        outputs = []
         for i in range(num_shards):
-            outputs_list.append(apply_fun_to_slice(i * shard_size, shard_size))
+            sliced_outputs = compute_shard(i * shard_size, shard_size)
+            outputs.append(sliced_outputs)
 
         if last_shard_size != 0:
             remainder_start = in_size - last_shard_size
-            outputs_list.append(apply_fun_to_slice(remainder_start, last_shard_size))
+            sliced_outputs = compute_shard(remainder_start, last_shard_size)
+            outputs.append(sliced_outputs)
 
-        out_axes_ = _expand_axes(out_axes, outputs_list[0])
-        outputs_list.append(out_axes_)
-        outputs = jax.tree.map(
-            lambda *xs: jnp.concatenate(list(xs)[:-1], axis=list(xs)[-1]), *outputs_list
-        )
-
+        out_axes_ = _expand_axes(out_axes, outputs[0])
+        outputs = collect_pytrees(outputs, out_axes_, _concat_or_stack_arrays)
         return outputs
 
     return mapped_fn
-
-
-def inference_subbatch(
-    module: Callable[..., PYTREE_JAX_ARRAY],
-    subbatch_size: int,
-    batched_args: dict[PYTREE_JAX_ARRAY],
-    nonbatched_args: dict[PYTREE_JAX_ARRAY],
-    low_memory: bool = True,
-    input_subbatch_dim: int = 0,
-    output_subbatch_dim: Optional[int] = None,
-) -> PYTREE_JAX_ARRAY:
-    """Run through subbatches (like batch apply but with split and concat)."""
-    assert len(batched_args) > 0
-
-    if not low_memory:
-        args = batched_args | nonbatched_args
-        return module(args)
-
-    if output_subbatch_dim is None:
-        output_subbatch_dim = input_subbatch_dim
-
-    def run_module(batched_args):
-        args = batched_args | nonbatched_args
-        return module(args)
-
-    sharded_module = sharded_apply(
-        run_module,
-        shard_size=subbatch_size,
-        in_axes=input_subbatch_dim,
-        out_axes=output_subbatch_dim,
-    )
-    return sharded_module(batched_args)
 
 
 def sharded_apply_with_scan(
@@ -144,27 +114,6 @@ def sharded_apply_with_scan(
     out_axes: int | PYTREE = 0,
     new_out_axes: bool = False,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
-    """Sharded apply.
-
-    Applies `fun` over shards to axes, in a way similar to vmap,
-    but does so in shards of `shard_size`. Shards are stacked after.
-    This allows a smooth trade-off between
-    memory usage (as in a plain map) vs higher throughput (as in a vmap).
-
-    Args:
-      fun: Function to apply smap transform to.
-      shard_size: Integer denoting shard size.
-      in_axes: Either integer or pytree describing which axis to map over for
-        each input to `fun`, None denotes broadcasting.
-      out_axes: integer or pytree denoting to what axis in the output the
-        mapped over axis maps.
-      new_out_axes: whether to stack outputs on new axes. This assumes that the
-        output sizes for each shard (including the possible remainder shard)
-        are the same.
-
-    Returns:
-      function with smap applied.
-    """
     docstr = (
         "Mapped version of {fun}. Takes similar arguments to {fun} "
         "but with additional array axes over which {fun} is mapped."
@@ -242,9 +191,6 @@ def sharded_apply_with_scan(
 
         def allocate_buffer(dtype, shape):
             return jnp.zeros(shape, dtype=dtype)
-            # return jax.lax.with_sharding_constraint(
-            #     jnp.zeros(shape, dtype=dtype), P(None, ("fsdp"))
-            # )
 
         outputs = jax.tree.map(allocate_buffer, out_dtypes, out_shapes)
 
@@ -258,3 +204,42 @@ def sharded_apply_with_scan(
         return outputs
 
     return mapped_fn
+
+
+def inference_subbatch(
+    module: Callable[..., PYTREE_JAX_ARRAY],
+    subbatch_size: int,
+    batched_args: dict[PYTREE_JAX_ARRAY],
+    nonbatched_args: dict[PYTREE_JAX_ARRAY],
+    low_memory: bool = True,
+    input_subbatch_dim: int = 0,
+    output_subbatch_dim: Optional[int] = None,
+    in_jit: bool = False,
+) -> PYTREE_JAX_ARRAY:
+    """Run through subbatches (like batch apply but with split and concat)."""
+    assert len(batched_args) > 0
+
+    if not low_memory:
+        args = batched_args | nonbatched_args
+        return module(args)
+
+    if output_subbatch_dim is None:
+        output_subbatch_dim = input_subbatch_dim
+
+    def run_module(batched_args):
+        args = batched_args | nonbatched_args
+        return module(args)
+
+    if in_jit:
+        apply = sharded_apply_with_scan
+    else:
+        apply = sharded_apply
+
+    sharded_module = apply(
+        run_module,
+        shard_size=subbatch_size,
+        in_axes=input_subbatch_dim,
+        out_axes=output_subbatch_dim,
+    )
+
+    return sharded_module(batched_args)

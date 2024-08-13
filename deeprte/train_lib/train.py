@@ -13,6 +13,7 @@ from jax.sharding import Mesh
 
 from deeprte.configs import default
 from deeprte.input_pipeline import input_pipeline_interface
+from deeprte.model import features, mapping
 from deeprte.model.modules import constructor
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
@@ -58,7 +59,7 @@ def compute_metrics(predictions, labels):
     mse = compute_mean_squared_error(predictions, labels)
     metrics = {
         "evaluation/mse": mse,
-        "evaluation/denominator": jnp.mean(labels**2),
+        "evaluation/mean_squared_labels": jnp.mean(labels**2),
     }
     return metrics
 
@@ -72,7 +73,6 @@ def train_step(state, batch):
     def loss_fn(params):
         """loss function used for training."""
         module = nnx.merge(state.graphdef, params)
-        module.set_attributes(low_memory=False)
         predictions = module(batch)
         loss = compute_mean_squared_error(predictions, labels)
         return loss
@@ -81,17 +81,42 @@ def train_step(state, batch):
     loss, grads = grad_fn(state.params)
     new_state = state.apply_gradients(grads=grads)
 
-    rmse = jnp.sqrt(loss / jnp.mean(labels**2))
-    metrics = {"training/loss": loss, "training/rmse": rmse}
+    metrics = {
+        "training/loss": loss,
+        "training/mean_squared_labels": jnp.mean(labels**2),
+    }
 
     return new_state, metrics
+
+
+def accumulated_train_and_metrics(
+    jit_train_step, micro_steps: int, global_batch_size: int, data_sharding
+):
+    if not micro_steps or micro_steps < 0:
+        return jit_train_step
+
+    batch_size_per_device = global_batch_size // jax.device_count()
+    assert batch_size_per_device % micro_steps == 0
+
+    def train_and_metrics(state, batch):
+        batch = jax.tree.map(
+            lambda x: x.reshape((-1, micro_steps) + x.shape[1:]), batch
+        )
+        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
+        train_metrics = []
+        for i in range(micro_steps):
+            micro_batch = jax.tree.map(lambda x: x[:, i], batch)
+            state, metrics = jit_train_step(state, micro_batch)
+            train_metrics.append(metrics)
+        return state, train_metrics
+
+    return train_and_metrics
 
 
 def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
     """Calculate evaluation metrics on a batch."""
     labels = batch["psi_label"]
     module = nnx.merge(graphdef, params)
-    module.set_attributes(low_memory=True)
     predictions = module(batch)
     metrics = compute_metrics(predictions, labels)
     return metrics
@@ -100,14 +125,24 @@ def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
 def evaluate(jit_eval_step, state, eval_iter):
     """Evaluate the target an return a dictionary with the metrics."""
     logging.info("Gathering evaluation metrics.")
-    eval_metrics = {"evaluation/mse": 0.0, "evaluation/denominator": 0.0}
-    eval_batch_count = 0
+    eval_metrics = []
     for eval_batch in eval_iter:
-        metrics = jit_eval_step(state.params, eval_batch, state.graphdef)
-        eval_metrics = jax.tree.map(lambda x, y: x + float(y), eval_metrics, metrics)
-        eval_batch_count += 1
-    # eval_metrics = jax.tree.map(lambda x: x / eval_batch_count, eval_metrics)
-    denominator = eval_metrics.pop("evaluation/denominator")
+        phase_feat, other_feat = features.split_feature(eval_batch)
+        phase_feat["psi_label"] = other_feat.pop("psi_label")
+        metrics = mapping.inference_subbatch(
+            module=lambda feat: jit_eval_step(state.params, feat, state.graphdef),
+            subbatch_size=128,
+            batched_args=phase_feat,
+            nonbatched_args=other_feat,
+            low_memory=True,
+            input_subbatch_dim=1,
+        )
+        eval_metrics.append(jax.tree.map(jnp.mean, metrics))
+    eval_metrics = train_utils.collect_pytrees(
+        eval_metrics,
+        collective_fn=lambda xs, axis: jnp.mean(jnp.asarray(xs)),
+    )
+    denominator = eval_metrics.pop("evaluation/mean_squared_labels")
     eval_metrics["evaluation/rmse"] = jnp.sqrt(
         eval_metrics["evaluation/mse"] / denominator
     )
@@ -154,8 +189,9 @@ def train_and_evaluate(config: default.Config, workdir: str):
     learning_rate_dict = {
         "schedule": config.schedule,
         "init_value": config.learning_rate,
-        "decay_rate": config.decay_rate,
-        "transition_steps": config.transition_steps,
+        # "decay_rate": config.decay_rate,
+        # "transition_steps": config.transition_steps,
+        "decay_steps": config.decay_steps,
     }
     # learning_rate_dict = {"schedule": config.schedule, "value": config.learning_rate}
 
@@ -163,6 +199,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
         name=config.optimizer,
         total_steps=config.num_train_steps,
         learning_rate=learning_rate_dict,
+        micro_steps=config.micro_steps,
     )
 
     if config.enable_emergency_checkpoint:
@@ -201,7 +238,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
     )
     num_params = train_utils.calculate_num_params_from_pytree(state.params)
     logging.info(f"Number of model params={num_params}")
-    start_step = get_first_step(state)
+
+    start_step = get_first_step(state) // config.micro_steps
     if start_step == 0:
         writer.write_hparams(dataclasses.asdict(config))
 
@@ -212,6 +250,10 @@ def train_and_evaluate(config: default.Config, workdir: str):
         in_shardings=(state_sharding, data_sharding),  # type: ignore
         out_shardings=(state_sharding, None),  # type: ignore
         donate_argnums=0,
+    )
+
+    jit_train_and_metrics = accumulated_train_and_metrics(
+        jit_train_step, config.micro_steps, config.global_batch_size, data_sharding
     )
 
     if eval_iter:
@@ -240,7 +282,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
             with jax.profiler.StepTraceAnnotation("train", step_num=step):
                 batch = next(train_iter)
-                state, train_metrics = jit_train_step(state, batch)
+                state, train_metrics = jit_train_and_metrics(state, batch)
 
             # Quick indication that training is happening.
             logging.log_first_n(logging.INFO, "Finished training step %d.", 5, step)
@@ -251,6 +293,14 @@ def train_and_evaluate(config: default.Config, workdir: str):
             if step % config.log_every_steps == 0 or is_last_step:
                 with report_progress.timed("training_metrics"):
                     logging.info("Gathering training metrics.")
+                    train_metrics = train_utils.collect_pytrees(
+                        train_metrics,
+                        collective_fn=lambda xs, axis: jnp.mean(jnp.asarray(xs)),
+                    )
+                    demoninator = train_metrics.pop("training/mean_squared_labels")
+                    train_metrics["training/rmse"] = jnp.sqrt(
+                        train_metrics["training/loss"] / demoninator
+                    )
                     train_metrics["learning_rate"] = lr_schedule(step)
                     writer.write_scalars(step, train_metrics)
 

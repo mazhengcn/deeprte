@@ -2,6 +2,7 @@ import functools
 import os
 import socket
 import time
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
@@ -22,9 +23,32 @@ Sharding = jax.sharding.Sharding
 
 Dtype = Any
 Shape = tuple[int, ...]
+PROXY = object()
 
 
 TrainState = nnx.TrainState
+
+
+# Tree utils.
+def _expand_axes(axes, values, name="collect_pytrees"):
+    values_tree_def = jax.tree.flatten(values)[1]
+    flat_axes = jax.api_util.flatten_axes(name, values_tree_def, axes)
+    # Replace None's with PROXY
+    flat_axes = [PROXY if x is None else x for x in flat_axes]
+    return jax.tree.unflatten(values_tree_def, flat_axes)
+
+
+def collect_pytrees(
+    pytrees: Sequence[PyTree],
+    axes: PyTree | int = 0,
+    collective_fn: Callable[[Sequence, int], PyTree] | None = None,
+):
+    axes_ = _expand_axes(axes, pytrees[0])
+    if collective_fn:
+        collect_args = lambda *args: collective_fn(args[:-1], args[-1])  # noqa
+    else:
+        collect_args = lambda *args: list(args[:-1])  # noqa
+    return jax.tree.map(collect_args, *pytrees, axes_)
 
 
 # Mesh utils.

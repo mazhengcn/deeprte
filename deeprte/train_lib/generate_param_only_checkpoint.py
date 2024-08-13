@@ -37,13 +37,15 @@ def _read_train_checkpoint(config, checkpoint_manager, mesh):
     learning_rate_dict = {
         "schedule": config.schedule,
         "init_value": config.learning_rate,
-        "decay_rate": config.decay_rate,
-        "transition_steps": config.transition_steps,
+        # "decay_rate": config.decay_rate,
+        # "transition_steps": config.transition_steps,
+        "decay_steps": config.decay_steps,
     }
     _, tx = optimizers.create_optimizer(
         name=config.optimizer,
         total_steps=config.num_train_steps,
         learning_rate=learning_rate_dict,
+        micro_steps=config.micro_steps,
     )
     state, state_sharding, _ = train_utils.setup_training_state(
         constructor, None, tx, config, key, mesh, checkpoint_manager

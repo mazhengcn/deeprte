@@ -50,6 +50,8 @@ def create_learning_rate_schedule(
         )
     # The following schedules support decay_steps, set its default value.
     kwargs["decay_steps"] = kwargs.pop("decay_steps", total_steps)
+    if schedule == "cosine_decay":
+        return optax.schedules.cosine_decay_schedule(**kwargs)
     if schedule == "warmup_cosine_decay":
         return optax.schedules.warmup_cosine_decay_schedule(init_value=0.0, **kwargs)
     if schedule == "warmup_linear_decay":
@@ -65,6 +67,7 @@ def create_optimizer(
     name: str,
     total_steps: int,
     learning_rate: float | Mapping[str, Any],
+    micro_steps: int = 1,
     **optim_kwargs,
 ) -> optax.GradientTransformation:
     """Creates an optax optimizer."""
@@ -104,7 +107,7 @@ def create_optimizer(
     ops.append(_scale_by_learning_rate(lr_schedule))
 
     # Chain all operations on the gradients.
-    return lr_schedule, optax.chain(*ops)
+    return lr_schedule, optax.MultiSteps(optax.chain(*ops), micro_steps)
 
 
 def trace_momentum(momentum: Optional[float] = None, **kwargs):
