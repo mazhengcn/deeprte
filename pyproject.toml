@@ -32,6 +32,7 @@ dependencies = [
     "numpy",
     "optax",
     "orbax-checkpoint",
+    "rte_dataset@git+https://github.com/mazhengcn/rte-dataset",
     "tensorflow-cpu",
     "tensorflow-datasets"
 ]

@@ -22,6 +22,5 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "pip install -e .[dev]",
-    "remoteUser": "jax"
+    "postCreateCommand": "pip install -e .[dev]"
 }
