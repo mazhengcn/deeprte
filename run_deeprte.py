@@ -16,7 +16,6 @@
 import json
 import os
 import pathlib
-import sys
 import time
 from typing import Any
 
@@ -29,9 +28,8 @@ import numpy as np
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
 from ml_collections import config_flags
+from rte_dataset.builders import pipeline
 
-sys.path.append("/root/projects/deeprte")
-from deeprte.data import pipeline
 from deeprte.model.engine import RteEngine
 
 logging.set_verbosity(logging.INFO)
