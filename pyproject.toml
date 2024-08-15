@@ -44,7 +44,7 @@ dev = ["matplotlib", "penzai", "jupyter"]
 homepage = "https://github.com/mazhengcn/deeprte"
 
 [tool.hatch.build.targets.wheel]
-packages = ["./deeprte"]
+packages = ["deeprte"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
