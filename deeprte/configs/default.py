@@ -3,6 +3,7 @@
 import dataclasses
 
 import jax
+import yaml
 
 
 @dataclasses.dataclass(unsafe_hash=True)
@@ -138,7 +139,11 @@ class Config:
         return dataclasses.replace(self, **kwargs)
 
 
-def get_config():
+def get_config(cfg_path: str | None = None) -> Config:
     """Get the default hyperparameter configuration."""
-    config = Config()
+    if cfg_path:
+        with open(cfg_path, "r") as f:
+            config = Config(**yaml.safe_load(f))
+    else:
+        config = Config()
     return config

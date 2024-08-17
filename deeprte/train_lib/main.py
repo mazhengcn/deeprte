@@ -6,20 +6,17 @@ import jax
 import tensorflow as tf
 from absl import app, flags, logging
 from clu import platform
-from ml_collections import config_flags
 
+from deeprte.configs import default
 from deeprte.train_lib import train
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("workdir", None, "Directory to store model data.")
-config_flags.DEFINE_config_file(
-    "config",
-    "configs/default.py",
-    "File path to the training hyperparameter configuration.",
-    lock_config=True,
+flags.DEFINE_string(
+    "config", None, "File path to the training hyperparameter configuration."
 )
-flags.mark_flags_as_required(["workdir"])
+flags.mark_flags_as_required(["config", "workdir"])
 
 
 def main(argv):
@@ -43,7 +40,10 @@ def main(argv):
         platform.ArtifactType.DIRECTORY, FLAGS.workdir, "workdir"
     )
 
-    train.train_and_evaluate(FLAGS.config, FLAGS.workdir)
+    # Load the configuration.
+    config = default.get_config(FLAGS.config)
+    # Train and evaluate
+    train.train_and_evaluate(config, FLAGS.workdir)
 
 
 if __name__ == "__main__":

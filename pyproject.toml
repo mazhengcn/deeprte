@@ -27,7 +27,6 @@ dependencies = [
     "flax",
     "grain",
     "jax[cuda12]",
-    "ml-collections",
     "numpy",
     "optax",
     "orbax-checkpoint",
