@@ -247,7 +247,7 @@ def load_state_if_possible(
         logging.info(f"restoring full state from {load_full_state_from_path=}")
         p = epath.Path(load_full_state_from_path)
         ckptr = ocp.StandardCheckpointer()
-        restored = ckptr.restore(p, args=ocp.args.StandardRestore(abstract_pre_state))
+        restored = ckptr.restore(p, abstract_pre_state)
         return {"train_state": restored}, None
 
     else:
@@ -276,8 +276,6 @@ def load_params_from_path(load_parameters_from_path, abstract_params):
 def save_params_to_path(checkpoint_dir, params):
     """Save params in checkpoint at specified path."""
     assert checkpoint_dir, "checkpoint_dir is not defined."
-    ckptr = ocp.StandardCheckpointer()
-    ckptr.save(
-        checkpoint_dir, args=ocp.args.StandardSave({"params": params}), force=True
-    )
+    with ocp.StandardCheckpointer() as ckptr:
+        ckptr.save(checkpoint_dir, state={"params": params}, force=True)
     print(f"Params checkpoint saved at: {checkpoint_dir}")
