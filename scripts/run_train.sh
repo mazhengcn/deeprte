@@ -14,33 +14,9 @@
 # limitations under the License.
 set -e
 
-DATASET_NAME=${1:-"g0.5-sigma_a3-sigma_t6"}
-BATCH_SIZE=${2:-"8"}
-RESTORE_DIR=${3:-"None"}
-CUDA_DEVICES=${4:-""}
+CONFIG_PATH=${1:-"/workspaces/deeprte/ckpts/g0.5-test/g0.5.yaml"}
+CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.5-test"}
 
-if [ -n "${CUDA_DEVICES}" ]; then
-	export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
-	DEVICES=($(tr "," " " <<< "${CUDA_DEVICES}"))
-	ACCUM_GRADS_STEPS=$((BATCH_SIZE / ${#DEVICES[@]}))
-else
-	ACCUM_GRADS_STEPS="1"
-fi
-
-TRAIN_ARGS="--config=deeprte/config.py:rte/${DATASET_NAME},${BATCH_SIZE},5000 \
-	--config.experiment_kwargs.config.training.accum_grads_steps=${ACCUM_GRADS_STEPS} \
-	--jaxline_mode=train \
-	--alsologtostderr=true
-	"
-
-if [ "${RESTORE_DIR}" = "None" ]; then
-	TIMESTAMP="$(date --iso-8601="seconds")"
-	CKPT_NAME="${DATASET_NAME}_${TIMESTAMP%+*}"
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=$(pwd)/ckpts/${CKPT_NAME}"
-else
-	# CKPT_DIR="${RESTORE_DIR%%/models*}"
-	CKPT_NAME="${RESTORE_DIR##*ckpts/}"
-	TRAIN_ARGS="${TRAIN_ARGS} --config.checkpoint_dir=$(pwd)/ckpts/${CKPT_NAME} --config.restore_dir=${RESTORE_DIR}"
-fi
-
-screen -S "${CKPT_NAME}" python deeprte/main.py ${TRAIN_ARGS}
+python deeprte/train_lib/main.py \
+    --config=${CONFIG_PATH} \
+    --workdir=${CKPT_DIR}
