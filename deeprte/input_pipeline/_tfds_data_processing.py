@@ -23,6 +23,7 @@ import tensorflow_datasets as tfds
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, PartitionSpec
 
+from deeprte.input_pipeline import utils
 from deeprte.train_lib import multihost_dataloading
 
 DEFAULT_SHUFFLE_BUFFER = 50_000
@@ -128,6 +129,11 @@ def make_tfds_iterator(config, global_mesh, process_indices):
         read_config=read_config,
         with_info=True,
     )
+    norm_dict = ds_info.metadata["normalization"]
+    config.normalization = utils.get_normalization_ratio(
+        norm_dict["psi_range"], norm_dict["boundary_range"]
+    )
+
     train_iter = preprocessing_pipeline(
         dataset=train_ds,
         dataset_info=ds_info,

@@ -113,6 +113,8 @@ class Config:
     scattering_dim: int = 16
     # Subcollocation size for evaluation or inference
     subcollocation_size: int = 128
+    # Normalization constant of dataset.
+    normalization: float = 1.0
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")

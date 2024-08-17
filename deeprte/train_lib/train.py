@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import optax
 import orbax.checkpoint as ocp
 import tensorflow as tf
+import yaml
 from absl import logging
 from clu import metric_writers, periodic_actions
 from etils import epath
@@ -231,6 +232,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
     start_step = get_first_step(state) // config.micro_steps
     if start_step == 0:
         writer.write_hparams(dataclasses.asdict(config))
+        with open(f"{workdir}/config.yaml", "w") as f:
+            yaml.dump(dataclasses.asdict(config), f)
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------

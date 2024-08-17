@@ -9,6 +9,13 @@ from deeprte.input_pipeline._grain_data_processing import make_grain_iterator
 from deeprte.input_pipeline._tfds_data_processing import make_tfds_iterator
 from deeprte.train_lib import multihost_dataloading
 
+NUM_DIM = 2
+# Placeholder values that will be replaced with their true value at runtime.
+NUM_POSITION_COORDS = 1600
+NUM_VELOCITY_COORDS = 24
+NUM_PHASE_COORDS = 128
+NUM_BOUNDARY_COORDS = 1920
+
 
 class SyntheticDataIterator:
     """Creates a synthetic data iterator for performance testing work"""
@@ -37,29 +44,38 @@ class SyntheticDataIterator:
     def raw_generate_synthetic_data(config):
         """Generates a single batch of synthetic data"""
         output = {}
-        output["inputs"] = jax.numpy.zeros(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["boundary"] = jax.numpy.zeros(
+            (config.global_batch_size, NUM_BOUNDARY_COORDS)
         )
-        output["inputs_position"] = jax.numpy.zeros(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["boundary_coords"] = jax.numpy.zeros(
+            (config.global_batch_size, NUM_BOUNDARY_COORDS, 2 * NUM_DIM)
         )
-        output["inputs_segmentation"] = jax.numpy.ones(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["boundary_weights"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_BOUNDARY_COORDS)
         )
-        output["targets"] = jax.numpy.zeros(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["phase_coords"] = jax.numpy.zeros(
+            (config.global_batch_size, NUM_PHASE_COORDS, 2 * NUM_DIM)
         )
-        output["targets_position"] = jax.numpy.zeros(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["position_coords"] = jax.numpy.zeros(
+            (config.global_batch_size, NUM_POSITION_COORDS, NUM_DIM),
         )
-        output["targets_segmentation"] = jax.numpy.ones(
-            (config.global_batch_size_to_load, config.max_target_length),
-            dtype=jax.numpy.int32,
+        output["psi_label"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_PHASE_COORDS)
+        )
+        output["scattering_kernel"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS)
+        )
+        output["self_scattering_kernel"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS)
+        )
+        output["sigma"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_POSITION_COORDS, NUM_DIM)
+        )
+        output["velocity_coords"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_VELOCITY_COORDS, NUM_DIM)
+        )
+        output["velocity_weights"] = jax.numpy.ones(
+            (config.global_batch_size, NUM_VELOCITY_COORDS)
         )
         return output
 
@@ -87,24 +103,43 @@ class BadSyntheticDataIterator:
         output["inputs"] = tf.data.Dataset.from_tensor_slices(
             np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
         )
-        output["inputs_position"] = tf.data.Dataset.from_tensor_slices(
-            np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
+        output = {}
+        output["boundary"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_BOUNDARY_COORDS), -1)
         )
-        output["inputs_segmentation"] = tf.data.Dataset.from_tensor_slices(
-            np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
+        output["boundary_coords"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_BOUNDARY_COORDS, 2 * NUM_DIM), -1)
         )
-        output["targets"] = tf.data.Dataset.from_tensor_slices(
-            np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
+        output["boundary_weights"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_BOUNDARY_COORDS), -1)
         )
-        output["targets_position"] = tf.data.Dataset.from_tensor_slices(
-            np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
+        output["phase_coords"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_PHASE_COORDS, 2 * NUM_DIM), -1)
         )
-        output["targets_segmentation"] = tf.data.Dataset.from_tensor_slices(
-            np.full((1, config.max_target_length), -1, dtype=jax.numpy.int32)
+        output["position_coords"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_POSITION_COORDS, NUM_DIM), -1)
+        )
+        output["psi_label"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_PHASE_COORDS), -1)
+        )
+        output["scattering_kernel"] = tf.data.Dataset.from_tensor_slices(
+            (np.full((1, NUM_PHASE_COORDS, NUM_VELOCITY_COORDS), -1),)
+        )
+        output["self_scattering_kernel"] = tf.data.Dataset.from_tensor_slices(
+            (np.full((1, NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS), -1),)
+        )
+        output["sigma"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_POSITION_COORDS, NUM_DIM), -1)
+        )
+        output["velocity_coords"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_VELOCITY_COORDS, NUM_DIM), -1)
+        )
+        output["velocity_weights"] = tf.data.Dataset.from_tensor_slices(
+            np.full((1, NUM_VELOCITY_COORDS), -1)
         )
         dataset = tf.data.Dataset.zip((output))  # pytype: disable=wrong-arg-types
         dataset = dataset.repeat()
-        dataset = dataset.batch(config.global_batch_size_to_load // jax.process_count())
+        dataset = dataset.batch(config.global_batch_size // jax.process_count())
         return dataset
 
 
