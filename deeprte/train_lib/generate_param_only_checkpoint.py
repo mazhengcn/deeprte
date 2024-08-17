@@ -1,24 +1,24 @@
+import dataclasses
+
 import jax
 import optax
+import yaml
 from absl import app, flags, logging
 from etils import epath
 from jax.sharding import Mesh
-from ml_collections import config_flags
 
-from deeprte.model.modules import constructor
+from deeprte.configs import default
+from deeprte.model.modules import DeepRTEConfig, constructor
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 from deeprte.train_lib.train import save_checkpoint
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("checkpoint_dir", None, "Directory to store model params.")
-config_flags.DEFINE_config_file(
-    "config",
-    "configs/default.py",
-    "File path to the training hyperparameter configuration.",
-    lock_config=True,
+flags.DEFINE_string(
+    "config", None, "File path to the training hyperparameter configuration."
 )
-flags.mark_flags_as_required(["checkpoint_dir"])
+flags.DEFINE_string("checkpoint_dir", None, "Directory to store model params.")
+flags.mark_flags_as_required(["config", "checkpoint_dir"])
 
 
 def _read_train_checkpoint(config, checkpoint_manager, mesh):
@@ -88,6 +88,27 @@ def generate_infer_checkpoint(config, checkpoint_dir):
     logging.info(
         f"Successfully generated params checkpoint at: {checkpoint_dir}/params"
     )
+    # Save config file to checkpoint directory
+    model_config = DeepRTEConfig(
+        position_coords_dim=config.position_coords_dim,
+        velocity_coords_dim=config.velocity_coords_dim,
+        coeffs_fn_dim=config.coeffs_fn_dim,
+        num_heads=config.num_heads,
+        qkv_dim=config.qkv_dim,
+        optical_depth_dim=config.optical_depth_dim,
+        num_mlp_layers=config.num_mlp_layers,
+        mlp_dim=config.mlp_dim,
+        num_scattering_layers=config.num_scattering_layers,
+        scattering_dim=config.scattering_dim,
+        subcollocation_size=config.subcollocation_size,
+        normalization=config.normalization,
+        load_parameters_path=f"{checkpoint_dir}/params",
+    )
+    with open(f"{checkpoint_dir}/config.yaml", "w") as f:
+        yaml.dump(dataclasses.asdict(model_config), f)
+    logging.info(
+        f"Successfully save model config file at: {checkpoint_dir}/config.yaml"
+    )
 
     return True
 
@@ -96,7 +117,8 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
-    generate_infer_checkpoint(FLAGS.config, FLAGS.checkpoint_dir)
+    config = default.get_config(FLAGS.config)
+    generate_infer_checkpoint(config, FLAGS.checkpoint_dir)
 
 
 if __name__ == "__main__":

@@ -27,23 +27,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
-from ml_collections import config_flags
 from rte_dataset.builders import pipeline
 
+from deeprte.configs import default
 from deeprte.model.engine import RteEngine
 
 logging.set_verbosity(logging.INFO)
 
+FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file(
-    "config",
-    "configs/default.py",
-    "File path to the configuration.",
-    lock_config=True,
-)
-flags.DEFINE_string("data_dir", None, "Path to directory containing the data.")
-flags.DEFINE_list("data_filenames", None, "List of data filenames.")
-flags.DEFINE_string("model_dir", None, "Path to directory containing the model.")
+flags.DEFINE_string("config", None, "Path to the configuration file.")
+flags.DEFINE_string("data_path", None, "Path to directory containing the data.")
 flags.DEFINE_string(
     "output_dir",
     None,
@@ -52,9 +46,7 @@ flags.DEFINE_string(
 )
 flags.DEFINE_bool("benchmark", True, "If True, benchmark the model.")
 flags.DEFINE_integer("num_eval", None, "Number of examples to evaluate.")
-
-
-FLAGS = flags.FLAGS
+flags.mark_flags_as_required(["config", "data_path", "output_dir"])
 
 
 def rmse(pred, target):
@@ -126,7 +118,6 @@ def predict_radiative_transfer(
     data_pipeline: pipeline.DataPipeline,
     engine: RteEngine,
     benchmark: bool,
-    normalization_ratio,
     num_eval: int = None,
 ):
     # Get features.
@@ -198,11 +189,7 @@ def predict_radiative_transfer(
 
         psi_shape = feature_dict["functions"]["psi_label"].shape
         t_0 = time.time()
-        predicted_psi = prediction.reshape(1, -1).reshape(
-            psi_shape
-        )  # reshape multi_devices to single device
-        if normalization_ratio:
-            predicted_psi = predicted_psi * normalization_ratio
+        predicted_psi = prediction.reshape(psi_shape)
 
         predicted_phi = jnp.sum(
             predicted_psi * feature_dict["grid"]["velocity_weights"],
@@ -270,46 +257,27 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
-    data_pipeline = pipeline.DataPipeline(FLAGS.data_dir, FLAGS.data_filenames)
-    logging.info("Data pipeline created from %s", FLAGS.data_dir)
+    data_path = pathlib.Path(FLAGS.data_path)
+    data_pipeline = pipeline.DataPipeline(data_path.parent, [data_path.name])
+    logging.info("Data pipeline created from %s", FLAGS.data_path)
 
-    config = FLAGS.config
-    config.load_parameters_path = FLAGS.model_dir
+    config = default.get_config(FLAGS.config)
     rte_engine = RteEngine(config)
-
-    # if model_config.data.is_normalization:
-    #     normalization_dict = model_config.data.normalization_dict
-    #     normalization_ratio = get_normalization_ratio(
-    #         normalization_dict["psi_range"],
-    #         normalization_dict["boundary_range"],
-    #     )
-    # else:
-    #     normalization_ratio = None
 
     logging.info("Running prediction...")
     predict_radiative_transfer(
-        FLAGS.output_dir,
-        data_pipeline,
-        rte_engine,
-        FLAGS.benchmark,
-        None,
-        FLAGS.num_eval,
+        FLAGS.output_dir, data_pipeline, rte_engine, FLAGS.benchmark, FLAGS.num_eval
     )
 
     logging.info("Writing config file...")
     config_path = os.path.join(FLAGS.output_dir, "config.json")
     config = {
         "config": FLAGS.config,
-        "model_dir": FLAGS.model_dir,
-        "data_dir": FLAGS.data_dir,
-        "data_filenames": FLAGS.data_filenames,
+        "data_dir": FLAGS.data_path,
     }
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)
 
 
 if __name__ == "__main__":
-    flags.mark_flags_as_required(
-        ["config", "data_dir", "data_filenames", "output_dir", "model_dir"]
-    )
     app.run(main)

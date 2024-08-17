@@ -96,7 +96,8 @@ class RteEngine:
         )
         phase_feat, other_feat = features.split_feature(feat)
         result = inference_subbatch(
-            module=lambda x: self.jit_predict_fn(self.params, x, self.graphdef),
+            module=lambda x: self.jit_predict_fn(self.params, x, self.graphdef)
+            * float(self.config.normalization),
             subbatch_size=self.config.subcollocation_size,
             batched_args=phase_feat,
             nonbatched_args=other_feat,

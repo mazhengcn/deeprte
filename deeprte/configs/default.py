@@ -1,18 +1,11 @@
 """Default Hyperparameter configuration."""
 
 import dataclasses
+import json
+import pathlib
 
 import jax
 import yaml
-
-
-@dataclasses.dataclass(unsafe_hash=True)
-class MeshRules:
-    mlp: str | None = None
-    kv: str | None = None
-
-    def __call__(self, *keys: str) -> tuple[str, ...]:
-        return tuple(getattr(self, key) for key in keys)
 
 
 @dataclasses.dataclass(unsafe_hash=True)
@@ -143,9 +136,17 @@ class Config:
 
 def get_config(cfg_path: str | None = None) -> Config:
     """Get the default hyperparameter configuration."""
+    config = Config()
     if cfg_path:
+        suffix = pathlib.Path(cfg_path).suffix
+        if suffix in [".yaml", ".yml"]:
+            file_loader = yaml.full_load
+        elif suffix == ".json":
+            file_loader = json.load
+        else:
+            raise ValueError(f"Unsupported configuration file format: {suffix}")
+
         with open(cfg_path, "r") as f:
-            config = Config(**yaml.safe_load(f))
-    else:
-        config = Config()
-    return config
+            cfg = file_loader(f)
+
+    return config.replace(**cfg)

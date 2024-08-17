@@ -43,15 +43,6 @@ def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
 
 
 @dataclasses.dataclass(unsafe_hash=True)
-class MeshRules:
-    mlp: str | None = None
-    kv: str | None = None
-
-    def __call__(self, *keys: str) -> tuple[str, ...]:
-        return tuple(getattr(self, key) for key in keys)
-
-
-@dataclasses.dataclass(unsafe_hash=True)
 class DeepRTEConfig:
     # Physical position dimensions.
     position_coords_dim: int = 2
@@ -74,9 +65,11 @@ class DeepRTEConfig:
     # Scattering dimension.
     scattering_dim: int = 16
     # Subcollocation size for evaluation or inference
-    subcollocation_size: int = 512
-    # Mesh rules
-    axis_rules: MeshRules = MeshRules(mlp="tensor", kv="tensor")
+    subcollocation_size: int = 128
+    # Normalization constant of dataset/model.
+    normalization: float = 1.0
+    # Where to load the parameters from.
+    load_parameters_path: str = ""
 
     def replace(self, **kwargs):
         return dataclasses.replace(self, **kwargs)
