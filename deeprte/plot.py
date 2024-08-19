@@ -1,25 +1,11 @@
-import json
-import logging
-import logging.handlers
 import os
-from typing import Any
 
 import dill
-import matplotlib
-import matplotlib.colors as colors
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import ml_collections
 import numpy as np
-import tree
-import yaml
-from matplotlib import cm
-from matplotlib.collections import PolyCollection
-from matplotlib.colors import LightSource, ListedColormap
+from absl import logging
 from matplotlib.ticker import MultipleLocator
-from mpl_toolkits.mplot3d import art3d, axes3d
-
-_logger = logging.getLogger("evaluate")
 
 result_path = "/nfs/my/projects/deeprte/results/2023-06-15T16:21:40"
 
@@ -71,9 +57,9 @@ def plot_phi(
     ax.set_zlabel(r"Predict $f(r,\Omega)$", labelpad=-5, rotation=90, fontdict=font)
 
     # # Plot the 3D surface
-    surf = ax.plot_surface(
-        X, Y, Z, cmap=cmap, linewidth=0.2, alpha=0.7, lw=0.5, norm=norm
-    )
+    # surf = ax.plot_surface(
+    #     X, Y, Z, cmap=cmap, linewidth=0.2, alpha=0.7, lw=0.5, norm=norm
+    # )
 
     z_min, z_max = np.min(Z), np.max(Z)
     z_range = z_max - z_min
@@ -90,14 +76,14 @@ def plot_phi(
         linewidths=0.7,
     )
 
-    cbar = fig.colorbar(
-        surf,
-        ax=ax,
-        location="right",
-        anchor=(-0.5, 0.4),
-        shrink=0.6,
-        format=matplotlib.ticker.ScalarFormatter(),
-    )
+    # cbar = fig.colorbar(
+    #     surf,
+    #     ax=ax,
+    #     location="right",
+    #     anchor=(-0.5, 0.4),
+    #     shrink=0.6,
+    #     format=matplotlib.ticker.ScalarFormatter(),
+    # )
     # cbar.minorticks_off()
 
     ax.set(zlim=(offset, z_max * 1.1))
@@ -171,7 +157,7 @@ def plot_contour(X, Y, phi, title, fontdict=None, save_path=None, figsize=(20, 5
 
 def main():
     setup_default_logging(log_path=os.path.join(result_path, "plot.log"))
-    _logger.info("Plotting results from %s", result_path)
+    logging.info("Plotting results from %s", result_path)
 
     # plot contour params
     n = 40
@@ -186,7 +172,7 @@ def main():
         item_path = os.path.join(result_path, item)
         if os.path.isdir(item_path):
             file_path = os.path.join(item_path, "result.dill")
-            _logger.info("Plotting %s", file_path)
+            logging.info("Plotting %s", file_path)
             with open(file_path, "rb") as f:
                 result = dill.load(f)
 
@@ -233,7 +219,7 @@ def main():
                 figsize=(6, 5),
                 save_path=os.path.join(item_path, "phi_label_3d.pdf"),
             )
-    _logger.info("Done!")
+    logging.info("Done!")
 
 
 if __name__ == "__main__":
