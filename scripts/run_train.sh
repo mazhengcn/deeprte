@@ -14,8 +14,8 @@
 # limitations under the License.
 set -e
 
-CONFIG_PATH=${1:-"/workspaces/deeprte/ckpts/g0.5-test/g0.5.yaml"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.5-test"}
+CONFIG_PATH=${1:-"/workspaces/deeprte/configs/g0.5.yaml"}
+CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.5"}
 
 python deeprte/train_lib/main.py \
     --config=${CONFIG_PATH} \

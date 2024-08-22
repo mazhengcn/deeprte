@@ -14,13 +14,15 @@
 # limitations under the License.
 set -e
 
-DATA_PATH=${1:-"/workspaces/deeprte/data/raw_data/test/sin-rv-g0.8-amplitude5-wavenumber10/sin-rv-g0.8-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.8-infer"}
-OUTPUT_DIR=${3:-"/workspaces/deeprte/test"}
+TRAIN_STATE_DIR=${1:-"/workspaces/deeprte/ckpts/train/g0.5/500000"}
+CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.5-infer"}
 
-TIMESTAMP="$(date --iso-8601="seconds")"
+TRAIN_CKPT_DIR="$(dirname "${TRAIN_STATE_DIR}")"
+cp $TRAIN_CKPT_DIR/config.yaml $TRAIN_CKPT_DIR/temp.yaml
+echo "load_full_state_path: ${TRAIN_STATE_DIR}/train_state" >> $TRAIN_CKPT_DIR/temp.yaml
 
-python run_deeprte.py \
-    --config="${MODEL_DIR}/config.yaml" \
-    --data_path="${DATA_PATH}" \
-    --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
+python deeprte/train_lib/generate_param_only_checkpoint.py \
+    --config=${TRAIN_CKPT_DIR}/temp.yaml \
+    --checkpoint_dir=${CKPT_DIR}
+
+rm -f $TRAIN_CKPT_DIR/temp.yaml

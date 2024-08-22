@@ -104,8 +104,10 @@ def generate_infer_checkpoint(config, checkpoint_dir):
         normalization=config.normalization,
         load_parameters_path=f"{checkpoint_dir}/params",
     )
+    config_dict = dataclasses.asdict(model_config)
+    config_dict["train_state_path"] = config.load_full_state_path
     with open(f"{checkpoint_dir}/config.yaml", "w") as f:
-        yaml.dump(dataclasses.asdict(model_config), f)
+        yaml.dump(config_dict, f)
     logging.info(
         f"Successfully save model config file at: {checkpoint_dir}/config.yaml"
     )

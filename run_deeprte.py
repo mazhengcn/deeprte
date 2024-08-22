@@ -128,10 +128,6 @@ def predict_radiative_transfer(
 
     logging.info("Predicting %d examples sequentially", num_examples)
 
-    output_dir_base = pathlib.Path(output_dir_base)
-    if not output_dir_base.exists():
-        output_dir_base.mkdir(parents=True)
-
     if not num_eval:
         num_eval = num_examples
 
@@ -257,6 +253,19 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
+    output_dir = pathlib.Path(FLAGS.output_dir)
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+
+    logging.info("Writing config file...")
+    config_path = os.path.join(output_dir, "config.json")
+    config = {
+        "config": FLAGS.config,
+        "data_dir": FLAGS.data_path,
+    }
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4)
+
     data_path = pathlib.Path(FLAGS.data_path)
     data_pipeline = pipeline.DataPipeline(data_path.parent, [data_path.name])
     logging.info("Data pipeline created from %s", FLAGS.data_path)
@@ -266,17 +275,8 @@ def main(argv):
 
     logging.info("Running prediction...")
     predict_radiative_transfer(
-        FLAGS.output_dir, data_pipeline, rte_engine, FLAGS.benchmark, FLAGS.num_eval
+        output_dir, data_pipeline, rte_engine, FLAGS.benchmark, FLAGS.num_eval
     )
-
-    logging.info("Writing config file...")
-    config_path = os.path.join(FLAGS.output_dir, "config.json")
-    config = {
-        "config": FLAGS.config,
-        "data_dir": FLAGS.data_path,
-    }
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=4)
 
 
 if __name__ == "__main__":
