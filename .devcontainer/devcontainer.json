@@ -1,6 +1,9 @@
 {
-    "name": "Deep RTE",
-    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
+    "name": "DeepRTE",
+    "build": {
+        "context": "..",
+        "dockerfile": "Dockerfile"
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -13,7 +16,7 @@
     },
     "runArgs": [
         "--gpus=all",
-        "--shm-size=8g"
+        "--shm-size=1g"
     ],
     "mounts": [
         {
@@ -22,5 +25,6 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "pip install -e .[dev]"
+    "postCreateCommand": "uv sync --dev",
+    "remoteUser": "root"
 }
