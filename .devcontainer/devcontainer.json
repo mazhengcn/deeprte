@@ -25,6 +25,6 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "uv sync --dev",
+    "postCreateCommand": "uv sync --all-extras --dev",
     "remoteUser": "root"
 }
