@@ -26,6 +26,7 @@ dependencies = [
     "numpy>=1.26.4",
     "optax>=0.2.3",
     "orbax-checkpoint>=0.6.4",
+    "rte-dataset",
     "tensorflow-cpu>=2.17.0",
     "tensorflow-datasets>=4.9.6",
 ]
@@ -48,3 +49,6 @@ dev-dependencies = [
     "pre-commit>=3.8.0",
     "ruff>=0.6.3",
 ]
+
+[tool.uv.sources]
+rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset.git" }
