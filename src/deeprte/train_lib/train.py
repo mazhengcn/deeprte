@@ -177,7 +177,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     devices_array = train_utils.create_device_mesh(config)
     mesh = Mesh(devices_array, config.mesh_axes)
 
-    if emergency_checkpoint_manager.should_restore_mesh_from_metadata(
+    if emergency_checkpoint_manager._should_restore_mesh_from_metadata(
         epath.Path(workdir)
     ):
         mesh = emergency_checkpoint_manager.consistent_restore_mesh_from_metadata(
@@ -296,15 +296,14 @@ def train_and_evaluate(config: default.Config, workdir: str):
                     train_metrics["learning_rate"] = lr_schedule(step)
                     writer.write_scalars(step, train_metrics)
 
-            if eval_iter:
-                if step % config.eval_every_steps == 0 or is_last_step:
-                    with report_progress.timed("eval"):
-                        eval_metrics = evaluate(
-                            jit_eval_step=jit_eval_step,
-                            state=state,
-                            eval_iter=eval_iter,
-                        )
-                        writer.write_scalars(step, eval_metrics)
+            if eval_iter and step % config.eval_every_steps == 0 or is_last_step:
+                with report_progress.timed("eval"):
+                    eval_metrics = evaluate(
+                        jit_eval_step=jit_eval_step,
+                        state=state,
+                        eval_iter=eval_iter,
+                    )
+                    writer.write_scalars(step, eval_metrics)
 
             if config.save_checkpoints:
                 with report_progress.timed("checkpoint"):

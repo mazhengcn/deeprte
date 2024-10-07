@@ -1,4 +1,6 @@
-"""This file is intentionally kept short. The majority for logic is in libraries
+"""This file is intentionally kept short.
+
+The majority for logic is in libraries
 that can be easily tested and imported in Colab.
 """
 
@@ -19,6 +21,7 @@ flags.DEFINE_string(
 flags.mark_flags_as_required(["config", "workdir"])
 
 
+@app.run
 def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
@@ -48,4 +51,4 @@ def main(argv):
 
 if __name__ == "__main__":
     jax.config.config_with_absl()
-    app.run(main)
+    main()
