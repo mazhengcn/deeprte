@@ -31,10 +31,6 @@ dependencies = [
     "tensorflow-datasets>=4.9.6",
 ]
 
-[project.scripts]
-deeprte-train = "deeprte.train_lib.main:main"
-deeprte = "deeprte.run_deeprte.main:main"
-
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
 

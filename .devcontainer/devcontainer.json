@@ -4,6 +4,9 @@
         "context": "..",
         "dockerfile": "Dockerfile"
     },
+    "features": {
+        "ghcr.io/dhoeric/features/hadolint:1": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -18,6 +21,7 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
+    "postCreateCommand": "uv sync --all-extras --dev",
     "mounts": [
         {
             "source": "rte_data",
@@ -25,6 +29,5 @@
             "type": "volume"
         }
     ],
-    "postCreateCommand": "uv sync --all-extras --dev",
     "remoteUser": "root"
 }
