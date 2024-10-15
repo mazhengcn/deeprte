@@ -23,5 +23,5 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           # Change this to point to your image name
-          imageName: ghcr.io/${{ github.repository }}/deeprte
+          imageName: ghcr.io/${{ github.repository }}:dev
           push: always
