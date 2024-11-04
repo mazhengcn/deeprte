@@ -9,8 +9,9 @@
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
-                "charliermarsh.ruff",
-                "ms-toolsai.jupyter"
+                "ms-toolsai.jupyter",
+                "ms-toolsai.tensorboard",
+                "charliermarsh.ruff"
             ]
         }
     },
@@ -20,9 +21,9 @@
     ],
     "mounts": [
         {
+            "type": "volume",
             "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data",
-            "type": "volume"
+            "target": "${containerWorkspaceFolder}/data"
         }
     ],
     "postCreateCommand": "uv sync --all-extras --dev"

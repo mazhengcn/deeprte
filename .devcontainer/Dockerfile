@@ -1,7 +1,10 @@
 FROM debian:bookworm-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git wget \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /deeprte
@@ -20,4 +23,6 @@ ENV PATH="/deeprte/.venv/bin:$PATH"
 
 ADD https://starship.rs/install.sh /starship-installer.sh
 RUN sh /starship-installer.sh -y && rm /starship-installer.sh \
-    && echo "eval '$(starship init bash)'" >> /root/.bashrc
+    && echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc \
+    && echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc \
+    && echo 'eval "$(starship init bash)"' >> ~/.bashrc
