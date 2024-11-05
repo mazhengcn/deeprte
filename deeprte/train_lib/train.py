@@ -70,7 +70,7 @@ def compute_metrics(predictions, labels):
 # -----------------------------------------------------------------------------
 def train_step(state, batch):
     """Perform a single training step."""
-    labels = batch["psi_label"]
+    labels = batch["boundary"]
 
     def loss_fn(params):
         """loss function used for training."""
@@ -117,7 +117,7 @@ def accumulated_train_and_metrics(
 
 def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
     """Calculate evaluation metrics on a batch."""
-    labels = batch["psi_label"]
+    labels = batch["boundary"]
     module = nnx.merge(graphdef, params)
     predictions = module(batch)
     metrics = compute_metrics(predictions, labels)
@@ -130,7 +130,7 @@ def evaluate(jit_eval_step, state, eval_iter):
     eval_metrics = []
     for eval_batch in eval_iter:
         phase_feat, other_feat = features.split_feature(eval_batch)
-        phase_feat["psi_label"] = other_feat.pop("psi_label")
+        phase_feat["boundary"] = other_feat.pop("boundary")
         metrics = mapping.inference_subbatch(
             module=lambda feat: jit_eval_step(state.params, feat, state.graphdef),
             subbatch_size=128,
