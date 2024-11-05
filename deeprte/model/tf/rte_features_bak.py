@@ -56,25 +56,7 @@ FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
 FEATURE_SIZES = {k: v[1] for k, v in FEATURES.items()}
 
 PHASE_COORDS_FEATURES = [k for k in FEATURES if NUM_PHASE_COORDS in FEATURES[k][1]]
-BASIS_FEATURES = {
-    "boundary_coords": (tf.float32, [NUM_BOUNDARY_COORDS, 2 * NUM_DIM]),
-    "boundary_weights": (tf.float32, [NUM_BOUNDARY_COORDS]),
-    "boundary": (tf.float32, [NUM_BOUNDARY_COORDS]),
-}
-GREEN_FUNCTION_FEATURES = {
-    "phase_coords": (tf.float32, [NUM_PHASE_COORDS, 2 * NUM_DIM]),
-    "basis_weights": (tf.float32, [NUM_BOUNDARY_COORDS]),
-    "basis_inner_product": (tf.float32, [NUM_BOUNDARY_COORDS]),
-    "position_coords": (tf.float32, [NUM_POSITION_COORDS, NUM_DIM]),
-    "velocity_coords": (tf.float32, [NUM_VELOCITY_COORDS, NUM_DIM]),
-    "velocity_weights": (tf.float32, [NUM_VELOCITY_COORDS]),
-    "sigma": (tf.float32, [NUM_POSITION_COORDS, 2]),
-    "scattering_kernel": (tf.float32, [NUM_PHASE_COORDS, NUM_VELOCITY_COORDS]),
-    "self_scattering_kernel": (
-        tf.float32,
-        [NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
-    ),
-}
+
 # Extra features for training
 # "psi_label": (tf.float32, [NUM_PHASE_COORDS]),
 

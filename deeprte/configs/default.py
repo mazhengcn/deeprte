@@ -45,6 +45,8 @@ class Config:
     eval_batch_size: int = 4
     # Number of steps to train for.
     num_train_steps: int = 500_001
+
+    train_state_path: str = None
     # Number of micro steps for grads accumulation, None for no accumulation.
     micro_steps: int = int(
         global_batch_size / per_device_batch_size / jax.device_count()
@@ -108,6 +110,21 @@ class Config:
     subcollocation_size: int = 128
     # Normalization constant of dataset.
     normalization: float = 1.0
+
+    position_coords_dim: int = 2
+    velocity_coords_dim: int = 2
+    coeffs_fn_dim: int = 2
+    num_basis_functions: int = 16
+    basis_function_encoder_dim: int = 16
+    num_basis_function_encoder_layers: int = 2
+    green_function_encoder_dim: int = 16
+    num_green_function_encoder_layers: int = 2
+    num_scattering_layers: int = 2
+    scattering_dim: int = 16
+    num_heads: int = 8
+    qkv_dim: int = 16
+    optical_depth_dim: int = 16
+    name: str = "boundary"
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")
