@@ -73,11 +73,10 @@ def train_step(state, batch):
     labels = batch["psi_label"]
 
     def loss_fn(params):
-        """loss function used for training."""
+        """Loss function used for training."""
         module = nnx.merge(state.graphdef, params)
         predictions = module(batch)
-        loss = compute_mean_squared_error(predictions, labels)
-        return loss
+        return compute_mean_squared_error(predictions, labels)
 
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(state.params)
