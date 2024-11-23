@@ -4,6 +4,9 @@
         "context": "..",
         "dockerfile": "Dockerfile"
     },
+    "features": {
+        "ghcr.io/devcontainers-extra/features/starship:1": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -26,5 +29,6 @@
             "target": "${containerWorkspaceFolder}/data"
         }
     ],
+    "onCreateCommand": "echo 'eval \"$(starship init bash)\"' >> ~/.bashrc",
     "postCreateCommand": "uv sync --all-extras --dev"
 }

@@ -41,8 +41,8 @@ notebook = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv>=0.5.0"]
+build-backend = "uv._build_backend"
 
 [tool.uv]
 dev-dependencies = [
