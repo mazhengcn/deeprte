@@ -34,18 +34,14 @@ dependencies = [
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
 
-[project.optional-dependencies]
-notebook = [
-    "jupyter>=1.1.1",
-    "penzai>=0.2.2",
-]
-
 [build-system]
 requires = ["uv>=0.5.0"]
-build-backend = "uv._build_backend"
+build-backend = "uv"
 
 [tool.uv]
 dev-dependencies = [
+    "jupyter>=1.1.1",
+    "penzai>=0.2.4",
     "pre-commit>=3.8.0",
     "ruff>=0.6.3",
 ]

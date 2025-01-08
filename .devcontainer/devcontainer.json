@@ -2,10 +2,14 @@
     "name": "DeepRTE",
     "build": {
         "context": "..",
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "args": {
+            "UV_VERSION": "0.5.13",
+            "DEBIAN_VERSION": "bookworm"
+        }
     },
     "features": {
-        "ghcr.io/devcontainers-extra/features/starship:1": {}
+        "ghcr.io/dhoeric/features/hadolint:1": {}
     },
     "customizations": {
         "vscode": {
@@ -14,14 +18,17 @@
                 "ms-python.vscode-pylance",
                 "ms-toolsai.jupyter",
                 "ms-toolsai.tensorboard",
-                "charliermarsh.ruff"
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml"
             ]
         }
     },
-    "runArgs": [
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
+    "containerEnv": {
+        "DISPLAY": "dummy",
+        "PYTHONUNBUFFERED": "True",
+        "UV_PREVIEW": "1",
+        "UV_LINK_MODE": "copy"
+    },
     "mounts": [
         {
             "type": "volume",
@@ -29,6 +36,9 @@
             "target": "${containerWorkspaceFolder}/data"
         }
     ],
-    "onCreateCommand": "echo 'eval \"$(starship init bash)\"' >> ~/.bashrc",
-    "postCreateCommand": "uv sync --all-extras --dev"
+    "runArgs": [
+        "--gpus=all",
+        "--shm-size=1g"
+    ],
+    "postCreateCommand": "uv sync --dev"
 }

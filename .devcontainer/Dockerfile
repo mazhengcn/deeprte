@@ -1,23 +1,8 @@
-FROM debian:bookworm-slim
+ARG UV_VERSION=0.5.13
+ARG DEBIAN_VERSION=bookworm
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    git \
-    openssh-client \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/astral-sh/uv:$UV_VERSION AS uv
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-ENV UV_PROJECT_ENVIRONMENT=/deeprte_venv
+FROM mcr.microsoft.com/vscode/devcontainers/base:$DEBIAN_VERSION
 
-WORKDIR /app/deeprte
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    --mount=type=bind,source=.python-version,target=.python-version \
-    uv sync --no-install-project --no-dev
-
-ENV PATH="/deeprte_venv/bin:$PATH"
+COPY --from=uv --chown=vscode: /uv /uvx /bin/
