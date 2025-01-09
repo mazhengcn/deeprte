@@ -1,153 +1,94 @@
 import dataclasses
 
-import grain.python as grain
 import jax
 import jax.numpy as jnp
-import optax
-import orbax.checkpoint as ocp
 import tensorflow as tf
 import yaml
 from absl import logging
 from clu import metric_writers, periodic_actions
-from etils import epath
 from flax import nnx
 from jax.sharding import Mesh
 
 from deeprte.configs import default
 from deeprte.input_pipeline import input_pipeline_interface
 from deeprte.model import features, mapping
-from deeprte.model.modules import constructor
+from deeprte.model.modules import DeepRTE
 from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
-from deeprte.train_lib.checkpointing import emergency_checkpoint_manager
-
-
-def get_first_step(state):
-    with jax.spmd_mode("allow_all"):
-        return int(state.step)
-
-
-def save_checkpoint(
-    checkpoint_manager: ocp.CheckpointManager,
-    step,
-    state,
-    dataset_type="tfds",
-    data_iterator=None,
-):
-    """Wrapper for saving checkpoint"""
-    if isinstance(checkpoint_manager, emergency_checkpoint_manager.CheckpointManager):
-        return checkpoint_manager.save(step, args=ocp.args.PyTreeSave(state))
-
-    if dataset_type == "grain":
-        return checkpoint_manager.save(
-            step,
-            args=ocp.args.Composite(
-                train_state=ocp.args.PyTreeSave(item=state),
-                data_iter=grain.PyGrainCheckpointSave(data_iterator.local_iterator),
-            ),
-        )
-    else:
-        return checkpoint_manager.save(
-            step,
-            args=ocp.args.Composite(train_state=ocp.args.PyTreeSave(item=state)),
-        )
-
-
-def compute_mean_squared_error(predictions, labels):
-    return jnp.mean(jnp.square(predictions - labels))
-
-
-def compute_metrics(predictions, labels):
-    mse = compute_mean_squared_error(predictions, labels)
-    metrics = {
-        "evaluation/mse": mse,
-        "evaluation/mean_squared_labels": jnp.mean(labels**2),
-    }
-    return metrics
+from deeprte.train_lib.checkpointing import save_checkpoint
+from deeprte.train_lib.metrics import RelativeError
 
 
 # Primary training / eval / decode step functions.
 # -----------------------------------------------------------------------------
-def train_step(state, batch):
-    """Perform a single training step."""
+def loss_fn(model: nnx.Module, batch):
+    """Loss function used for training."""
     labels = batch["psi_label"]
-
-    def loss_fn(params):
-        """Loss function used for training."""
-        module = nnx.merge(state.graphdef, params)
-        predictions = module(batch)
-        return compute_mean_squared_error(predictions, labels)
-
-    grad_fn = jax.value_and_grad(loss_fn)
-    loss, grads = grad_fn(state.params)
-    new_state = state.apply_gradients(grads=grads)
-
-    metrics = {
-        "training/loss": loss,
-        "training/mean_squared_labels": jnp.mean(labels**2),
-    }
-
-    return new_state, metrics
+    predictions = model(batch)
+    return ((predictions - labels) ** 2).mean()
 
 
-def accumulated_train_and_metrics(
-    jit_train_step, micro_steps: int, global_batch_size: int, data_sharding
+@nnx.jit
+def train_step(
+    model: nnx.Module,
+    optimizer: nnx.Optimizer,
+    metrics: nnx.MultiMetric,
+    batch,
+    micro_steps: int = 1,
 ):
-    if not micro_steps or micro_steps < 0:
-        return jit_train_step
+    """Perform a single training step."""
 
-    batch_size_per_device = global_batch_size // jax.device_count()
-    assert batch_size_per_device % micro_steps == 0
+    if micro_steps > 1:
 
-    def train_and_metrics(state, batch):
-        batch = jax.tree.map(
-            lambda x: x.reshape((-1, micro_steps) + x.shape[1:]), batch
-        )
-        batch = jax.lax.with_sharding_constraint(batch, data_sharding)
-        train_metrics = []
-        for i in range(micro_steps):
-            micro_batch = jax.tree.map(lambda x: x[:, i], batch)
-            state, metrics = jit_train_step(state, micro_batch)
-            train_metrics.append(metrics)
-        return state, train_metrics
+        def accumulate_gradient(acc_grad_and_loss, data):
+            grad_fn = nnx.value_and_grad(loss_fn)
+            loss, cur_batch_gradient = grad_fn(model, data)
+            acc_grad_and_loss["loss"] += loss
+            acc_grad_and_loss["grads"] += cur_batch_gradient
+            return acc_grad_and_loss
 
-    return train_and_metrics
+        def reshape_to_microbatch_accumulations(batch_arr):
+            """Reshape global batch to microbatches, assuming batch axis is leading."""
+            microbatch_shape = (
+                micro_steps,
+                batch_arr.shape[0] // micro_steps,
+            ) + batch_arr.shape[1:]
+            return jnp.reshape(batch_arr, microbatch_shape)
+
+    batch = jax.tree.map(reshape_to_microbatch_accumulations, batch)
+    init_grad = jax.tree.map(jnp.zeros_like, nnx.state(model, nnx.Param))
+    init_grad_and_loss = {"loss": 0.0, "grads": init_grad}
+    grad_and_loss = jax.lax.scan(
+        accumulate_gradient, init_grad_and_loss, batch, length=micro_steps
+    )
+    loss = grad_and_loss["loss"] / micro_steps
+    optimizer.update(grad_and_loss["grads"])
+
+    metrics.update(loss=loss, mean_squared_labels=jnp.mean(batch["psi_label"] ** 2))
 
 
-def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
+@nnx.jit
+def eval_step(model: nnx.Module, metrics: nnx.MultiMetric, batch):
     """Calculate evaluation metrics on a batch."""
-    labels = batch["psi_label"]
-    module = nnx.merge(graphdef, params)
-    predictions = module(batch)
-    metrics = compute_metrics(predictions, labels)
-    return metrics
+    loss = loss_fn(model, batch)
+    metrics.update(loss=loss, mean_squred_labels=jnp.mean(batch["psi_labels"] ** 2))
+    return loss
 
 
-def evaluate(jit_eval_step, state, eval_iter):
+def evaluate(model, metrics, eval_iter):
     """Evaluate the target an return a dictionary with the metrics."""
     logging.info("Gathering evaluation metrics.")
-    eval_metrics = []
     for eval_batch in eval_iter:
         phase_feat, other_feat = features.split_feature(eval_batch)
         phase_feat["psi_label"] = other_feat.pop("psi_label")
-        metrics = mapping.inference_subbatch(
-            module=lambda feat: jit_eval_step(state.params, feat, state.graphdef),
+        _ = mapping.inference_subbatch(
+            module=lambda feat: eval_step(model, metrics, feat),
             subbatch_size=128,
             batched_args=phase_feat,
             nonbatched_args=other_feat,
             low_memory=True,
             input_subbatch_dim=1,
         )
-        eval_metrics.append(jax.tree.map(jnp.mean, metrics))
-    eval_metrics = train_utils.collect_pytrees(
-        eval_metrics,
-        collective_fn=lambda xs, _: jnp.mean(jnp.asarray(xs)),
-    )
-    denominator = eval_metrics.pop("evaluation/mean_squared_labels")
-    eval_metrics["evaluation/rmse"] = jnp.sqrt(
-        eval_metrics["evaluation/mse"] / denominator
-    )
-    return eval_metrics
 
 
 def train_and_evaluate(config: default.Config, workdir: str):
@@ -164,11 +105,6 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     start_step = 0
 
-    # Create metric writers
-    writer = metric_writers.create_default_writer(
-        workdir, just_logging=jax.process_index() > 0
-    )
-
     # Mesh definition
     # ---------------------------------------------------------------------------
     logging.info("Initializing mesh.")
@@ -176,41 +112,32 @@ def train_and_evaluate(config: default.Config, workdir: str):
     devices_array = train_utils.create_device_mesh(config)
     mesh = Mesh(devices_array, config.mesh_axes)
 
-    if emergency_checkpoint_manager._should_restore_mesh_from_metadata(
-        epath.Path(workdir)
-    ):
-        mesh = emergency_checkpoint_manager.consistent_restore_mesh_from_metadata(
-            epath.Path(workdir), mesh
-        )
-
     # Build model constructor, optimizer and checkpoint manager
     # ---------------------------------------------------------------------------
     logging.info("Initializing optimizer, model and checkpointer.")
 
     lr_schedule = optimizers.create_learning_rate_schedule(config)
     tx = optimizers.create_optimizer(config, lr_schedule)
-    tx = optax.MultiSteps(tx, every_k_schedule=config.micro_steps)
 
-    if config.enable_emergency_checkpoint:
-        abstract_state, _ = train_utils.get_abstract_state(
-            constructor, tx, config, init_rng, mesh
-        )
-        checkpoint_manager = checkpointing.create_orbax_emergency_checkpoint_manager(
-            config.local_checkpoint_dir,
-            workdir,
-            mesh,
-            abstract_state,
-            config.local_checkpoint_every_steps,
-            config.checkpoint_every_steps,
-        )
-    else:
-        checkpoint_manager = checkpointing.create_orbax_checkpoint_manager(
-            workdir,
-            config.save_checkpoints,
-            config.async_checkpointing,
-            config.checkpoint_every_steps,
-            config.dataset_type,
-        )
+    checkpoint_manager = checkpointing.create_orbax_checkpoint_manager(
+        workdir,
+        config.save_checkpoints,
+        config.async_checkpointing,
+        config.checkpoint_every_steps,
+        config.dataset_type,
+    )
+
+    # Setup Metrics
+    # ---------------------------------------------------------------------------
+    metrics: nnx.MultiMetric = nnx.MultiMetric(
+        mse=nnx.metrics.Average("loss"),
+        rmse=RelativeError("loss", "mean_squred_labels"),
+    )
+
+    # Create metric writers
+    writer = metric_writers.create_default_writer(
+        workdir, just_logging=jax.process_index() > 0
+    )
 
     # Load Dataset
     # ---------------------------------------------------------------------------
@@ -222,38 +149,17 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # Initialize train state
     # ---------------------------------------------------------------------------
     logging.info("Initializing train state.")
-    state, state_sharding, train_iter = train_utils.setup_training_state(
-        constructor, train_iter, tx, config, init_rng, mesh, checkpoint_manager
+    model, optimizer, train_iter = train_utils.setup_training_state(
+        DeepRTE, train_iter, tx, config, init_rng, mesh, checkpoint_manager
     )
-    num_params = train_utils.calculate_num_params_from_pytree(state.params)
+    num_params = train_utils.calculate_num_params_from_pytree(nnx.state(model))
     logging.info(f"Number of model params={num_params}")
 
-    start_step = get_first_step(state) // config.micro_steps
+    start_step = optimizer.step.value // config.micro_steps
     if start_step == 0:
         writer.write_hparams(dataclasses.asdict(config))
         with open(f"{workdir}/config.yaml", "w") as f:
             yaml.dump(dataclasses.asdict(config), f)
-
-    # Compile multidevice versions of train/eval/predict step fn.
-    # ---------------------------------------------------------------------------
-    jit_train_step = jax.jit(
-        train_step,
-        in_shardings=(state_sharding, data_sharding),  # type: ignore
-        out_shardings=(state_sharding, None),  # type: ignore
-        donate_argnums=0,
-    )
-
-    jit_train_and_metrics = accumulated_train_and_metrics(
-        jit_train_step, config.micro_steps, config.global_batch_size, data_sharding
-    )
-
-    if eval_iter:
-        jit_eval_step = jax.jit(
-            eval_step,
-            in_shardings=(state_sharding.params, data_sharding),  # type: ignore
-            out_shardings=None,  # type: ignore
-            static_argnums=2,
-        )
 
     # Main Train Loop
     # ---------------------------------------------------------------------------
@@ -273,7 +179,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
             with jax.profiler.StepTraceAnnotation("train", step_num=step):
                 batch = next(train_iter)
-                state, train_metrics = jit_train_and_metrics(state, batch)
+                train_step(model, optimizer, metrics, batch)
 
             # Quick indication that training is happening.
             logging.log_first_n(logging.INFO, "Finished training step %d.", 5, step)
@@ -284,28 +190,23 @@ def train_and_evaluate(config: default.Config, workdir: str):
             if step % config.log_every_steps == 0 or is_last_step:
                 with report_progress.timed("training_metrics"):
                     logging.info("Gathering training metrics.")
-                    train_metrics = train_utils.collect_pytrees(
-                        train_metrics,
-                        collective_fn=lambda xs, _: jnp.mean(jnp.asarray(xs)),
-                    )
-                    demoninator = train_metrics.pop("training/mean_squared_labels")
-                    train_metrics["training/rmse"] = jnp.sqrt(
-                        train_metrics["training/loss"] / demoninator
-                    )
-                    train_metrics["learning_rate"] = lr_schedule(step)
+                    train_metrics = metrics.compute()
                     writer.write_scalars(step, train_metrics)
+                    metrics.reset()
 
             if eval_iter and step % config.eval_every_steps == 0 or is_last_step:
                 with report_progress.timed("eval"):
-                    eval_metrics = evaluate(
-                        jit_eval_step=jit_eval_step,
-                        state=state,
-                        eval_iter=eval_iter,
-                    )
+                    evaluate(model, metrics, eval_iter)
+                    eval_metrics = metrics.compute()
                     writer.write_scalars(step, eval_metrics)
+                    metrics.reset()
 
             if config.save_checkpoints:
                 with report_progress.timed("checkpoint"):
                     save_checkpoint(
-                        ckpt_mngr, step, state, config.dataset_type, train_iter
+                        ckpt_mngr,
+                        step,
+                        nnx.state(optimizer),
+                        config.dataset_type,
+                        train_iter,
                     )
