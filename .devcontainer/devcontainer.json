@@ -40,5 +40,6 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "uv sync --dev"
+    "postCreateCommand": "uv sync --dev",
+    "postStartCommand": "uv run pre-commit install"
 }
