@@ -181,7 +181,7 @@ def setup_training_state(
     if restored_state:
         if "data_iter" in restored_state and restored_state["data_iter"] is not None:
             data_iterator.local_iterator = restored_state["data_iter"]
-        nnx.update(optimizer, restored_state)
+        nnx.update(optimizer, restored_state["train_state"])
     else:
         if raw_params:
             nnx.update(model, raw_params)

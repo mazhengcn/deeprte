@@ -2,6 +2,7 @@ import dataclasses
 
 import jax
 import jax.numpy as jnp
+import optax
 import tensorflow as tf
 import yaml
 from absl import logging
@@ -34,37 +35,30 @@ def train_step(
     optimizer: nnx.Optimizer,
     metrics: nnx.MultiMetric,
     batch,
-    micro_steps: int = 1,
 ):
     """Perform a single training step."""
-
-    if micro_steps > 1:
-
-        def accumulate_gradient(acc_grad_and_loss, data):
-            grad_fn = nnx.value_and_grad(loss_fn)
-            loss, cur_batch_gradient = grad_fn(model, data)
-            acc_grad_and_loss["loss"] += loss
-            acc_grad_and_loss["grads"] += cur_batch_gradient
-            return acc_grad_and_loss
-
-        def reshape_to_microbatch_accumulations(batch_arr):
-            """Reshape global batch to microbatches, assuming batch axis is leading."""
-            microbatch_shape = (
-                micro_steps,
-                batch_arr.shape[0] // micro_steps,
-            ) + batch_arr.shape[1:]
-            return jnp.reshape(batch_arr, microbatch_shape)
-
-    batch = jax.tree.map(reshape_to_microbatch_accumulations, batch)
-    init_grad = jax.tree.map(jnp.zeros_like, nnx.state(model, nnx.Param))
-    init_grad_and_loss = {"loss": 0.0, "grads": init_grad}
-    grad_and_loss = jax.lax.scan(
-        accumulate_gradient, init_grad_and_loss, batch, length=micro_steps
-    )
-    loss = grad_and_loss["loss"] / micro_steps
-    optimizer.update(grad_and_loss["grads"])
-
+    grad_fn = nnx.value_and_grad(loss_fn)
+    loss, grads = grad_fn(model, batch)
+    optimizer.update(grads)
     metrics.update(loss=loss, mean_squared_labels=jnp.mean(batch["psi_label"] ** 2))
+
+
+def accumulate_gradent(micro_steps: int, global_batch_size: int):
+    if not micro_steps or micro_steps < 0:
+        return train_step
+
+    batch_size_per_device = global_batch_size // jax.device_count()
+    assert batch_size_per_device % micro_steps == 0
+
+    def accumulated_train_step(model, optimizer, metrics, batch):
+        batch = jax.tree.map(
+            lambda x: x.reshape((-1, micro_steps) + x.shape[1:]), batch
+        )
+        for i in range(micro_steps):
+            micro_batch = jax.tree.map(lambda x: x[:, i], batch)
+            train_step(model, optimizer, metrics, micro_batch)
+
+    return accumulated_train_step
 
 
 @nnx.jit
@@ -72,6 +66,7 @@ def eval_step(model: nnx.Module, metrics: nnx.MultiMetric, batch):
     """Calculate evaluation metrics on a batch."""
     loss = loss_fn(model, batch)
     metrics.update(loss=loss, mean_squred_labels=jnp.mean(batch["psi_labels"] ** 2))
+
     return loss
 
 
@@ -118,6 +113,11 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     lr_schedule = optimizers.create_learning_rate_schedule(config)
     tx = optimizers.create_optimizer(config, lr_schedule)
+    tx = optax.MultiSteps(tx, every_k_schedule=config.micro_steps)
+
+    accumulated_train_step = accumulate_gradent(
+        config.micro_steps, config.global_batch_size
+    )
 
     checkpoint_manager = checkpointing.create_orbax_checkpoint_manager(
         workdir,
@@ -131,7 +131,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # ---------------------------------------------------------------------------
     metrics: nnx.MultiMetric = nnx.MultiMetric(
         mse=nnx.metrics.Average("loss"),
-        rmse=RelativeError("loss", "mean_squred_labels"),
+        rmse=RelativeError("loss", "mean_squared_labels"),
     )
 
     # Create metric writers
@@ -179,7 +179,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
             with jax.profiler.StepTraceAnnotation("train", step_num=step):
                 batch = next(train_iter)
-                train_step(model, optimizer, metrics, batch)
+                accumulated_train_step(model, optimizer, metrics, batch)
 
             # Quick indication that training is happening.
             logging.log_first_n(logging.INFO, "Finished training step %d.", 5, step)
