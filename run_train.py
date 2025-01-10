@@ -21,7 +21,6 @@ flags.DEFINE_string(
 flags.mark_flags_as_required(["config", "workdir"])
 
 
-@app.run
 def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
@@ -51,4 +50,4 @@ def main(argv):
 
 if __name__ == "__main__":
     jax.config.config_with_absl()
-    main()
+    app.run(main)

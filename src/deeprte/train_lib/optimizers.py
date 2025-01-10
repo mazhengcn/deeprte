@@ -27,7 +27,7 @@ def create_learning_rate_schedule(config):
         )
     elif schedule == "cosine_decay":
         return optax.schedules.cosine_decay_schedule(
-            init_value=lr, decay_steps=config.decay_steps
+            init_value=lr, decay_steps=config.num_train_steps
         )
     elif schedule == "warmup_cosine_decay":
         return optax.schedules.warmup_cosine_decay_schedule(

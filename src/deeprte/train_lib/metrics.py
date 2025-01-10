@@ -1,13 +1,13 @@
 import jax
 import jax.numpy as jnp
-from flax.nnx import metrics
+from flax import nnx
 
 
-class RelativeError(metrics.Average):
+class RelativeError(nnx.Metric):
     def __init__(self, argname_1="loss", argname_2="true_value"):
         self.argname_1, self.argname_2 = argname_1, argname_2
-        self.error = metrics.MetricState(jnp.array(0, dtype=jnp.float32))
-        self.true = metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        self.error = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        self.true = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self):
         self.error.value = jnp.array(0, dtype=jnp.float32)

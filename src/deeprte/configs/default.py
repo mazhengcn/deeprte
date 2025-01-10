@@ -60,7 +60,7 @@ class Config:
     # Learning rate schedule.
     schedule: str = "cosine_decay"
     # Decay steps for cosine decay scheduler.
-    decay_steps: int = num_train_steps
+    decay_steps: int = 10_000
     # Whether to save model checkpoints.
     save_checkpoints: bool = True
     # Save a checkpoint every these number of steps.

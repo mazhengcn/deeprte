@@ -15,8 +15,6 @@
 set -e
 
 CONFIG_PATH=${1:-"/workspaces/deeprte/configs/g0.5.yaml"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.5"}
+CKPT_DIR=${2:-"/workspaces/deeprte/ckpts_new/g0.5"}
 
-PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python deeprte-train \
-        --config=${CONFIG_PATH} \
-        --workdir=${CKPT_DIR}
+python run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
