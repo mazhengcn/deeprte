@@ -5,7 +5,6 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 import orbax.checkpoint as ocp
 from absl import logging
@@ -23,9 +22,6 @@ Sharding = jax.sharding.Sharding
 Dtype = Any
 Shape = tuple[int, ...]
 PROXY = object()
-
-
-TrainState = nnx.TrainState
 
 
 # Tree utils.
@@ -124,12 +120,6 @@ def fill_unspecified_mesh_axes(parallelism_vals, target_product, parallelism_typ
 
 # State initialization utils.
 # -----------------------------------------------------------------------------
-def _to_array(x):
-    if not isinstance(x, jax.Array):
-        x = jnp.asarray(x)
-    return x
-
-
 def calculate_num_params_from_pytree(params):
     params_sizes = jax.tree.map(jax.numpy.size, params)
     total_parameters = jax.tree.reduce(lambda x, y: x + y, params_sizes)
@@ -139,52 +129,58 @@ def calculate_num_params_from_pytree(params):
 
 def create_init_fn(model_class, config, key, tx, sharded: bool = True):
     # Initialization
-    def init_model_and_opt():
+    def init_fn():
         model = model_class(config, rngs=nnx.Rngs(key))
         if sharded:
             state = nnx.state(model)
             pspecs = nnx.get_partition_spec(state)
             sharded_state = jax.lax.with_sharding_constraint(state, pspecs)
             nnx.update(model, sharded_state)
-        optimizer = nnx.Optimizer(model, tx)
-        return model, optimizer
+        if tx:
+            optimizer = nnx.Optimizer(model, tx)
+            return model, optimizer
+        else:
+            return model
 
     if sharded:
-        return nnx.jit(init_model_and_opt)
+        return nnx.jit(init_fn)
     else:
-        return init_model_and_opt
+        return init_fn
 
 
 def setup_training_state(
-    model_class, data_iterator, tx, config, rng, mesh, checkpoint_manager
+    model_class, config, rng, tx, mesh, data_iterator, checkpoint_manager
 ):
     model, optimizer = nnx.eval_shape(
         create_init_fn(model_class, config, rng, tx, sharded=False)
     )
-    state = nnx.state(optimizer)
-    abstract_state = jax.tree.map(
+    abstract_train_state = nnx.state(optimizer)
+    abstract_sharded_train_state = jax.tree.map(
         lambda a, s: jax.ShapeDtypeStruct(a.shape, a.dtype, sharding=s),
-        state,
-        nnx.get_named_sharding(state, mesh),
+        abstract_train_state,
+        nnx.get_named_sharding(abstract_train_state, mesh),
     )
 
     # Initialization
-    restored_state, raw_params = checkpointing.load_state_if_possible(
+    restored_train_state, restored_model_state = checkpointing.load_state_if_possible(
         checkpoint_manager,
         data_iterator,
         config.load_parameters_path,
         config.load_full_state_path,
-        abstract_state,
+        abstract_sharded_train_state,
         config.dataset_type,
     )
 
-    if restored_state:
-        if "data_iter" in restored_state and restored_state["data_iter"] is not None:
-            data_iterator.local_iterator = restored_state["data_iter"]
-        nnx.update(optimizer, restored_state["train_state"])
+    if restored_train_state:
+        if (
+            "data_iter" in restored_train_state
+            and restored_train_state["data_iter"] is not None
+        ):
+            data_iterator.local_iterator = restored_train_state["data_iter"]
+        nnx.update(optimizer, restored_train_state["train_state"])
     else:
-        if raw_params:
-            nnx.update(model, raw_params)
+        if restored_model_state:
+            nnx.update(model, restored_model_state)
             optimizer = nnx.Optimizer(model, tx)
         else:
             init_model_and_opt = create_init_fn(model_class, config, rng, tx)
@@ -194,37 +190,31 @@ def setup_training_state(
     return model, optimizer, data_iterator
 
 
-# def setup_infer_state(constructor, config, rng, mesh, checkpoint_manager):
-#     """Setup decode state by loading params from a checkpoint.
-#     Args:
-#       model: the flax model to initialize
-#       config: config object
-#       rng: jax.prng key
-#       mesh: jax.devices() mesh
-#       checkpoint_manager: Checkpoint manager
+def setup_infer_state(model_class, config, rng, mesh):
+    if not config.load_parameters_path:
+        # generate random params
+        logging.info("No infer checkpoint specified - generating random weights.")
+        init_model = create_init_fn(model_class, config, rng, None)
+        with mesh:
+            model = init_model()
+    else:
+        # Load params from checkpoint
+        logging.info(f"Loading decode params from {config.load_parameters_path}")
+        model = nnx.eval_shape(
+            create_init_fn(model_class, config, rng, None, sharded=False)
+        )
+        abstract_model_state = nnx.state(model)
+        abstract_sharded_model_state = jax.tree.map(
+            lambda a, s: jax.ShapeDtypeStruct(a.shape, a.dtype, sharding=s),
+            abstract_model_state,
+            nnx.get_named_sharding(abstract_model_state, mesh),
+        )
+        model_state = checkpointing.load_params_from_path(
+            config.load_parameters_path, abstract_sharded_model_state
+        )
+        nnx.update(model, model_state)
 
-#     Returns:
-#       state: state with decode params loaded from the checkpoint
-#       state_mesh_annotations: the mesh annotations for the state
-#     """
-#     if not config.load_parameters_path:
-#         # generate random params
-#         logging.info("No infer checkpoint specified - generating random weights.")
-#         state, state_sharding, _ = setup_initial_state(
-#             constructor, None, None, config, rng, mesh, checkpoint_manager, False
-#         )
-#     else:
-#         # Load params from checkpoint
-#         logging.info(f"Loading decode params from {config.load_parameters_path}")
-#         abstract_sharded_state, state_sharding = get_abstract_state(
-#             constructor, None, config, rng, mesh, False
-#         )
-#         params = checkpointing.load_params_from_path(
-#             config.load_parameters_path, abstract_sharded_state.params
-#         )
-#         state = init_infer_state(None, params)
-
-#     return state, state_sharding
+    return model
 
 
 # Distributed system initialization.

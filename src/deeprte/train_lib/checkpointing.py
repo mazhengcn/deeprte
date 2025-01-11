@@ -76,30 +76,9 @@ def load_state_if_possible(
     data_iterator: MultiHostDataLoadIterator | None,
     load_parameters_from_path: str,
     load_full_state_from_path: str,
-    abstract_state: nnx.State,
+    abstract_train_state: nnx.State,
     dataset_type: Optional[str] = "tfds",
 ):
-    """Loads TrainState as possible from the inputs.
-
-    Args:
-      checkpoint_manager: if the checkpoint_manager has a valid checkpoint, return
-        that TrainState. This enables a full reload of a run in progress.
-      load_parameters_from_path: if there is no checkpoint in the checkpoint manager,
-        load parameters from a parameter only checkpoint at this path.
-      load_full_state_from_path: if there is no checkpoint in the checkpoint manager,
-        load full state from a full state checkpoint at this path.
-      abstract_unboxed_pre_state: an unboxed, abstract TrainState that Orbax
-        matches type against.
-      enable_single_replica_ckpt_restoring: bool flag for restoring checkpoitn
-        with SingleReplicaArrayHandler
-
-    Returns:
-      A tuple of (train_state, train_state_params) where full_train_state captures
-       a full reload and train_state_params just the params for a partial reload.
-       At most one will be non-None. Both can be None if neither checkpoint is
-       set.
-    """
-
     if checkpoint_manager is not None:
         logging.info(
             "checkpoint manager exists so trying to load this run's existing checkpoint"
@@ -116,7 +95,7 @@ def load_state_if_possible(
                     checkpoint_manager.restore(
                         latest_step,
                         args=ocp.args.Composite(
-                            train_state=ocp.args.StandardRestore(abstract_state),
+                            train_state=ocp.args.StandardRestore(abstract_train_state),
                             data_iter=grain.PyGrainCheckpointRestore(
                                 data_iterator.local_iterator
                             ),
@@ -129,7 +108,7 @@ def load_state_if_possible(
                     checkpoint_manager.restore(
                         latest_step,
                         args=ocp.args.Composite(
-                            train_state=ocp.args.StandardRestore(abstract_state)
+                            train_state=ocp.args.StandardRestore(abstract_train_state)
                         ),
                     ),
                     None,
@@ -137,34 +116,34 @@ def load_state_if_possible(
 
     if load_parameters_from_path != "":
         restored_params = load_params_from_path(
-            load_parameters_from_path, abstract_state.model
+            load_parameters_from_path, abstract_train_state.model
         )
         return None, restored_params
     elif load_full_state_from_path != "":
         logging.info(f"restoring full state from {load_full_state_from_path=}")
         p = epath.Path(load_full_state_from_path)
         ckptr = ocp.StandardCheckpointer()
-        restored = ckptr.restore(p, abstract_state)
-        return restored, None
+        restored_train_state = ckptr.restore(p, abstract_train_state)
+        return {"train_state": restored_train_state}, None
 
     else:
         logging.info("No existing checkpoints found, not restoring checkpoint.")
         return None, None
 
 
-def load_params_from_path(load_parameters_from_path, abstract_params):
+def load_params_from_path(load_parameters_from_path, abstract_model_state):
     """Load inference params from checkpoint at specified path."""
     assert load_parameters_from_path, "load_parameters_from_path is not defined."
     logging.info(f"restoring params from {load_parameters_from_path}")
     ckpt = epath.Path(load_parameters_from_path)
     ckptr = ocp.StandardCheckpointer()
-    restored = ckptr.restore(ckpt, target=abstract_params)
-    return restored
+    restored_model_state = ckptr.restore(ckpt, target=abstract_model_state)
+    return restored_model_state
 
 
-def save_params_to_path(checkpoint_dir, params):
+def save_params_to_path(checkpoint_dir, model_state):
     """Save params in checkpoint at specified path."""
     assert checkpoint_dir, "checkpoint_dir is not defined."
     ckptr = ocp.StandardCheckpointer()
-    ckptr.save(checkpoint_dir, params)
-    print(f"Params checkpoint saved at: {checkpoint_dir}")
+    ckptr.save(checkpoint_dir, model_state)
+    ckptr.wait_until_finished()
