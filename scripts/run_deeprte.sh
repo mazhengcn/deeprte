@@ -20,7 +20,7 @@ OUTPUT_DIR=${3:-"/workspaces/deeprte/test"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
-# python run_deeprte.py \
-deeprte --config="${MODEL_DIR}/config.yaml" \
-        --data_path="${DATA_PATH}" \
-        --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
+python run_deeprte.py \
+  --config="${MODEL_DIR}/config.yaml" \
+  --data_path="${DATA_PATH}" \
+  --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"

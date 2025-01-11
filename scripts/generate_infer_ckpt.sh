@@ -21,7 +21,7 @@ TRAIN_CKPT_DIR="$(dirname "${TRAIN_STATE_DIR}")"
 cp $TRAIN_CKPT_DIR/config.yaml $TRAIN_CKPT_DIR/temp.yaml
 echo "load_full_state_path: ${TRAIN_STATE_DIR}/train_state" >> $TRAIN_CKPT_DIR/temp.yaml
 
-python deeprte/train_lib/generate_param_only_checkpoint.py \
+python generate_param_only_checkpoint.py \
     --config=${TRAIN_CKPT_DIR}/temp.yaml \
     --checkpoint_dir=${CKPT_DIR}
 
