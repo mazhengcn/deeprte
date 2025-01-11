@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Mapping
-from typing import Any
 
 import jax
 import jax.experimental
@@ -24,7 +23,7 @@ from jax.sharding import PartitionSpec as P
 from deeprte.configs import default
 from deeprte.model import features
 from deeprte.model.mapping import inference_subbatch
-from deeprte.model.modules import constructor as model_constructor
+from deeprte.model.model import DeepRTE
 from deeprte.model.tf import rte_features
 from deeprte.train_lib import utils
 
@@ -32,53 +31,44 @@ from deeprte.train_lib import utils
 class RteEngine:
     """Container for DeepRTE model."""
 
-    def __init__(self, config: default.Config):
+    def __init__(self, config: default.Config, low_memory: bool = True):
         self.config = config
         self.key = jax.random.key(0)
+        self.low_memory = low_memory
 
         # Mesh definition, currently for single process only.
         devices_array = utils.create_device_mesh(config, devices=jax.local_devices())
         self.mesh = jax.sharding.Mesh(devices_array, config.mesh_axes)
 
         replicated_sharding = jax.sharding.NamedSharding(self.mesh, P(None))
-        self.data_sharding = jax.sharding.NamedSharding(
+        data_sharding = jax.sharding.NamedSharding(
             self.mesh, P(None, *config.data_sharding)
         )
-        self.feature_sharding = {
-            k: self.data_sharding
+        feature_sharding = {
+            k: data_sharding
             if k in rte_features.PHASE_COORDS_FEATURES
             else replicated_sharding
             for k in rte_features.FEATURES
         }
 
-        self.params = self.load_params()
-
-        self.graphdef, _ = nnx.split(
-            nnx.eval_shape(lambda: model_constructor(config, self.key))
+        self.model = utils.setup_infer_state(
+            model_class=DeepRTE, config=self.config, rng=self.key, mesh=self.mesh
         )
-
-        def predict_fn(params, features, graphdef):
-            return nnx.merge(graphdef, params)(features)
-
-        self.jit_predict_fn = jax.jit(
-            predict_fn,
-            in_shardings=(self.state_sharding.params, self.feature_sharding),
-            out_shardings=self.data_sharding,
-            static_argnums=2,
-        )
-
-    def load_params(self):
-        state, self.state_sharding = utils.setup_infer_state(
-            constructor=model_constructor,
-            config=self.config,
-            rng=self.key,
-            mesh=self.mesh,
-            checkpoint_manager=None,
-        )
-        params = state.params
-        num_params = utils.calculate_num_params_from_pytree(params)
+        num_params = utils.calculate_num_params_from_pytree(nnx.state(self.model))
         logging.info(f"Number of model params={num_params}")
-        return params
+
+        @jax.jit
+        def predict_fn(x):
+            return self.model(x) * config.normalization
+
+        self.predict_fn = lambda phase_feat, other_feat: inference_subbatch(
+            module=lambda x: predict_fn(jax.device_put(x, feature_sharding)),
+            subbatch_size=config.subcollocation_size,
+            batched_args=phase_feat,
+            nonbatched_args=other_feat,
+            low_memory=True,
+            input_subbatch_dim=1,
+        )
 
     def process_features(
         self, raw_features: features.FeatureDict
@@ -86,7 +76,7 @@ class RteEngine:
         """Processes features to prepare for feeding them into the model."""
         return features.np_data_to_features(raw_features)
 
-    def predict(self, feat: features.FeatureDict) -> Mapping[str, Any]:
+    def predict(self, feat: features.FeatureDict) -> Mapping[str, jax.Array]:
         """Makes a prediction by inferencing the model on the provided
         features.
         """
@@ -95,19 +85,10 @@ class RteEngine:
             jax.tree_map(lambda x: x.shape, feat),
         )
         phase_feat, other_feat = features.split_feature(feat)
-        result = inference_subbatch(
-            module=lambda x: self.jit_predict_fn(self.params, x, self.graphdef)
-            * float(self.config.normalization),
-            subbatch_size=self.config.subcollocation_size,
-            batched_args=phase_feat,
-            nonbatched_args=other_feat,
-            low_memory=True,
-            input_subbatch_dim=1,
-        )
-        # result = self.jit_predict_fn(self.params, feat)
-        jax.tree_map(lambda x: x.block_until_ready(), result)
+        predictions = self.predict_fn(phase_feat, other_feat)
+        jax.tree.map(lambda x: x.block_until_ready(), predictions)
         logging.info(
             "Output shape was %s",
-            jax.tree_map(lambda x: x.shape, result),
+            jax.tree.map(lambda x: x.shape, predictions),
         )
-        return result
+        return predictions

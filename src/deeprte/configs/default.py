@@ -75,14 +75,6 @@ class Config:
     # If there is no checkpoint in the checkpoint manager,
     # load full state from a full state checkpoint at this path.
     load_full_state_path: str = ""
-    # Whether restoring checkpoitn with SingleReplicaArrayHandler
-    enable_single_replica_ckpt_restoring: bool = False
-    # Whether to enable emergency checkpointing.
-    enable_emergency_checkpoint: bool = False
-    # Local checkpoint directory for emergency checkpointing.
-    local_checkpoint_dir: str = ""
-    # Local checkpoint every these number of steps.
-    local_checkpoint_every_steps: int = 10_000
 
     # Physical position dimensions.
     position_coords_dim: int = 2
