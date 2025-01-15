@@ -1,10 +1,10 @@
 {
-    "name": "DeepRTE",
+    "name": "deeprte",
     "build": {
         "context": "..",
         "dockerfile": "Dockerfile",
         "args": {
-            "UV_VERSION": "0.5.13",
+            "UV_VERSION": "latest",
             "DEBIAN_VERSION": "bookworm"
         }
     },
@@ -14,20 +14,27 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-python.python",
-                "ms-python.vscode-pylance",
-                "ms-toolsai.jupyter",
-                "ms-toolsai.tensorboard",
                 "charliermarsh.ruff",
-                "tamasfe.even-better-toml"
+                "exiasr.hadolint",
+                "kevinrose.vsc-python-indent",
+                "mosapride.zenkaku",
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "njpwerner.autodocstring",
+                "redhat.vscode-yaml",
+                "shardulm94.trailing-spaces",
+                "tamasfe.even-better-toml",
+                "yzhang.markdown-all-in-one",
+                "ms-toolsai.tensorboard"
             ]
         }
     },
     "containerEnv": {
         "DISPLAY": "dummy",
         "PYTHONUNBUFFERED": "True",
-        "UV_PREVIEW": "1",
-        "UV_LINK_MODE": "copy"
+        "UV_PREVIEW": "true",
+        "UV_LINK_MODE": "copy",
+        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
     },
     "mounts": [
         {
@@ -40,6 +47,7 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "uv sync --dev",
-    "postStartCommand": "uv run pre-commit install"
+    "postCreateCommand": "uv sync --frozen",
+    "postStartCommand": "uv run pre-commit install",
+    "remoteUser": "vscode"
 }
