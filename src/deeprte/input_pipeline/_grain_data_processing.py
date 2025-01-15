@@ -14,17 +14,19 @@
 
 """Input pipeline for a deeprte dataset."""
 
-import dataclasses
 from typing import Any, Optional
 
 import grain.python as grain
 import jax
 import numpy as np
-import tensorflow_datasets as tfds
+import tensorflow as tf
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, PartitionSpec
+from rte_dataset.builders import pipeline
 
-from deeprte.input_pipeline import utils
+from deeprte.input_pipeline import splits, utils
+from deeprte.model.tf import rte_dataset
+from deeprte.model.tf import rte_features as features
 from deeprte.train_lib import multihost_dataloading
 
 ArraySpec = dataset_iterator.ArraySpec
@@ -33,7 +35,43 @@ Data = dict[str, Any]
 DatasetIterator = dataset_iterator.DatasetIterator
 
 
-@dataclasses.dataclass
+features.register_feature("psi_label", tf.float32, [features.NUM_PHASE_COORDS])
+
+FEATURES = features.FEATURES
+PHASE_FEATURE_AXIS = {
+    k: FEATURES[k][1].index(features.NUM_PHASE_COORDS) - len(FEATURES[k][1])
+    for k in FEATURES
+    if features.NUM_PHASE_COORDS in FEATURES[k][1]
+}
+
+
+class RTEDataset(grain.RandomAccessDataSource):
+    def __init__(self, raw_data: Data) -> None:
+        self.raw_data = raw_data
+
+    def __len__(self) -> int:
+        return self.raw_data["shape"]["num_examples"]
+
+    def __getitem__(self, index: int) -> Data:
+        np_example = {
+            **jax.tree.map(lambda x: x[index], self.raw_data["functions"]),
+            **self.raw_data["grid"],
+        }
+        tensor_dict = rte_dataset.np_to_tensor_dict(
+            np_example, self.raw_data["shape"], FEATURES.keys()
+        )
+        return jax.tree.map(lambda x: x.numpy(), tensor_dict)
+
+    @property
+    def metadata(self) -> dict[str, dict[str, int]]:
+        return {
+            "shapes": self.raw_data["shape"],
+            "normalization": jax.tree.map(
+                lambda x: str(x), self.raw_data["normalization"]
+            ),
+        }
+
+
 class SampleCollocationCoords(grain.RandomMapTransform):
     """Sample phase points randomly and take collocation points.
 
@@ -66,19 +104,24 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         return data
 
 
-def get_datasets(dataset_name, data_dir, data_split, with_info: bool = False):
+def get_datasets(dataset_name, data_dir, data_split: str) -> RTEDataset:
     """Load a dataset as grain datasource."""
-    ds_builder = tfds.builder(dataset_name, data_dir=data_dir)
-    ds = ds_builder.as_data_source(split=data_split)
-    if with_info:
-        return ds, ds_builder.info
+    data_pipeline = pipeline.DataPipeline(data_dir, [dataset_name])
+    raw_data = data_pipeline.process(normalization=True)
 
-    return ds
+    num_examples = raw_data["shape"]["num_examples"]
+    split_instr = splits.get_split_instruction(data_split, num_examples)
+
+    raw_data["functions"] = jax.tree.map(
+        lambda x: x[split_instr.from_ : split_instr.to], raw_data["functions"]
+    )
+    raw_data["shape"]["num_examples"] = raw_data["functions"]["psi_label"].shape[0]
+
+    return RTEDataset(raw_data)
 
 
 def preprocessing_pipeline(
-    dataset,
-    dataset_info: tfds.core.DatasetInfo = None,
+    dataset: RTEDataset,
     *,
     global_batch_size: int,
     collocation_size: int | None = None,
@@ -105,10 +148,9 @@ def preprocessing_pipeline(
     ops.append(grain.Batch(batch_size_per_process, drop_remainder=drop_remainder))
 
     if collocation_size:
-        collocation_axes = dataset_info.metadata["phase_feature_axis"]
         ops.append(
             SampleCollocationCoords(
-                collocation_size=collocation_size, collocation_axes=collocation_axes
+                collocation_size=collocation_size, collocation_axes=PHASE_FEATURE_AXIS
             )
         )
 
@@ -141,20 +183,18 @@ def preprocessing_pipeline(
 def make_grain_iterator(config, global_mesh, process_indices):
     """load dataset, preprocess and return iterators"""
 
-    train_ds, ds_info = get_datasets(
+    train_ds = get_datasets(
         dataset_name=config.dataset_name,
         data_dir=config.data_dir,
         data_split=config.train_split,
-        with_info=True,
     )
-    norm_dict = ds_info.metadata["normalization"]
+    norm_dict = train_ds.metadata["normalization"]
     config.normalization = utils.get_normalization_ratio(
         norm_dict["psi_range"], norm_dict["boundary_range"]
     )
 
     train_iter = preprocessing_pipeline(
         dataset=train_ds,
-        dataset_info=ds_info,
         global_batch_size=config.global_batch_size,
         collocation_size=config.collocation_size,
         global_mesh=global_mesh,

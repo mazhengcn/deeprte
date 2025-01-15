@@ -13,17 +13,17 @@ class Config:
     # Integer for PRNG random seed.
     seed: int = 42
     # Dataset type.
-    dataset_type: str = "tfds"
+    dataset_type: str = "grain"
     # Number of child processes launched to parallelize the transformations among.
     # Zero means processing runs in the same process. None lets the python backend choose the value.
-    grain_worker_count: int | None = 4
+    grain_worker_count: int | None = 0
     # Count of output batches to produce in advance per worker.
     # This ensures batches are ready when the consumer requests them.
     grain_worker_buffer_size: int | None = 1
     # Name of TFDS dataset to use.
-    dataset_name: str = "rte/g0.5-sigma_a3-sigma_t6"
+    dataset_name: str = "g0.5-sigma_a3-sigma_t6.mat"
     # Path to directory where TFDS data is stored.
-    data_dir: str = "/workspaces/deeprte/data/tfds"
+    data_dir: str = "/workspaces/deeprte/data/raw_data/train/g0.5-sigma_a3-sigma_t6"
     # TFDS split for training dataset.
     train_split: str = "train[:80%]"
     # TFDS split for evaluation dataset.
