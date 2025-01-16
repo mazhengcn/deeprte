@@ -1,0 +1,13 @@
+coeffs_fn_dim: 2
+load_parameters_path: /workspaces/deeprte/ckpts/infer/g0.5-infer/params
+mlp_dim: 128
+normalization: 0.7503977000328769
+num_heads: 2
+num_mlp_layers: 4
+num_scattering_layers: 2
+optical_depth_dim: 2
+position_coords_dim: 2
+qkv_dim: 64
+scattering_dim: 16
+subcollocation_size: 128
+velocity_coords_dim: 2
