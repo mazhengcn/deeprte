@@ -157,14 +157,14 @@ def get_process_loading_real_data(config, mesh):
 
 def make_mixed_train_iterator(config, mesh):
     """Return iterators according to dataset_type"""
-    process_indices, sharding = get_process_loading_real_data(config, mesh)
-    if jax.process_index() in process_indices:
-        if config.dataset_type == "tfds":
-            return make_tfds_iterator(config, mesh, process_indices), sharding
-        elif config.dataset_type == "grain":
-            return make_grain_iterator(config, mesh, process_indices), sharding
-    else:
-        return BadSyntheticDataIterator(config, mesh), None
+    # process_indices, sharding = get_process_loading_real_data(config, mesh)
+    # if jax.process_index() in process_indices:
+    if config.dataset_type == "tfds":
+        return make_tfds_iterator(config, mesh)
+    if config.dataset_type == "grain":
+        return make_grain_iterator(config, mesh)
+    # else:
+    #     return BadSyntheticDataIterator(config, mesh), None
 
 
 def create_data_iterator(config, mesh):

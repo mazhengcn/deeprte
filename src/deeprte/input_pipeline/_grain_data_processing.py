@@ -129,8 +129,6 @@ def preprocessing_pipeline(
     data_pspec: PartitionSpec,
     worker_count: int | None = 0,
     worker_buffer_size: int = 1,
-    dataloading_host_index,
-    dataloading_host_count,
     shuffle: bool = False,
     data_shuffle_seed=0,
     num_epochs: Optional[int] = 1,
@@ -157,11 +155,7 @@ def preprocessing_pipeline(
     index_sampler = grain.IndexSampler(
         num_records=len(dataset),
         num_epochs=num_epochs,
-        shard_options=grain.ShardOptions(
-            shard_index=dataloading_host_index,
-            shard_count=dataloading_host_count,
-            drop_remainder=drop_remainder,
-        ),
+        shard_options=grain.ShardByJaxProcess(),
         shuffle=shuffle,
         seed=data_shuffle_seed,
     )
@@ -180,7 +174,7 @@ def preprocessing_pipeline(
     return multihost_gen
 
 
-def make_grain_iterator(config, global_mesh, process_indices):
+def make_grain_iterator(config, global_mesh):
     """load dataset, preprocess and return iterators"""
 
     train_ds = get_datasets(
@@ -201,8 +195,6 @@ def make_grain_iterator(config, global_mesh, process_indices):
         data_pspec=PartitionSpec(*config.data_sharding),
         worker_count=config.grain_worker_count,
         worker_buffer_size=config.grain_worker_buffer_size,
-        dataloading_host_index=process_indices.index(jax.process_index()),
-        dataloading_host_count=len(process_indices),
         shuffle=config.enable_data_shuffling,
         num_epochs=None,
         data_shuffle_seed=config.data_shuffle_seed,
@@ -222,8 +214,6 @@ def make_grain_iterator(config, global_mesh, process_indices):
             data_pspec=PartitionSpec(*config.data_sharding),
             worker_count=config.grain_worker_count,
             worker_buffer_size=config.grain_worker_buffer_size,
-            dataloading_host_index=process_indices.index(jax.process_index()),
-            dataloading_host_count=len(process_indices),
             shuffle=False,
             data_shuffle_seed=config.data_shuffle_seed,
         )

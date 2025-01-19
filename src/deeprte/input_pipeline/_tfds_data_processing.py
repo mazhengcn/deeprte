@@ -66,8 +66,6 @@ def preprocessing_pipeline(
     batch_repeat: Optional[int] = None,
     global_mesh: Mesh,
     data_pspec: PartitionSpec,
-    dataloading_host_index,
-    dataloading_host_count,
     shuffle: bool = False,
     data_shuffle_seed=0,
     num_epochs: Optional[int] = 1,
@@ -76,9 +74,7 @@ def preprocessing_pipeline(
     prefetch_size=tf.data.AUTOTUNE,
 ):
     """pipeline for preprocessing TFDS dataset."""
-    dataset = dataset.shard(
-        num_shards=dataloading_host_count, index=dataloading_host_index
-    )
+    dataset = dataset.shard(num_shards=jax.process_count(), index=jax.process_index())
 
     # Shuffle and repeat.
     if shuffle:
@@ -115,7 +111,7 @@ def preprocessing_pipeline(
     return multihost_gen
 
 
-def make_tfds_iterator(config, global_mesh, process_indices):
+def make_tfds_iterator(config, global_mesh):
     """load dataset, preprocess and return iterators"""
     read_config = tfds.ReadConfig(
         shuffle_seed=config.data_shuffle_seed, skip_prefetch=True
@@ -142,8 +138,6 @@ def make_tfds_iterator(config, global_mesh, process_indices):
         batch_repeat=config.repeat_batch,
         global_mesh=global_mesh,
         data_pspec=PartitionSpec(*config.data_sharding),
-        dataloading_host_index=process_indices.index(jax.process_index()),
-        dataloading_host_count=len(process_indices),
         shuffle=config.enable_data_shuffling,
         data_shuffle_seed=config.data_shuffle_seed,
         num_epochs=-1,
@@ -162,8 +156,6 @@ def make_tfds_iterator(config, global_mesh, process_indices):
             global_batch_size=config.eval_batch_size,
             global_mesh=global_mesh,
             data_pspec=PartitionSpec(*config.data_sharding),
-            dataloading_host_index=process_indices.index(jax.process_index()),
-            dataloading_host_count=len(process_indices),
             shuffle=False,
             data_shuffle_seed=config.data_shuffle_seed,
         )

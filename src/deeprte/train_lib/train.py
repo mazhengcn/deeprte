@@ -141,9 +141,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
     # Load Dataset
     # ---------------------------------------------------------------------------
     logging.info("Initializing dataset.")
-    (train_iter, eval_iter), data_sharding = (
-        input_pipeline_interface.create_data_iterator(config, mesh)
-    )
+    train_iter, eval_iter = input_pipeline_interface.create_data_iterator(config, mesh)
 
     # Initialize train state
     # ---------------------------------------------------------------------------
