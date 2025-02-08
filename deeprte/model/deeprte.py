@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 from collections.abc import Callable, Mapping
 from typing import Any, Optional
@@ -7,9 +6,9 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.model import integrate
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.tf import rte_features
+from deeprte.model.config import DeepRTEConfig
+from deeprte.model.tf import rte_features as features
 
 Shape = tuple[int, ...]
 Dtype = Any
@@ -17,42 +16,6 @@ Array = jax.Array
 
 kernel_init = nnx.initializers.glorot_uniform()
 bias_init = nnx.initializers.zeros_init()
-
-
-@dataclasses.dataclass(unsafe_hash=True)
-class DeepRTEConfig:
-    position_coords_dim: int = 2
-    velocity_coords_dim: int = 2
-    coeffs_fn_dim: int = 2
-    num_basis_functions: int = 64
-    basis_function_encoder_dim: int = 128
-    num_basis_function_encoder_layers: int = 4
-    green_function_encoder_dim: int = 128
-    num_green_function_encoder_layers: int = 4
-    num_scattering_layers: int = 2
-    scattering_dim: int = 128
-    num_heads: int = 8
-    qkv_dim: int = 16
-    optical_depth_dim: int = 16
-    name: str = "boundary"
-    subcollocation_size: int = 128
-    # Normalization constant of dataset/model.
-    normalization: float = 1.0
-    # Where to load the parameters from.
-    load_parameters_path: str = ""
-
-    def replace(self, **kwargs):
-        return dataclasses.replace(self, **kwargs)
-
-
-def constructor(config: DeepRTEConfig, key: jax.Array) -> nnx.Module:
-    """A wrapper function to create the DeepRTE."""
-    if config.name == "deeprte":
-        return DeepRTE(config, rngs=nnx.Rngs(params=key))
-    elif config.name == "boundary":
-        return BoundaryBasisRepresentation(config, rngs=nnx.Rngs(params=key))
-    else:
-        raise ValueError(f"Unknown model name: {config.name}")
 
 
 def dot_product_attention_weights(
@@ -319,34 +282,7 @@ class MlpBlock(nnx.Module):
         return x
 
 
-class BasisFunction(nnx.Module):
-    """Encodes the basis functions."""
-
-    def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
-        self.in_features = config.position_coords_dim + config.velocity_coords_dim
-        self.out_features = config.num_basis_functions
-        self.mlp_dim = config.basis_function_encoder_dim
-        self.num_layers = config.num_basis_function_encoder_layers
-
-        self.mlp = MlpBlock(
-            units=[self.in_features]
-            + [self.mlp_dim] * self.num_layers
-            + [self.out_features],
-            activation=nnx.tanh,
-            rngs=rngs,
-        )
-
-    def basis_weights(self, quadratures: tuple[Array, Array]):
-        points, weights = quadratures
-        out = jax.vmap(self, in_axes=(0,), out_axes=-1)(points)
-        # print(out.shape, weights.shape)
-        return jnp.dot(out, weights)
-
-    def __call__(self, x: Array):
-        return self.mlp(x)
-
-
-class GreenFunctionEncoder(nnx.Module):
+class GreenFunction(nnx.Module):
     """Encodes the Green function."""
 
     def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
@@ -387,8 +323,6 @@ class GreenFunctionEncoder(nnx.Module):
         self_act = jax.vmap(self_att_fn)(velocity_coords)
         act = self.scattering(act, self_act, kernel, self_kernel)
 
-        # out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
-        # out = jnp.exp(self.out(act))
         return act
 
 
@@ -397,18 +331,17 @@ class DeepRTE(nnx.Module):
 
     def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
         self.config = config
-        self.green_function_encoder = GreenFunctionEncoder(config=config, rngs=rngs)
-        self.features = rte_features.GREEN_FUNCTION_FEATURES
+        self.green_function = GreenFunction(config=config, rngs=rngs)
+        self.features = features.GREEN_FUNCTION_FEATURES
         self.phase_coords_axes = {
-            k: 0 if k in rte_features.PHASE_COORDS_FEATURES else None
-            for k in self.features
+            k: 0 if k in features.PHASE_COORDS_FEATURES else None for k in self.features
         }
 
     def __call__(self, batch: Mapping[str, Array]):
         inputs = {k: batch[k] for k in self.features}
 
         def green_function_op(inputs):
-            return self.green_function_encoder(inputs["phase_coords"], inputs)
+            return self.green_function(inputs["phase_coords"], inputs)
 
         batched_green_function_op = jax.vmap(
             green_function_op, in_axes=(self.phase_coords_axes,)
@@ -417,101 +350,13 @@ class DeepRTE(nnx.Module):
         def rte_op(inputs):
             act = batched_green_function_op(inputs)
 
-            weights = inputs["basis_weights"]
+            monents = inputs["moments"]
             inner_product = inputs["basis_inner_product"]
 
             return jnp.einsum(
                 "bj,j->b",
                 jnp.einsum("bi,ij->bj", act, inner_product),
-                weights,
-            )
-
-        batched_rte_op = jax.vmap(rte_op)
-
-        return batched_rte_op(inputs)
-
-
-class BoundaryBasisRepresentation(nnx.Module):
-    """Boundary basis representation."""
-
-    def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
-        self.config = config
-        self.features = rte_features.BASIS_FEATURES
-
-        self.basis_function = BasisFunction(config=config, rngs=rngs)
-
-    def __call__(self, batch: Mapping[str, Array]):
-        inputs = {k: batch[k] for k in self.features}
-        # basis_weights = self.basis_function.basis_weights
-
-        def basis_op(inputs):
-            act = self.basis_function(inputs["boundary_coords"])
-            weights = self.basis_function.basis_weights(
-                (
-                    inputs["boundary_coords"],
-                    inputs["boundary"] * inputs["boundary_weights"],
-                )
-            )
-            # print(act.shape, weights.shape)
-            return act @ weights
-
-        batched_basis_op = jax.vmap(basis_op)
-
-        return batched_basis_op(inputs)
-
-
-class RtePredictor(nnx.Module):
-    """RTE predictor."""
-
-    def __init__(self, config: DeepRTEConfig, rngs: nnx.Rngs):
-        self.config = config
-        self.features = rte_features.FEATURES
-        # self.basis_features = rte_features.BASIS_FEATURES
-        self.phase_coords_axes = {
-            k: 0 if k in rte_features.PHASE_COORDS_FEATURES else None
-            for k in self.features
-        }
-        self.basis_coords_axes = {
-            k: 0 if k in rte_features.BASIS_FEATURES else None for k in self.features
-        }
-
-        self.basis_function = BasisFunction(config=config, rngs=rngs)
-        self.green_function_encoder = GreenFunctionEncoder(config=config, rngs=rngs)
-
-    def __call__(self, batch: Mapping[str, Array]):
-        inputs = {k: batch[k] for k in self.features}
-
-        def basis_op(inputs):
-            act = self.basis_function(inputs["boundary_coords"])
-            # print(act.shape)
-            basis_inner_product = jnp.einsum(
-                "...ij,...ik->...jk",
-                inputs["boundary_weights"][..., None] * act,
-                act,
-            )
-            basis_weights = jnp.einsum(
-                "...ij,...i->...j",
-                act,
-                inputs["boundary_weights"] * inputs["boundary"],
-            )
-            return basis_inner_product, basis_weights
-
-        def green_function_op(inputs):
-            return self.green_function_encoder(inputs["phase_coords"], inputs)
-
-        batched_green_function_op = jax.vmap(
-            green_function_op, in_axes=(self.phase_coords_axes,)
-        )
-
-        def rte_op(inputs):
-            act = batched_green_function_op(inputs)
-            inner_product, weights = basis_op(inputs)
-            # print(act.shape, inner_product.shape, weights.shape)
-
-            return jnp.einsum(
-                "...bj,...j->...b",
-                jnp.einsum("bi,ij->bj", act, inner_product),
-                weights,
+                monents,
             )
 
         batched_rte_op = jax.vmap(rte_op)

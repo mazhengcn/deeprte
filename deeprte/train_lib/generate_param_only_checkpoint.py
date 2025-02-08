@@ -96,14 +96,35 @@ def generate_infer_checkpoint(config, checkpoint_dir):
         num_heads=config.num_heads,
         qkv_dim=config.qkv_dim,
         optical_depth_dim=config.optical_depth_dim,
-        num_mlp_layers=config.num_mlp_layers,
-        mlp_dim=config.mlp_dim,
+        name="boundary",
+        basis_function_encoder_dim=config.basis_function_encoder_dim,
+        num_basis_function_encoder_layers=config.num_basis_function_encoder_layers,
+        green_function_encoder_dim=config.green_function_encoder_dim,
+        num_green_function_encoder_layers=config.num_green_function_encoder_layers,
         num_scattering_layers=config.num_scattering_layers,
         scattering_dim=config.scattering_dim,
-        subcollocation_size=config.subcollocation_size,
-        normalization=config.normalization,
         load_parameters_path=f"{checkpoint_dir}/params",
     )
+
+    # @dataclasses.dataclass(unsafe_hash=True)
+    # class DeepRTEConfig:
+    #     position_coords_dim: int = 2
+    #     velocity_coords_dim: int = 2
+    #     coeffs_fn_dim: int = 2
+    #     num_basis_functions: int = 64
+    #     basis_function_encoder_dim: int = 128
+    #     num_basis_function_encoder_layers: int = 4
+    #     green_function_encoder_dim: int = 128
+    #     num_green_function_encoder_layers: int = 4
+    #     num_scattering_layers: int = 2
+    #     scattering_dim: int = 128
+    #     num_heads: int = 8
+    #     qkv_dim: int = 16
+    #     optical_depth_dim: int = 16
+    #     name: str = "boundary"
+
+    #     def replace(self, **kwargs):
+    #         return dataclasses.replace(self, **kwargs)
     config_dict = dataclasses.asdict(model_config)
     config_dict["train_state_path"] = config.load_full_state_path
     with open(f"{checkpoint_dir}/config.yaml", "w") as f:

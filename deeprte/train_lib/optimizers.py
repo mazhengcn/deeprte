@@ -27,14 +27,14 @@ def create_learning_rate_schedule(config):
         )
     elif schedule == "cosine_decay":
         return optax.schedules.cosine_decay_schedule(
-            init_value=lr, decay_steps=config.decay_steps
+            init_value=lr, decay_steps=config.num_train_steps
         )
     elif schedule == "warmup_cosine_decay":
         return optax.schedules.warmup_cosine_decay_schedule(
             init_value=0.0,
             peak_value=lr,
             warmup_steps=config.warmup_steps,
-            decay_steps=config.decay_steps,
+            decay_steps=config.num_train_steps,
         )
     # Unknown learning rate schedule.
     raise ValueError(f"Unknown learning rate schedule: {schedule!r}")

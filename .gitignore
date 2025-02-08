@@ -10,7 +10,8 @@ generator/2d-sweeping/config.m
 generator/remote_list.txt
 figures/
 # notebooks/
-
+*/.config/
+tfds-data/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

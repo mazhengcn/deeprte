@@ -17,7 +17,6 @@ from typing import Any
 
 import jax
 import jax.experimental
-import orbax.checkpoint as orbax
 from absl import logging
 from flax import nnx
 from jax.sharding import PartitionSpec as P
@@ -25,12 +24,9 @@ from jax.sharding import PartitionSpec as P
 from deeprte.configs import default
 from deeprte.model import features
 from deeprte.model.mapping import inference_subbatch
+from deeprte.model.modules import constructor as model_constructor
 from deeprte.model.tf import rte_features
 from deeprte.train_lib import utils
-
-
-def constructor(config, rngs):
-    return RtePredictor(config, rngs=nnx.Rngs(params=rngs))
 
 
 class RteEngine:
@@ -57,6 +53,10 @@ class RteEngine:
 
         self.params = self.load_params()
 
+        self.graphdef, _ = nnx.split(
+            nnx.eval_shape(lambda: model_constructor(config, self.key))
+        )
+
         def predict_fn(params, features, graphdef):
             return nnx.merge(graphdef, params)(features)
 
@@ -68,29 +68,14 @@ class RteEngine:
         )
 
     def load_params(self):
-        _, self.state_sharding = utils.get_abstract_state(
-            constructor=lambda config, rngs: RtePredictor(
-                config, rngs=nnx.Rngs(params=rngs)
-            ),
-            tx=None,
+        state, self.state_sharding = utils.setup_infer_state(
+            constructor=model_constructor,
             config=self.config,
             rng=self.key,
             mesh=self.mesh,
-            is_training=False,
+            checkpoint_manager=None,
         )
-        checkpointer = orbax.PyTreeCheckpointer()
-        _params = {}
-        for path in self.config.load_parameters_path:
-            _res_params = checkpointer.restore(path)
-            _params = _params | _res_params["params"]
-        self.graphdef, state = utils.module_from_variables_dict(
-            lambda: nnx.eval_shape(
-                lambda: RtePredictor(self.config, rngs=nnx.Rngs(params=self.key))
-            ),
-            _params,
-            lambda path: path[:-1] if path[-1] == "value" else path,
-        )
-        params = utils.init_infer_state(None, state).params
+        params = state.params
         num_params = utils.calculate_num_params_from_pytree(params)
         logging.info(f"Number of model params={num_params}")
         return params

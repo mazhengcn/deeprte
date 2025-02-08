@@ -44,7 +44,7 @@ class Config:
     # Global batch size for evaluation.
     eval_batch_size: int = 4
     # Number of steps to train for.
-    num_train_steps: int = 500_001
+    num_train_steps: int = 1_000_001
 
     train_state_path: str = None
     # Number of micro steps for grads accumulation, None for no accumulation.
@@ -62,7 +62,11 @@ class Config:
     # Learning rate schedule.
     schedule: str = "cosine_decay"
     # Decay steps for cosine decay scheduler.
-    decay_steps: int = num_train_steps
+    decay_steps: int = 10_000
+    # Decay steps for exponential decay scheduler.
+    transition_steps: int = 10_000
+    # Decay rate for exponential decay scheduler.
+    decay_rate: float = 0.96
     # Whether to save model checkpoints.
     save_checkpoints: bool = True
     # Save a checkpoint every these number of steps.
@@ -114,13 +118,13 @@ class Config:
     position_coords_dim: int = 2
     velocity_coords_dim: int = 2
     coeffs_fn_dim: int = 2
-    num_basis_functions: int = 16
-    basis_function_encoder_dim: int = 16
-    num_basis_function_encoder_layers: int = 2
-    green_function_encoder_dim: int = 16
-    num_green_function_encoder_layers: int = 2
+    num_basis_functions: int = 64
+    basis_function_encoder_dim: int = 128
+    num_basis_function_encoder_layers: int = 4
+    green_function_encoder_dim: int = 128
+    num_green_function_encoder_layers: int = 4
     num_scattering_layers: int = 2
-    scattering_dim: int = 16
+    scattering_dim: int = 128
     num_heads: int = 8
     qkv_dim: int = 16
     optical_depth_dim: int = 16

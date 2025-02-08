@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable, Sequence
 from typing import Any
 
+import flax
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -442,3 +443,23 @@ def get_coordinator_ip_address():
                 time.sleep(5)
     logging.info(f"Coordinator IP address: {coordinator_ip_address}")
     return coordinator_ip_address
+
+
+def module_from_variables_dict(module_factory, variables, map_key_fn):
+    if map_key_fn is None:
+        map_key_fn = lambda path: path
+    mdl = nnx.eval_shape(module_factory)
+    graph_def, state = nnx.split(mdl)
+    state = state.flat_state()
+    # print(state.keys())
+    for path, val in flax.traverse_util.flatten_dict(variables).items():
+        mapped_path = list(map_key_fn(path))
+        mapped_path = tuple(
+            int(x) if isinstance(x, str) and x.isdigit() else x for x in mapped_path
+        )
+        # print(1, mapped_path)
+        if mapped_path not in state:
+            raise ValueError(f"{mapped_path} doesn't exist in {state.keys()}")
+        state[mapped_path].value = val
+    state = nnx.State.from_flat_path(state)
+    return graph_def, state

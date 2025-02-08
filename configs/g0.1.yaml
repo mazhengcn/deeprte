@@ -1,9 +1,9 @@
 # Dataset type.
 dataset_type: tfds
 # Path to directory where TFDS data is stored.
-data_dir: /workspaces/deeprte/tfds-data/tfds
+data_dir: /workspaces/deeprte/tfds-data
 # Name of TFDS dataset to use.
-dataset_name: rte/g0.1
+dataset_name: eff_rte/postprocess:0.0.3
 # TFDS split for training dataset.
 train_split: train[:80%]
 # TFDS split for evaluation dataset.
@@ -13,18 +13,28 @@ per_device_batch_size: 1
 # Global batch size for training.
 global_batch_size: 8
 # Number of collocation points to sample from phase space for training.
-collocation_size: 8
+collocation_size: 2048
 # Number of same batch with different collocation points (in order to
 # increase collocation sizes for training).
 repeat_batch: 1
 # Global batch size for evaluation.
 eval_batch_size: 4
 # Number of steps to train for.
-num_train_steps: 500_001
+num_train_steps: 3_000_001
 # Frequency of logging metrics during training, e.g. every 1_000 steps.
 log_every_steps: 1_000
 # Frequency of eval during training, e.g. every 1_000 steps.
 eval_every_steps: -1
 # Frequency of checkpointing during training, e.g. every 1_000 steps.
 checkpoint_every_steps: 1_000
-name: boundary
+name: deeprte
+learning_rate: 0.001
+
+schedule: "cosine_decay"
+# schedule: constant
+# transition_steps: 10_000
+# decay_rate: 0.96
+
+num_basis_functions: 128
+basis_function_encoder_dim: 256
+num_basis_function_encoder_layers: 3

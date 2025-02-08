@@ -68,9 +68,10 @@ def compute_metrics(predictions, labels):
 
 # Primary training / eval / decode step functions.
 # -----------------------------------------------------------------------------
-def train_step(state, batch):
+def train_step(state, batch, label_name="psi_label"):
     """Perform a single training step."""
-    labels = batch["boundary"]
+    # labels = batch["boundary"]
+    labels = batch[label_name]
 
     def loss_fn(params):
         """loss function used for training."""
@@ -115,22 +116,25 @@ def accumulated_train_and_metrics(
     return train_and_metrics
 
 
-def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef):
+def eval_step(params: nnx.State, batch, graphdef: nnx.GraphDef, label_name="psi_label"):
     """Calculate evaluation metrics on a batch."""
-    labels = batch["boundary"]
+    # labels = batch["boundary"]
+    labels = batch[label_name]
     module = nnx.merge(graphdef, params)
     predictions = module(batch)
     metrics = compute_metrics(predictions, labels)
     return metrics
 
 
-def evaluate(jit_eval_step, state, eval_iter):
+def evaluate(jit_eval_step, state, eval_iter, label_name="psi_label"):
     """Evaluate the target an return a dictionary with the metrics."""
     logging.info("Gathering evaluation metrics.")
     eval_metrics = []
     for eval_batch in eval_iter:
         phase_feat, other_feat = features.split_feature(eval_batch)
-        phase_feat["boundary"] = other_feat.pop("boundary")
+        # phase_feat["psi_label"] = other_feat.pop("psi_label")
+        phase_feat[label_name] = other_feat.pop(label_name)
+        # phase_feat["boundary"] = other_feat.pop("boundary")
         metrics = mapping.inference_subbatch(
             module=lambda feat: jit_eval_step(state.params, feat, state.graphdef),
             subbatch_size=128,
@@ -237,8 +241,16 @@ def train_and_evaluate(config: default.Config, workdir: str):
 
     # Compile multidevice versions of train/eval/predict step fn.
     # ---------------------------------------------------------------------------
+    if config.name == "source" or config.name == "boundary":
+        label_name = "source_label"
+    elif config.name == "deeprte":
+        label_name = "psi_label"
+
+    def _train_step(state, batch):
+        return train_step(state, batch, label_name=label_name)
+
     jit_train_step = jax.jit(
-        train_step,
+        _train_step,
         in_shardings=(state_sharding, data_sharding),  # type: ignore
         out_shardings=(state_sharding, None),  # type: ignore
         donate_argnums=0,
@@ -249,8 +261,12 @@ def train_and_evaluate(config: default.Config, workdir: str):
     )
 
     if eval_iter:
+
+        def _eval_step(state, batch):
+            return eval_step(state, batch, label_name=label_name)
+
         jit_eval_step = jax.jit(
-            eval_step,
+            _eval_step,
             in_shardings=(state_sharding.params, data_sharding),  # type: ignore
             out_shardings=None,  # type: ignore
             static_argnums=2,
@@ -303,6 +319,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
                             jit_eval_step=jit_eval_step,
                             state=state,
                             eval_iter=eval_iter,
+                            label_name=label_name,
                         )
                         writer.write_scalars(step, eval_metrics)
 

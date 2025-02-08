@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -e
+# CUDA_VISIBLE_DEVICES=2,3
 
 CONFIG_PATH=${1:-"/workspaces/deeprte/configs/g0.1.yaml"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.1-test"}
+CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.1-gaussian-rte0202"}
 
 python deeprte/train_lib/main.py \
     --config=${CONFIG_PATH} \

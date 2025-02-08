@@ -43,10 +43,7 @@ def parse_reshape_logic(
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
-            num_position_coords=placeholder_shapes["num_position_coords"],
-            num_velocity_coords=placeholder_shapes["num_velocity_coords"],
-            num_phase_coords=placeholder_shapes["num_phase_coords"],
-            num_boundary_coords=placeholder_shapes["num_boundary_coords"],
+            **placeholder_shapes,
             features=features,
         )
         new_shape_size = tf.constant(1, dtype=tf.int32)
