@@ -24,7 +24,7 @@ from flax import nnx
 
 from deeprte.model import integrate
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.modules import Attenuation, Scattering
+from deeprte.model.modules import Attenuation, OpticalDepth, Scattering
 from deeprte.model.tf import rte_features
 
 kernel_init = nnx.initializers.glorot_uniform()
@@ -69,6 +69,7 @@ class GreenFunction(nnx.Module):
 
     def __init__(self, config, *, rngs: nnx.Rngs):
         self.config = config
+        self.optical_depth = OpticalDepth(self.config, rngs=rngs)
         self.attenuation = Attenuation(self.config, rngs=rngs)
         self.scattering = Scattering(self.config, rngs=rngs)
         self.out = nnx.Linear(
@@ -81,8 +82,11 @@ class GreenFunction(nnx.Module):
 
     def __call__(self, coord1: jax.Array, coord2: jax.Array, batch):
         charac = Characteristics.from_tensor(batch["position_coords"])
+        optical_depth = self.optical_depth(
+            coord=coord1, att_coeff=batch["sigma"], charac=charac
+        )
         act = self.attenuation(
-            coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
+            coord1=coord1, coord2=coord2, optical_depth=optical_depth[..., 0:1]
         )
         if self.config.num_scattering_layers == 0:
             out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
@@ -105,7 +109,9 @@ class GreenFunction(nnx.Module):
         self_kernel = -batch["self_scattering_kernel"] * velocity_weights
 
         self_act = jax.vmap(self_att_fn)(velocity_coords)
-        act = self.scattering(act, self_act, kernel, self_kernel)
+        act = self.scattering(
+            act, self_act, kernel, self_kernel, optical_depth[..., 1:]
+        )
 
         out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
         return out

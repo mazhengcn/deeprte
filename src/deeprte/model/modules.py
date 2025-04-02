@@ -9,6 +9,31 @@ kernel_init = nnx.initializers.glorot_uniform()
 bias_init = nnx.initializers.zeros_init()
 
 
+class OpticalDepth(nnx.Module):
+    def __init__(self, config, *, rngs: nnx.Rngs):
+        self.config = config
+        attention_in_dims = [
+            config.position_coords_dim + config.velocity_coords_dim,
+            config.position_coords_dim,
+            config.coeffs_fn_dim,
+        ]
+        self.attention = MultiHeadAttention(
+            config.num_heads,
+            attention_in_dims,
+            config.qkv_dim,
+            config.optical_depth_dim,
+            rngs=rngs,
+        )
+
+    def __call__(self, coord: jax.Array, att_coeff: jax.Array, charac: Characteristics):
+        local_coords, mask = charac.apply_to_point(coord)
+        optical_depth = self.attention(
+            inputs_q=coord, inputs_k=local_coords, inputs_v=att_coeff, mask=mask
+        )
+        optical_depth = jnp.exp(-optical_depth)
+        return optical_depth
+
+
 class Attenuation(nnx.Module):
     def __init__(self, config, *, rngs: nnx.Rngs):
         self.config = config
@@ -28,19 +53,7 @@ class Attenuation(nnx.Module):
         )
         self.mlp = MlpBlock(config=config, rngs=rngs)
 
-    def __call__(
-        self,
-        coord1: jax.Array,
-        coord2: jax.Array,
-        att_coeff: jax.Array,
-        charac: Characteristics,
-    ):
-        local_coords, mask = charac.apply_to_point(coord1)
-        optical_depth = self.attention(
-            inputs_q=coord1, inputs_k=local_coords, inputs_v=att_coeff, mask=mask
-        )
-        optical_depth = jnp.exp(-optical_depth)
-
+    def __call__(self, coord1: jax.Array, coord2: jax.Array, optical_depth: jax.Array):
         attenuation = jnp.concatenate([coord1, coord2, optical_depth])
         attenuation = self.mlp(attenuation)
         return attenuation
@@ -66,8 +79,12 @@ class ScatteringLayer(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, inputs: jax.Array, kernel: jax.Array) -> jax.Array:
+    def __call__(
+        self, inputs: jax.Array, kernel: jax.Array, optical_depth: jax.Array
+    ) -> jax.Array:
         x = jnp.einsum("...V,Vd->...d", kernel, inputs)
+        # x = jnp.einsum("d,...d->...d", optical_depth, x)
+        x *= optical_depth
         x = self.linear(x)
         x = nnx.tanh(x)
         return x
@@ -94,13 +111,14 @@ class Scattering(nnx.Module):
         self_act: jax.Array,
         kernel: jax.Array,
         self_kernel: jax.Array,
+        optical_depth: jax.Array,
     ) -> jax.Array:
         self_act_0 = self_act
         for idx in range(self.config.num_scattering_layers - 1):
-            self_act = self.scattering_layers[idx](self_act, self_kernel)
+            self_act = self.scattering_layers[idx](self_act, self_kernel, optical_depth)
             self_act = self.lns[idx](self_act)
             self_act += self_act_0
-        act_res = self.scattering_layers[-1](self_act, kernel)
+        act_res = self.scattering_layers[-1](self_act, kernel, optical_depth)
         act_res = self.lns[-1](act_res)
         act += act_res
         return act
