@@ -85,8 +85,11 @@ class GreenFunction(nnx.Module):
         optical_depth = self.optical_depth(
             coord=coord1, att_coeff=batch["sigma"], charac=charac
         )
+        optical_depth_s, optical_depth_t = jnp.split(
+            optical_depth, [self.config.scattering_dim], axis=-1
+        )
         act = self.attenuation(
-            coord1=coord1, coord2=coord2, optical_depth=optical_depth[..., 0:1]
+            coord1=coord1, coord2=coord2, optical_depth=optical_depth_t
         )
         if self.config.num_scattering_layers == 0:
             out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
@@ -97,7 +100,7 @@ class GreenFunction(nnx.Module):
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
             out = self.attenuation(
-                coord1=coord, coord2=coord2, optical_depth=optical_depth[..., 0:1]
+                coord1=coord, coord2=coord2, optical_depth=optical_depth_t
             )
             return out
 
@@ -109,9 +112,7 @@ class GreenFunction(nnx.Module):
         self_kernel = -batch["self_scattering_kernel"] * velocity_weights
 
         self_act = jax.vmap(self_att_fn)(velocity_coords)
-        act = self.scattering(
-            act, self_act, kernel, self_kernel, optical_depth[..., 1:]
-        )
+        act = self.scattering(act, self_act, kernel, self_kernel, optical_depth_s)
 
         out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
         return out

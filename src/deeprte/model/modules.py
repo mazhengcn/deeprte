@@ -83,7 +83,6 @@ class ScatteringLayer(nnx.Module):
         self, inputs: jax.Array, kernel: jax.Array, optical_depth: jax.Array
     ) -> jax.Array:
         x = jnp.einsum("...V,Vd->...d", kernel, inputs)
-        # x = jnp.einsum("d,...d->...d", optical_depth, x)
         x *= optical_depth
         x = self.linear(x)
         x = nnx.tanh(x)
