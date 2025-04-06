@@ -156,8 +156,7 @@ class MlpBlock(nnx.Module):
     def __init__(self, config, *, rngs: nnx.Rngs):
         self.num_layers = config.num_mlp_layers
         self.in_features = (
-            2 * (config.position_coords_dim + config.velocity_coords_dim)
-            + config.optical_depth_dim
+            2 * (config.position_coords_dim + config.velocity_coords_dim) + 1
         )
         self.mlp_dim = config.mlp_dim
         self.out_dim = config.scattering_dim

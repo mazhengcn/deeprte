@@ -43,8 +43,6 @@ class DeepRTEConfig:
     num_heads: int = 2
     # Attention dimension.
     qkv_dim: int = 64
-    # Output dimensions of attention.
-    optical_depth_dim: int = 2
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.
@@ -53,6 +51,8 @@ class DeepRTEConfig:
     num_scattering_layers: int = 2
     # Scattering dimension.
     scattering_dim: int = 16
+    # Output dimensions of attention.
+    optical_depth_dim: int = 1 + scattering_dim
     # Subcollocation size for evaluation or inference
     subcollocation_size: int = 128
     # Normalization constant of dataset/model.
@@ -97,7 +97,7 @@ class GreenFunction(nnx.Module):
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
             out = self.attenuation(
-                coord1=coord, coord2=coord2, att_coeff=batch["sigma"], charac=charac
+                coord1=coord, coord2=coord2, optical_depth=optical_depth[..., 0:1]
             )
             return out
 
