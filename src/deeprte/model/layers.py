@@ -50,9 +50,9 @@ def dot_product_attention(
 ):
     """Computes dot-product attention given query, key, and value."""
 
-    assert query.shape[-2] == key.shape[-2] == value.shape[-2], (
-        "q, k, v num_heads must match."
-    )
+    assert (
+        query.shape[-2] == key.shape[-2] == value.shape[-2]
+    ), "q, k, v num_heads must match."
     assert key.shape[-3] == value.shape[-3], "k, v lengths must match."
 
     # compute attention weights
