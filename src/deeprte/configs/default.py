@@ -87,7 +87,7 @@ class Config:
     # Attention dimension.
     qkv_dim: int = 64
     # Output dimensions of attention.
-    optical_depth_dim: int = 2
+    optical_depth_dim: int = 17
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.

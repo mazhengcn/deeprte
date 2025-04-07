@@ -24,7 +24,7 @@ from flax import nnx
 
 from deeprte.model import integrate
 from deeprte.model.characteristics import Characteristics
-from deeprte.model.modules import Attenuation, OpticalDepth, Scattering
+from deeprte.model.modules import Attenuation, Scattering
 from deeprte.model.tf import rte_features
 
 kernel_init = nnx.initializers.glorot_uniform()
@@ -69,7 +69,6 @@ class GreenFunction(nnx.Module):
 
     def __init__(self, config, *, rngs: nnx.Rngs):
         self.config = config
-        self.optical_depth = OpticalDepth(self.config, rngs=rngs)
         self.attenuation = Attenuation(self.config, rngs=rngs)
         self.scattering = Scattering(self.config, rngs=rngs)
         self.out = nnx.Linear(
@@ -82,14 +81,8 @@ class GreenFunction(nnx.Module):
 
     def __call__(self, coord1: jax.Array, coord2: jax.Array, batch):
         charac = Characteristics.from_tensor(batch["position_coords"])
-        optical_depth = self.optical_depth(
-            coord=coord1, att_coeff=batch["sigma"], charac=charac
-        )
-        optical_depth_s, optical_depth_t = jnp.split(
-            optical_depth, [self.config.scattering_dim], axis=-1
-        )
-        act = self.attenuation(
-            coord1=coord1, coord2=coord2, optical_depth=optical_depth_t
+        act, optical_depth_s = self.attenuation(
+            coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
         )
         if self.config.num_scattering_layers == 0:
             out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
@@ -99,8 +92,8 @@ class GreenFunction(nnx.Module):
 
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
-            out = self.attenuation(
-                coord1=coord, coord2=coord2, optical_depth=optical_depth_t
+            out, _ = self.attenuation(
+                coord1=coord, coord2=coord2, att_coeff=batch["sigma"], charac=charac
             )
             return out
 
@@ -108,8 +101,8 @@ class GreenFunction(nnx.Module):
             batch["velocity_coords"],
             batch["velocity_weights"],
         )
-        kernel = -batch["scattering_kernel"] * velocity_weights
-        self_kernel = -batch["self_scattering_kernel"] * velocity_weights
+        kernel = batch["scattering_kernel"] * velocity_weights
+        self_kernel = batch["self_scattering_kernel"] * velocity_weights
 
         self_act = jax.vmap(self_att_fn)(velocity_coords)
         act = self.scattering(act, self_act, kernel, self_kernel, optical_depth_s)

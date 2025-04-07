@@ -94,11 +94,7 @@ class SampleCollocationCoords(grain.RandomMapTransform):
 
         for k, axis in self.collocation_axes.items():
             data[k] = rng.choice(
-                data[k],
-                self.collocation_size,
-                axis=axis,
-                replace=True,
-                shuffle=False,
+                data[k], self.collocation_size, axis=axis, replace=True, shuffle=False
             )
 
         return data
@@ -135,9 +131,9 @@ def preprocessing_pipeline(
     drop_remainder: bool = True,
 ):
     """Use grain to pre-process the dataset and return iterators"""
-    assert (
-        global_batch_size % global_mesh.size == 0
-    ), "Batch size should be divisible number of global devices."
+    assert global_batch_size % global_mesh.size == 0, (
+        "Batch size should be divisible number of global devices."
+    )
 
     # Batch examples.
     batch_size_per_process = global_batch_size // jax.process_count()

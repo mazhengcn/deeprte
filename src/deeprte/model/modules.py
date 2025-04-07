@@ -38,25 +38,23 @@ class Attenuation(nnx.Module):
     def __init__(self, config, *, rngs: nnx.Rngs):
         self.config = config
 
-        attention_in_dims = [
-            config.position_coords_dim + config.velocity_coords_dim,
-            config.position_coords_dim,
-            config.coeffs_fn_dim,
-        ]
-
-        self.attention = MultiHeadAttention(
-            config.num_heads,
-            attention_in_dims,
-            config.qkv_dim,
-            config.optical_depth_dim,
-            rngs=rngs,
-        )
+        self.optical_depth = OpticalDepth(config, rngs=rngs)
         self.mlp = MlpBlock(config=config, rngs=rngs)
 
-    def __call__(self, coord1: jax.Array, coord2: jax.Array, optical_depth: jax.Array):
-        attenuation = jnp.concatenate([coord1, coord2, optical_depth])
-        attenuation = self.mlp(attenuation)
-        return attenuation
+    def __call__(
+        self,
+        coord1: jax.Array,
+        coord2: jax.Array,
+        att_coeff: jax.Array,
+        charac: Characteristics,
+    ):
+        optical_depth = self.optical_depth(coord1, att_coeff, charac)
+        optical_depth_s, optical_depth_t = jnp.split(
+            optical_depth, [self.config.scattering_dim], axis=-1
+        )
+        x = jnp.concatenate([coord1, coord2, optical_depth_t])
+        attenuation = self.mlp(x)
+        return attenuation, optical_depth_s
 
 
 class ScatteringLayer(nnx.Module):
