@@ -15,39 +15,36 @@
         "vscode": {
             "extensions": [
                 "charliermarsh.ruff",
-                "exiasr.hadolint",
-                "kevinrose.vsc-python-indent",
-                "mosapride.zenkaku",
-                "ms-azuretools.vscode-docker",
                 "ms-python.python",
-                "njpwerner.autodocstring",
                 "redhat.vscode-yaml",
-                "shardulm94.trailing-spaces",
                 "tamasfe.even-better-toml",
                 "yzhang.markdown-all-in-one",
-                "ms-toolsai.tensorboard"
+                "ms-toolsai.tensorboard",
+                "ms-toolsai.jupyter"
             ]
         }
     },
     "containerEnv": {
         "DISPLAY": "dummy",
         "PYTHONUNBUFFERED": "True",
-        "UV_PREVIEW": "true",
-        "UV_LINK_MODE": "copy",
-        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+        "UV_LINK_MODE": "copy"
     },
     "mounts": [
         {
             "type": "volume",
             "source": "rte_data",
             "target": "${containerWorkspaceFolder}/data"
+        },
+        {
+            "type": "volume",
+            "source": "rte_venv",
+            "target": "${containerWorkspaceFolder}/.venv"
         }
     ],
     "runArgs": [
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "uv sync --frozen",
-    "postStartCommand": "uv run pre-commit install",
+    "postCreateCommand": "sudo chown -R vscode:vscode ${containerWorkspaceFolder} && uv sync --frozen",
     "remoteUser": "vscode"
 }

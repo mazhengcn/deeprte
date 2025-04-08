@@ -141,4 +141,6 @@ def get_config(cfg_path: str | None = None) -> Config:
         with open(cfg_path, "r") as f:
             cfg = file_loader(f)
 
-    return config.replace(**cfg)
+        return config.replace(**cfg)
+
+    return config
