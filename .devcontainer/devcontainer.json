@@ -8,9 +8,6 @@
             "DEBIAN_VERSION": "bookworm"
         }
     },
-    "features": {
-        "ghcr.io/dhoeric/features/hadolint:1": {}
-    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -46,5 +43,6 @@
         "--shm-size=1g"
     ],
     "postCreateCommand": "sudo chown -R vscode:vscode ${containerWorkspaceFolder} && uv sync --frozen",
+    "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
