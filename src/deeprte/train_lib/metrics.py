@@ -28,4 +28,4 @@ class RelativeError(nnx.Metric):
         )
 
     def compute(self) -> jax.Array:
-        return self.error.value / self.true.value
+        return jnp.sqrt(self.error.value / self.true.value)

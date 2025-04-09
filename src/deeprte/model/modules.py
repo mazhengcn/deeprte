@@ -48,13 +48,11 @@ class Attenuation(nnx.Module):
         att_coeff: jax.Array,
         charac: Characteristics,
     ):
-        optical_depth = self.optical_depth(coord1, att_coeff, charac)
-        optical_depth_s, optical_depth_t = jnp.split(
-            optical_depth, [self.config.scattering_dim], axis=-1
-        )
-        x = jnp.concatenate([coord1, coord2, optical_depth_t])
+        tau = self.optical_depth(coord1, att_coeff, charac)
+        tau_s, tau_t = jnp.split(tau, [self.config.scattering_dim], axis=-1)
+        x = jnp.concatenate([coord1, coord2, tau_t])
         attenuation = self.mlp(x)
-        return attenuation, optical_depth_s
+        return attenuation, tau_s
 
 
 class ScatteringLayer(nnx.Module):
@@ -78,10 +76,10 @@ class ScatteringLayer(nnx.Module):
         )
 
     def __call__(
-        self, inputs: jax.Array, kernel: jax.Array, optical_depth: jax.Array
+        self, inputs: jax.Array, kernel: jax.Array, tau: jax.Array
     ) -> jax.Array:
         x = jnp.einsum("...V,Vd->...d", kernel, inputs)
-        x *= optical_depth
+        x *= tau
         x = self.linear(x)
         x = nnx.tanh(x)
         return x

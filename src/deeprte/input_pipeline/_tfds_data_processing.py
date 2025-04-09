@@ -192,9 +192,13 @@ def sample_collocation_coords(
         sampled data.
     """
     num_phase_coords = tf.shape(batch["phase_coords"])[collocation_axes["phase_coords"]]
-    phase_coords_indices = generator.uniform(
-        (collocation_size,), minval=0, maxval=num_phase_coords, dtype=tf.int32
-    )
+    # phase_coords_indices = generator.uniform(
+    #     (collocation_size,), minval=0, maxval=num_phase_coords, dtype=tf.int32
+    # )
+    phase_coords_indices = tf.random.shuffle(tf.range(num_phase_coords))[
+        :collocation_size
+    ]
+
     for k, axis in collocation_axes.items():
         if k in batch:
             batch[k] = tf.gather(batch[k], phase_coords_indices, axis=axis)

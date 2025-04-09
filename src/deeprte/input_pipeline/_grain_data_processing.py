@@ -14,6 +14,7 @@
 
 """Input pipeline for a deeprte dataset."""
 
+import dataclasses
 from typing import Any, Optional
 
 import grain.python as grain
@@ -72,6 +73,7 @@ class RTEDataset(grain.RandomAccessDataSource):
         }
 
 
+@dataclasses.dataclass
 class SampleCollocationCoords(grain.RandomMapTransform):
     """Sample phase points randomly and take collocation points.
 
@@ -84,9 +86,8 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         sampled data.
     """
 
-    def __init__(self, collocation_size: int, collocation_axes: dict):
-        self.collocation_size = collocation_size
-        self.collocation_axes = collocation_axes
+    collocation_size: int
+    collocation_axes: dict
 
     def random_map(self, data, rng: np.random.Generator):
         if "boundary_scattering_kernel" in data:
@@ -94,7 +95,7 @@ class SampleCollocationCoords(grain.RandomMapTransform):
 
         for k, axis in self.collocation_axes.items():
             data[k] = rng.choice(
-                data[k], self.collocation_size, axis=axis, replace=True, shuffle=False
+                data[k], self.collocation_size, axis=axis, replace=False
             )
 
         return data
@@ -131,9 +132,9 @@ def preprocessing_pipeline(
     drop_remainder: bool = True,
 ):
     """Use grain to pre-process the dataset and return iterators"""
-    assert global_batch_size % global_mesh.size == 0, (
-        "Batch size should be divisible number of global devices."
-    )
+    assert (
+        global_batch_size % global_mesh.size == 0
+    ), "Batch size should be divisible number of global devices."
 
     # Batch examples.
     batch_size_per_process = global_batch_size // jax.process_count()
