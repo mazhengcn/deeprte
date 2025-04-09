@@ -4,25 +4,23 @@
         "context": "..",
         "dockerfile": "Dockerfile",
         "args": {
-            "UV_VERSION": "latest",
-            "DEBIAN_VERSION": "bookworm"
+            "PYTHON_VERSION": "3.12"
         }
     },
     "customizations": {
         "vscode": {
             "extensions": [
-                "charliermarsh.ruff",
                 "ms-python.python",
+                "ms-toolsai.tensorboard",
+                "ms-toolsai.jupyter",
+                "charliermarsh.ruff",
                 "redhat.vscode-yaml",
                 "tamasfe.even-better-toml",
-                "yzhang.markdown-all-in-one",
-                "ms-toolsai.tensorboard",
-                "ms-toolsai.jupyter"
+                "yzhang.markdown-all-in-one"
             ]
         }
     },
     "containerEnv": {
-        "DISPLAY": "dummy",
         "PYTHONUNBUFFERED": "True",
         "UV_LINK_MODE": "copy"
     },
@@ -42,7 +40,7 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "sudo chown -R vscode:vscode ${containerWorkspaceFolder} && uv sync --frozen",
+    "postCreateCommand": "uv sync --frozen",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }

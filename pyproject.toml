@@ -18,7 +18,8 @@ classifiers = [
 dependencies = [
     "clu>=0.0.12",
     "dill>=0.3.9",
-    "jax-ai-stack[grain]>=2025.1.9",
+    "grain>=0.2.3",
+    "jax-ai-stack>=2025.1.9",
     "jax[cuda]>=0.4.38",
     "matplotlib>=3.10.0",
     "rte-dataset",
