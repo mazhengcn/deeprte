@@ -93,10 +93,20 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         if "boundary_scattering_kernel" in data:
             del data["boundary_scattering_kernel"]
 
+        num_phase_coords = (data["phase_coords"].shape)[
+            self.collocation_axes["phase_coords"]
+        ]
+        phase_coords_indices = rng.permutation(num_phase_coords)[
+            : self.collocation_size
+        ]
+
         for k, axis in self.collocation_axes.items():
-            data[k] = rng.choice(
-                data[k], self.collocation_size, axis=axis, replace=False
-            )
+            if k in data:
+                data[k] = np.take(data[k], phase_coords_indices, axis=axis)
+        # for k, axis in self.collocation_axes.items():
+        #     data[k] = rng.choice(
+        #         data[k], self.collocation_size, axis=axis, replace=False
+        #     )
 
         return data
 
