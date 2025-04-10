@@ -103,10 +103,6 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         for k, axis in self.collocation_axes.items():
             if k in data:
                 data[k] = np.take(data[k], phase_coords_indices, axis=axis)
-        # for k, axis in self.collocation_axes.items():
-        #     data[k] = rng.choice(
-        #         data[k], self.collocation_size, axis=axis, replace=False
-        #     )
 
         return data
 
