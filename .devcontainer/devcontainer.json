@@ -20,10 +20,6 @@
             ]
         }
     },
-    "containerEnv": {
-        "PYTHONUNBUFFERED": "True",
-        "UV_LINK_MODE": "copy"
-    },
     "mounts": [
         {
             "type": "volume",
