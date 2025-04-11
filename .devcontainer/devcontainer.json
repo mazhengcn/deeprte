@@ -2,10 +2,7 @@
     "name": "deeprte",
     "build": {
         "context": "..",
-        "dockerfile": "Dockerfile",
-        "args": {
-            "PYTHON_VERSION": "3.12"
-        }
+        "dockerfile": "Dockerfile"
     },
     "customizations": {
         "vscode": {
