@@ -46,6 +46,3 @@ class Characteristics:
         mask = jnp.expand_dims(local_x > 0, axis=-2)
 
         return local_grid, mask
-
-    # def invert_point(self, transformed_point, extra_dims=0):
-    #     pass

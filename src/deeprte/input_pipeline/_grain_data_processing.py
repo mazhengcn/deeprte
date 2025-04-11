@@ -14,6 +14,7 @@
 
 """Input pipeline for a deeprte dataset."""
 
+import dataclasses
 from typing import Any, Optional
 
 import grain.python as grain
@@ -72,6 +73,7 @@ class RTEDataset(grain.RandomAccessDataSource):
         }
 
 
+@dataclasses.dataclass
 class SampleCollocationCoords(grain.RandomMapTransform):
     """Sample phase points randomly and take collocation points.
 
@@ -84,22 +86,23 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         sampled data.
     """
 
-    def __init__(self, collocation_size: int, collocation_axes: dict):
-        self.collocation_size = collocation_size
-        self.collocation_axes = collocation_axes
+    collocation_size: int
+    collocation_axes: dict
 
     def random_map(self, data, rng: np.random.Generator):
         if "boundary_scattering_kernel" in data:
             del data["boundary_scattering_kernel"]
 
+        num_phase_coords = (data["phase_coords"].shape)[
+            self.collocation_axes["phase_coords"]
+        ]
+        phase_coords_indices = rng.permutation(num_phase_coords)[
+            : self.collocation_size
+        ]
+
         for k, axis in self.collocation_axes.items():
-            data[k] = rng.choice(
-                data[k],
-                self.collocation_size,
-                axis=axis,
-                replace=True,
-                shuffle=False,
-            )
+            if k in data:
+                data[k] = np.take(data[k], phase_coords_indices, axis=axis)
 
         return data
 

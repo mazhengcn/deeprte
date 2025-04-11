@@ -16,10 +16,10 @@ class Config:
     dataset_type: str = "grain"
     # Number of child processes launched to parallelize the transformations among.
     # Zero means processing runs in the same process. None lets the python backend choose the value.
-    grain_worker_count: int | None = 0
+    grain_worker_count: int | None = 4
     # Count of output batches to produce in advance per worker.
     # This ensures batches are ready when the consumer requests them.
-    grain_worker_buffer_size: int | None = 1
+    grain_worker_buffer_size: int | None = 2
     # Name of TFDS dataset to use.
     dataset_name: str = "g0.5-sigma_a3-sigma_t6.mat"
     # Path to directory where TFDS data is stored.
@@ -87,7 +87,7 @@ class Config:
     # Attention dimension.
     qkv_dim: int = 64
     # Output dimensions of attention.
-    optical_depth_dim: int = 2
+    optical_depth_dim: int = 17
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.
@@ -141,4 +141,6 @@ def get_config(cfg_path: str | None = None) -> Config:
         with open(cfg_path, "r") as f:
             cfg = file_loader(f)
 
-    return config.replace(**cfg)
+        return config.replace(**cfg)
+
+    return config

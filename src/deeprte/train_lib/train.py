@@ -196,11 +196,12 @@ def train_and_evaluate(config: default.Config, workdir: str):
                     writer.write_scalars(step, metrics.compute())
                 metrics.reset()
 
-            if eval_iter and step % config.eval_every_steps == 0 or is_last_step:
-                with report_progress.timed("eval"):
-                    evaluate(model, metrics, eval_iter)
-                    writer.write_scalars(step, metrics.compute())
-                metrics.reset()
+            if eval_iter:
+                if step % config.eval_every_steps == 0 or is_last_step:
+                    with report_progress.timed("eval"):
+                        evaluate(model, metrics, eval_iter)
+                        writer.write_scalars(step, metrics.compute())
+                    metrics.reset()
 
             if config.save_checkpoints:
                 with report_progress.timed("checkpoint"):
