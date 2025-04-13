@@ -1,9 +1,9 @@
 # Dataset type.
-dataset_type: grain
+dataset_type: tfds
 # Path to directory where TFDS data is stored.
-data_dir: /workspaces/deeprte/data/raw_data/train/g0.5-sigma_a3-sigma_t6
+data_dir: /workspaces/deeprte/data/tfds
 # Name of TFDS dataset to use.
-dataset_name: g0.5-sigma_a3-sigma_t6.mat
+dataset_name: rte/g0.5-sigma_a3-sigma_t6
 # TFDS split for training dataset.
 train_split: train[:80%]
 # TFDS split for evaluation dataset.
