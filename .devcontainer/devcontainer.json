@@ -18,16 +18,8 @@
         }
     },
     "mounts": [
-        {
-            "type": "volume",
-            "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data"
-        },
-        {
-            "type": "volume",
-            "source": "rte-venv",
-            "target": "${containerWorkspaceFolder}/.venv"
-        }
+        "source=rte-venv,target=${containerWorkspaceFolder}/.venv,type=volume",
+        "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
     ],
     "runArgs": [
         "--gpus=all",

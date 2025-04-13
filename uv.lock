@@ -783,7 +783,7 @@ wheels = [
 
 [[package]]
 name = "grain"
-version = "0.2.7"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -791,20 +791,24 @@ dependencies = [
     { name = "cloudpickle" },
     { name = "dm-tree" },
     { name = "etils", extra = ["epath", "epy"] },
+    { name = "jaxtyping" },
     { name = "more-itertools" },
     { name = "numpy" },
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/1a/d0d43981f9a9432fe8d74d000c81e2f94c44aaebc69ab4ba5cc243112613/grain-0.2.7-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:327dbdd304843c805f8b6bb3917505c035efcb7d7a5e7280f9a903e273d8a592", size = 390107 },
-    { url = "https://files.pythonhosted.org/packages/65/2b/d097db48bcd36bdf773a6de76b39b5c6a669eaca72e5fedc40c4bb1c7414/grain-0.2.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d97aa717b616cdc1eaa71c8ca62f44c092964f376e1ff3a4dcad9019760cae7e", size = 472079 },
-    { url = "https://files.pythonhosted.org/packages/54/c6/b9d858c28f2bf8574a4534cee5d26b7fb7707f071012e360b44c234ce872/grain-0.2.7-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c6a0d527fa488da424733f01b889abbea355565ce8321fe5ff00edfd8d2795f", size = 473014 },
-    { url = "https://files.pythonhosted.org/packages/f9/20/3e1d6caa9c245e20e3291e019708266d7e83602a2f43ac9ddaaeb7acfea4/grain-0.2.7-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:5d547b6243fa395d1d05a9c09b5354f94c4cbe94477bcf70e751829d09c48914", size = 390301 },
-    { url = "https://files.pythonhosted.org/packages/ae/93/f2c2497d3a7f38ec65525db0e5c441c790ab43cb1853085a126b1ad65b6a/grain-0.2.7-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bed70dbd437f5af7568cd0c732b2ba32b51de061a1e24b578900176aeef9dbce", size = 472353 },
-    { url = "https://files.pythonhosted.org/packages/a6/52/c6f33767103d2b1fde62242834cf910efd53c174d2ab85303d53f925ea80/grain-0.2.7-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:373c75bfce44e6c82e5134a14fa9c0fdb65b87cce52b4dc68f894687234aa409", size = 473253 },
-    { url = "https://files.pythonhosted.org/packages/a0/47/d2f05f4e35a8e987d3ca94e9f7b48a2116c5a2bee4f4cf44137d5cac9f57/grain-0.2.7-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ab4f9110716ddfb2d74402ec07e23d801fc0813fb1680c75ab59e153e08520a8", size = 391093 },
-    { url = "https://files.pythonhosted.org/packages/91/0a/9d977475f88a1ec36d62ba709dbd4f5010d03369a4dcb911b2231ecb7555/grain-0.2.7-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5274e4f58e66e1829a770ad3f170e14bc863eb96501ee793f388551288fd9d19", size = 473559 },
-    { url = "https://files.pythonhosted.org/packages/ab/63/07204799b7d01bd8daf65f721250baa233fa70f6210c06b7632947f4b835/grain-0.2.7-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c7a6c387710866a9afa5b962cb79ea2aee9663023c3d6f775ce21c59d13b039f", size = 474608 },
+    { url = "https://files.pythonhosted.org/packages/2e/2a/942fccd3f7b27499a4cdeaf9b91055e63cb6cbd0d03a55238ffd52337ca3/grain-0.2.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:bb07fd78bc9037e2427e30b47ff0af6ed51c0db13adf076eea0b44d6f77e11b9", size = 351388 },
+    { url = "https://files.pythonhosted.org/packages/3f/f3/f7219d0e5f18952164c765f2a9d19c42b1a05bbaca3b435f3107f0e80f79/grain-0.2.3-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:45eca98563567a7ade70e7e0d6676e1ef3c99b7a6d431b597e9fb150b934ef56", size = 373374 },
+    { url = "https://files.pythonhosted.org/packages/b8/54/dcbe8cb9726366e39ef27dac994119f7fdc66b3b7a3968a4f0bb76dd725a/grain-0.2.3-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:347c2988e7fe50db6ecf8379e0f260a1d64e961d841ce894944a2642bc40854f", size = 432317 },
+    { url = "https://files.pythonhosted.org/packages/cc/4e/0cb8ddb7bca5365e2b1cf17fb4be798ce387742f9b0036108d2509643973/grain-0.2.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:621783ce3e19e071fb8f6d983f4913ef1511716b7db52a5328f7f1192eab3b08", size = 433086 },
+    { url = "https://files.pythonhosted.org/packages/89/79/b14a00571e0b56819d29253fed00e86ed856b051c594537c3631d0479157/grain-0.2.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4708920dbb472c154a6545447e9e7a6034b5f31e546277e2e92e04af44e94949", size = 351589 },
+    { url = "https://files.pythonhosted.org/packages/73/98/bdf24ce276e8b44dfd02e1ac1e2786c3e52760799f84c430766beabbd477/grain-0.2.3-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:776771feac5c26706f970699f641b53034293ed127be51764cdd5e31899bba7c", size = 373556 },
+    { url = "https://files.pythonhosted.org/packages/20/ce/d7e210789962af07490d15c20e7c379ca99ab3b2e33449c2d497e68b7b38/grain-0.2.3-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c0c242377b4e240d01e782d2ea382dd1feafc4aaa5c6bbe01ca37c95200de315", size = 432656 },
+    { url = "https://files.pythonhosted.org/packages/ed/12/01e5fa4a9bc3f0893aad48ad437b8ccb91f535f5285909bf5ffaa5245d3b/grain-0.2.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c76d7988a07092c02dd5a7cca820186262707e6d24170595fb712ef707445f0", size = 433514 },
+    { url = "https://files.pythonhosted.org/packages/2b/bb/919b357b948ab73cd5596258a3ce3c99481b09029e6637c6855ab0c2e5ff/grain-0.2.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:e68a6064fc59a752f2e83fa737363241687589c7d8cc559fb287283c9fe3f5a8", size = 352400 },
+    { url = "https://files.pythonhosted.org/packages/5b/49/121b32e4cc0182d83ef5b1443ca81803314d3ab84df18b0562019c5c069a/grain-0.2.3-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:a5ac399e0b8b61c4e2837ca815045d998ecc58d3b63946ff7413b4a3abc68cd2", size = 374162 },
+    { url = "https://files.pythonhosted.org/packages/8d/67/5b7b59ef7eefd37be94e87e396fc6b519653f6a3ff151f4b22213afb906f/grain-0.2.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bd7c5c7cf48968684446b3dab7226056a52301afcec511543fe8fae65f126afe", size = 433722 },
+    { url = "https://files.pythonhosted.org/packages/bf/32/c21c5adbaa45ce49ef24a8de1e5d56bca9776def7120e0baef766af5733b/grain-0.2.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3917030fd9fa362f02f6dbf6078db8bbbb39aff55e3d76a5171e03d16cb09afb", size = 434816 },
 ]
 
 [[package]]
@@ -1115,6 +1119,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/65/f9b3604e3fdf72d786660c84ce845c1ab3cb1e8afe3e1e9e05a2358176e9/jax_ai_stack-2025.4.9.tar.gz", hash = "sha256:a1d792848a101582e32914524169c27920b155bad9eaf3d46d75e100b7d96547", size = 8463 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/d7/3f999a52b8b4e1dcaf22f601fbd665a39ac63061ef8786709bd24d4e9e53/jax_ai_stack-2025.4.9-py3-none-any.whl", hash = "sha256:c1ef604f472d796538b09cec71d149cada614a4aa6a0bf82329140c86981d0ce", size = 11138 },
+]
+
+[package.optional-dependencies]
+grain = [
+    { name = "grain" },
 ]
 
 [package.optional-dependencies]
