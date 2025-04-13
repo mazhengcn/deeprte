@@ -25,3 +25,5 @@ num_train_steps: 500_001
 log_every_steps: 1_000
 # Frequency of eval during training, e.g. every 1_000 steps.
 eval_every_steps: 50_000
+# Optical depth dimension.
+optical_depth_dim: 17
