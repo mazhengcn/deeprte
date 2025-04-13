@@ -158,6 +158,7 @@ class MlpBlock(nnx.Module):
         self.in_features = (
             2 * (config.position_coords_dim + config.velocity_coords_dim)
             + config.optical_depth_dim
+            - config.scattering_dim
         )
         self.mlp_dim = config.mlp_dim
         self.out_dim = config.scattering_dim

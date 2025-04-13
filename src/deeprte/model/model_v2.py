@@ -22,10 +22,9 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.model import integrate
+from deeprte.model import features, integrate
 from deeprte.model.characteristics import Characteristics
-from deeprte.model import features
-from deeprte.model.modules import Attenuation, Scattering
+from deeprte.model.modules_v2 import Attenuation, Scattering
 
 kernel_init = nnx.initializers.glorot_uniform()
 bias_init = nnx.initializers.zeros_init()
@@ -43,8 +42,6 @@ class DeepRTEConfig:
     num_heads: int = 2
     # Attention dimension.
     qkv_dim: int = 64
-    # Output dimensions of attention.
-    optical_depth_dim: int = 2
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.
@@ -53,6 +50,8 @@ class DeepRTEConfig:
     num_scattering_layers: int = 2
     # Scattering dimension.
     scattering_dim: int = 16
+    # Output dimensions of attention.
+    optical_depth_dim: int = 1 + scattering_dim
     # Subcollocation size for evaluation or inference
     subcollocation_size: int = 128
     # Normalization constant of dataset/model.
@@ -81,7 +80,7 @@ class GreenFunction(nnx.Module):
 
     def __call__(self, coord1: jax.Array, coord2: jax.Array, batch):
         charac = Characteristics.from_tensor(batch["position_coords"])
-        act = self.attenuation(
+        act, tau_s = self.attenuation(
             coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
         )
         if self.config.num_scattering_layers == 0:
@@ -92,7 +91,7 @@ class GreenFunction(nnx.Module):
 
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
-            out = self.attenuation(
+            out, _ = self.attenuation(
                 coord1=coord, coord2=coord2, att_coeff=batch["sigma"], charac=charac
             )
             return out
@@ -101,11 +100,11 @@ class GreenFunction(nnx.Module):
             batch["velocity_coords"],
             batch["velocity_weights"],
         )
-        kernel = -batch["scattering_kernel"] * velocity_weights
-        self_kernel = -batch["self_scattering_kernel"] * velocity_weights
+        kernel = batch["scattering_kernel"] * velocity_weights
+        self_kernel = batch["self_scattering_kernel"] * velocity_weights
 
         self_act = jax.vmap(self_att_fn)(velocity_coords)
-        act = self.scattering(act, self_act, kernel, self_kernel)
+        act = self.scattering(act, self_act, kernel, self_kernel, tau_s)
 
         out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
         return out
