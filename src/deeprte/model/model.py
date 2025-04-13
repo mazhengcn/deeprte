@@ -24,8 +24,8 @@ from flax import nnx
 
 from deeprte.model import integrate
 from deeprte.model.characteristics import Characteristics
+from deeprte.model import features
 from deeprte.model.modules import Attenuation, Scattering
-from deeprte.model.tf import rte_features
 
 kernel_init = nnx.initializers.glorot_uniform()
 bias_init = nnx.initializers.zeros_init()
@@ -116,9 +116,9 @@ class DeepRTE(nnx.Module):
 
     def __init__(self, config: DeepRTEConfig, *, rngs: nnx.Rngs):
         self.config = config
-        self.features = rte_features.FEATURES
+        self.features = features.FEATURES
         self.phase_coords_axes = {
-            k: 0 if k in rte_features.PHASE_COORDS_FEATURES else None
+            k: 0 if k in features.get_phase_coords_features() else None
             for k in self.features
         }
         self.green_fn = GreenFunction(config=self.config, rngs=rngs)

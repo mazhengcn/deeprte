@@ -1,9 +1,9 @@
 import dataclasses
+import pathlib
 
 import jax
 import jax.numpy as jnp
 import optax
-import tensorflow as tf
 import yaml
 from absl import logging
 from clu import metric_writers, periodic_actions
@@ -93,7 +93,7 @@ def train_and_evaluate(config: default.Config, workdir: str):
       workdir: Working directory for checkpoints and TF summaries. If this
         contains checkpoint training will be resumed from the latest checkpoint.
     """
-    tf.io.gfile.makedirs(workdir)
+    pathlib.Path(workdir).mkdir(parents=True, exist_ok=True)
 
     init_rng = jax.random.key(config.seed)
 

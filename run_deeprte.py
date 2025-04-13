@@ -147,6 +147,7 @@ def predict_radiative_transfer(
             "grid": raw_feature_dict["grid"],
             "shape": raw_feature_dict["shape"],
         }
+        psi_label = feature_dict["functions"].pop("psi_label")
 
         # Write out features as a pickled dictionary.
         features_output_path = output_dir / "features.dill"
@@ -176,14 +177,13 @@ def predict_radiative_transfer(
                 t_diff = time.time() - t_0
                 timings["predict_benchmark"] = t_diff
                 logging.info(
-                    "Total JAX model predict time "
-                    "(excludes compilation time): %.6fs",
+                    "Total JAX model predict time (excludes compilation time): %.6fs",
                     t_diff,
                 )
         else:
             logging.info("Total JAX model predict time: %.6fs", t_diff)
 
-        psi_shape = feature_dict["functions"]["psi_label"].shape
+        psi_shape = psi_label.shape
         t_0 = time.time()
         predicted_psi = prediction.reshape(psi_shape)
 
@@ -201,7 +201,7 @@ def predict_radiative_transfer(
 
         # Compute metrics.
         metrics = {}
-        psi_label = feature_dict["functions"]["psi_label"]
+        # psi_label = feature_dict["functions"]["psi_label"]
         phi_label = np.sum(
             psi_label * feature_dict["grid"]["velocity_weights"], axis=-1
         )

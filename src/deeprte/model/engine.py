@@ -15,16 +15,15 @@
 from collections.abc import Mapping
 
 import jax
-import jax.experimental
 from absl import logging
 from flax import nnx
 from jax.sharding import PartitionSpec as P
 
 from deeprte.configs import default
+from deeprte.input_pipeline.grain_data_processing import ReshapeFeatures
 from deeprte.model import features
 from deeprte.model.mapping import inference_subbatch
 from deeprte.model.model import DeepRTE
-from deeprte.model.tf import rte_features
 from deeprte.train_lib import utils
 
 
@@ -46,9 +45,9 @@ class RteEngine:
         )
         feature_sharding = {
             k: data_sharding
-            if k in rte_features.PHASE_COORDS_FEATURES
+            if k in features.get_phase_coords_features()
             else replicated_sharding
-            for k in rte_features.FEATURES
+            for k in features.FEATURES
         }
 
         self.model = utils.setup_infer_state(
@@ -71,12 +70,19 @@ class RteEngine:
         )
 
     def process_features(
-        self, raw_features: features.FeatureDict
-    ) -> features.FeatureDict:
+        self, raw_features: features.FeaturesDict
+    ) -> features.FeaturesDict:
         """Processes features to prepare for feeding them into the model."""
-        return features.np_data_to_features(raw_features)
+        features_metadata = features.get_features_metadata()
+        reshape_fn = ReshapeFeatures(
+            features_metadata=features_metadata,
+            placeholder_shapes=raw_features["shape"],
+        )
+        return jax.vmap(lambda x: reshape_fn.map({**x, **raw_features["grid"]}))(
+            raw_features["functions"]
+        )
 
-    def predict(self, feat: features.FeatureDict) -> Mapping[str, jax.Array]:
+    def predict(self, feat: features.FeaturesDict) -> Mapping[str, jax.Array]:
         """Makes a prediction by inferencing the model on the provided
         features.
         """
@@ -85,6 +91,7 @@ class RteEngine:
             jax.tree_map(lambda x: x.shape, feat),
         )
         phase_feat, other_feat = features.split_feature(feat)
+        print(phase_feat.keys(), other_feat.keys())
         predictions = self.predict_fn(phase_feat, other_feat)
         jax.tree.map(lambda x: x.block_until_ready(), predictions)
         logging.info(

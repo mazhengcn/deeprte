@@ -1,12 +1,11 @@
 import time
 from collections.abc import Iterable, Iterator
 from functools import partial
-from typing import Any
+from typing import Any, Optional
 
 import jax
 import jax.tree_util as jtu
 import numpy as np
-import tensorflow as tf
 from absl import logging
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, NamedSharding, PartitionSpec
@@ -18,7 +17,7 @@ Shape = tuple[int, ...]
 
 
 def get_dataset_shape_dtype_struct(
-    iterator: tf.data.Dataset | dataset_iterator.DatasetIterator,
+    iterator: dataset_iterator.DatasetIterator,
     global_mesh: Mesh,
     data_pspec: PartitionSpec,
 ) -> PyTree:
@@ -87,8 +86,13 @@ def get_next_batch_sharded(
         try:
             local_data = next(local_iterator)
             loaded_data_success = True
-        except tf.errors.FailedPreconditionError:
-            logging.log("Failed to get next data batch, retrying")
+        except StopIteration:
+            logging.error("No more data available in the iterator.")
+            raise
+        except Exception as e:
+            logging.warning(
+                f"Failed to get next data batch (attempt {data_load_attempts}): {e}"
+            )
             time.sleep(SLEEP_TIME)
 
     # Try one last time, if this fails we will see the full stack trace.
@@ -104,13 +108,13 @@ def get_next_batch_sharded(
 
 
 class MultiHostDataLoadIterator:
-    """fold get_next_batch_sharded into a iterator class"""
+    """fold get_next_batch_sharded into an iterator class"""
 
     def __init__(
         self,
-        dataloader: tf.data.Dataset,
+        dataloader: Iterable,
         global_mesh: Mesh,
-        data_pspec: PartitionSpec | None = None,
+        data_pspec: Optional[PartitionSpec] = None,
     ):
         self.global_mesh = global_mesh
         self.dataloader = dataloader
@@ -118,9 +122,7 @@ class MultiHostDataLoadIterator:
             self.data_pspec = data_pspec
         else:
             self.data_pspec = PartitionSpec(global_mesh.axis_names)
-        if isinstance(self.dataloader, tf.data.Dataset):
-            self.local_iterator = self.dataloader.as_numpy_iterator()
-        elif isinstance(self.dataloader, Iterable):
+        if isinstance(self.dataloader, Iterable):
             self.local_iterator = iter(self.dataloader)
         else:
             raise ValueError(
@@ -128,9 +130,7 @@ class MultiHostDataLoadIterator:
             )
 
     def reset(self):
-        if isinstance(self.dataloader, tf.data.Dataset):
-            self.local_iterator = self.dataloader.as_numpy_iterator()
-        elif isinstance(self.dataloader, Iterable):
+        if isinstance(self.dataloader, Iterable):
             self.local_iterator = iter(self.dataloader)
         else:
             raise ValueError(

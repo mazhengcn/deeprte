@@ -15,62 +15,81 @@
 """Input pipeline for a deeprte dataset."""
 
 import dataclasses
-from typing import Any, Optional
+from typing import Optional
 
 import grain.python as grain
 import jax
 import numpy as np
-import tensorflow as tf
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, PartitionSpec
 from rte_dataset.builders import pipeline
 
 from deeprte.input_pipeline import splits, utils
-from deeprte.model.tf import rte_dataset
-from deeprte.model.tf import rte_features as features
+from deeprte.model import features
 from deeprte.train_lib import multihost_dataloading
 
 ArraySpec = dataset_iterator.ArraySpec
-ArraySpecDict = dict[str, ArraySpec]
-Data = dict[str, Any]
 DatasetIterator = dataset_iterator.DatasetIterator
 
 
-features.register_feature("psi_label", tf.float32, [features.NUM_PHASE_COORDS])
-
-FEATURES = features.FEATURES
-PHASE_FEATURE_AXIS = {
-    k: FEATURES[k][1].index(features.NUM_PHASE_COORDS) - len(FEATURES[k][1])
-    for k in FEATURES
-    if features.NUM_PHASE_COORDS in FEATURES[k][1]
-}
-
-
 class RTEDataset(grain.RandomAccessDataSource):
-    def __init__(self, raw_data: Data) -> None:
+    def __init__(self, raw_data) -> None:
         self.raw_data = raw_data
 
     def __len__(self) -> int:
         return self.raw_data["shape"]["num_examples"]
 
-    def __getitem__(self, index: int) -> Data:
+    def __getitem__(self, index: int) -> features.FeaturesDict:
         np_example = {
             **jax.tree.map(lambda x: x[index], self.raw_data["functions"]),
             **self.raw_data["grid"],
         }
-        tensor_dict = rte_dataset.np_to_tensor_dict(
-            np_example, self.raw_data["shape"], FEATURES.keys()
-        )
-        return jax.tree.map(lambda x: x.numpy(), tensor_dict)
+        return np_example
+
+    def __repr__(self) -> str:
+        return "RTEDataset"
 
     @property
-    def metadata(self) -> dict[str, dict[str, int]]:
+    def metadata(self) -> dict:
         return {
             "shapes": self.raw_data["shape"],
             "normalization": jax.tree.map(
                 lambda x: str(x), self.raw_data["normalization"]
             ),
         }
+
+
+@dataclasses.dataclass
+class ReshapeFeatures(grain.MapTransform):
+    """Reshape the data to a specific shape.
+
+    Args:
+        features: batch to reshape.
+        shape: target shape.
+
+    Returns:
+        reshaped data.
+    """
+
+    features_metadata: features.FeaturesMetadata
+    placeholder_shapes: dict[str, int]
+
+    def map(self, feat: features.FeaturesDict) -> features.FeaturesDict:
+        if "boundary_scattering_kernel" in feat:
+            del feat["boundary_scattering_kernel"]
+
+        reshaped_features = {}
+        for k, v in feat.items():
+            new_shape = features.shape(
+                feature_name=k,
+                num_position_coords=self.placeholder_shapes["num_position_coords"],
+                num_velocity_coords=self.placeholder_shapes["num_velocity_coords"],
+                num_phase_coords=self.placeholder_shapes["num_phase_coords"],
+                num_boundary_coords=self.placeholder_shapes["num_boundary_coords"],
+                features=self.features_metadata,
+            )
+            reshaped_features[k] = np.reshape(v, new_shape)
+        return reshaped_features
 
 
 @dataclasses.dataclass
@@ -89,11 +108,10 @@ class SampleCollocationCoords(grain.RandomMapTransform):
     collocation_size: int
     collocation_axes: dict
 
-    def random_map(self, data, rng: np.random.Generator):
-        if "boundary_scattering_kernel" in data:
-            del data["boundary_scattering_kernel"]
-
-        num_phase_coords = (data["phase_coords"].shape)[
+    def random_map(
+        self, batch: features.FeaturesDict, rng: np.random.Generator
+    ) -> features.FeaturesDict:
+        num_phase_coords = (batch["phase_coords"].shape)[
             self.collocation_axes["phase_coords"]
         ]
         phase_coords_indices = rng.permutation(num_phase_coords)[
@@ -101,10 +119,10 @@ class SampleCollocationCoords(grain.RandomMapTransform):
         ]
 
         for k, axis in self.collocation_axes.items():
-            if k in data:
-                data[k] = np.take(data[k], phase_coords_indices, axis=axis)
+            if k in batch:
+                batch[k] = np.take(batch[k], phase_coords_indices, axis=axis)
 
-        return data
+        return batch
 
 
 def get_datasets(dataset_name, data_dir, data_split: str) -> RTEDataset:
@@ -138,20 +156,28 @@ def preprocessing_pipeline(
     drop_remainder: bool = True,
 ):
     """Use grain to pre-process the dataset and return iterators"""
+    ops = []
+    ops.append(
+        ReshapeFeatures(
+            features_metadata=features.get_features_metadata(),
+            placeholder_shapes=dataset.metadata["shapes"],
+        )
+    )
+
     assert (
         global_batch_size % global_mesh.size == 0
     ), "Batch size should be divisible number of global devices."
-
     # Batch examples.
     batch_size_per_process = global_batch_size // jax.process_count()
-
-    ops = []
-    ops.append(grain.Batch(batch_size_per_process, drop_remainder=drop_remainder))
+    ops.append(
+        grain.Batch(batch_size=batch_size_per_process, drop_remainder=drop_remainder)
+    )
 
     if collocation_size:
         ops.append(
             SampleCollocationCoords(
-                collocation_size=collocation_size, collocation_axes=PHASE_FEATURE_AXIS
+                collocation_size=collocation_size,
+                collocation_axes=features.get_phase_feature_axis(),
             )
         )
 

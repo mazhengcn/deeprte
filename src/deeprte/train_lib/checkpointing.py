@@ -8,7 +8,7 @@ import orbax.checkpoint.experimental.emergency.checkpoint_manager as emergency_c
 from absl import logging
 from etils import epath
 from flax import nnx
-from orbax.checkpoint.logging import abstract_logger
+from orbax.checkpoint.logging import AbstractLogger
 
 from deeprte.train_lib.multihost_dataloading import MultiHostDataLoadIterator
 
@@ -24,7 +24,7 @@ def create_orbax_checkpoint_manager(
     use_async: bool,
     save_interval_steps: int,
     dataset_type: Optional[str] = "tfds",
-    orbax_logger: Optional[abstract_logger.AbstractLogger] = None,
+    orbax_logger: Optional[AbstractLogger] = None,
 ):
     """Returns specified Orbax (async or not) CheckpointManager or None if checkpointing is disabled."""
     if not enable_checkpointing:
