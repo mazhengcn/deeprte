@@ -18,22 +18,14 @@
         }
     },
     "mounts": [
-        {
-            "type": "volume",
-            "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data"
-        },
-        {
-            "type": "volume",
-            "source": "rte_venv",
-            "target": "${containerWorkspaceFolder}/.venv"
-        }
+        "source=${localWorkspaceFolderBasename}-venv,target=${containerWorkspaceFolder}/.venv,type=volume",
+        "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
     ],
     "runArgs": [
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "uv sync --frozen",
+    "postCreateCommand": "sudo chown vscode .venv && uv sync --frozen",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
