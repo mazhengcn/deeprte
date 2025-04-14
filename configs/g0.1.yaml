@@ -1,5 +1,5 @@
 # Dataset type.
-dataset_type: tfds
+dataset_type: grain
 # Path to directory where TFDS data is stored.
 data_dir: /workspaces/deeprte/tfds-data
 # Name of TFDS dataset to use.

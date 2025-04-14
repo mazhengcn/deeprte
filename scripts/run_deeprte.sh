@@ -14,13 +14,18 @@
 # limitations under the License.
 set -e
 
+<<<<<<< HEAD
 DATA_PATH=${1:-"/workspaces/deeprte/data/raw_data/test/source-g0.1-qconstant/g0.1-qconstant.npz"}
 MODEL_DIR=${2:-"/workspaces/deeprte/ckpts/g0.1/infer"}
+=======
+DATA_PATH=${1:-"/workspaces/deeprte/data/raw_data/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
+MODEL_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.5-infer"}
+>>>>>>> v2
 OUTPUT_DIR=${3:-"/workspaces/deeprte/test"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
 python run_deeprte.py \
-    --config="${MODEL_DIR}/config.yaml" \
-    --data_path="${DATA_PATH}" \
-    --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
+  --config="${MODEL_DIR}/config.yaml" \
+  --data_path="${DATA_PATH}" \
+  --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"

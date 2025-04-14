@@ -1,26 +1,31 @@
 {
-    "name": "Deep RTE",
-    "image": "ghcr.io/zyresearch/devcontainers/jax:latest",
+    "name": "deeprte",
+    "build": {
+        "context": "..",
+        "dockerfile": "Dockerfile"
+    },
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-python.vscode-pylance",
+                "ms-toolsai.tensorboard",
+                "ms-toolsai.jupyter",
                 "charliermarsh.ruff",
-                "ms-toolsai.jupyter"
+                "redhat.vscode-yaml",
+                "tamasfe.even-better-toml",
+                "yzhang.markdown-all-in-one"
             ]
         }
     },
+    "mounts": [
+        "source=${localWorkspaceFolderBasename}-venv,target=${containerWorkspaceFolder}/.venv,type=volume",
+        "source=rte_data,target=${containerWorkspaceFolder}/data,type=volume"
+    ],
     "runArgs": [
         "--gpus=all",
-        "--shm-size=8g"
+        "--shm-size=1g"
     ],
-    "mounts": [
-        {
-            "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data",
-            "type": "volume"
-        }
-    ],
-    "postCreateCommand": "pip install -e .[dev]"
+    "postCreateCommand": "sudo chown vscode .venv && uv sync --frozen",
+    "postStartCommand": "uv run pre-commit install",
+    "remoteUser": "vscode"
 }
