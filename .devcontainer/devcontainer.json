@@ -25,7 +25,10 @@
         "--gpus=all",
         "--shm-size=1g"
     ],
-    "postCreateCommand": "sudo chown vscode .venv && uv sync --frozen",
+    "postCreateCommand": {
+        "fix-volume-permissions": "sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): data",
+        "sync-environment": "uv sync --frozen"
+    },
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
