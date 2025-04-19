@@ -63,6 +63,9 @@ class RTEDataset(grain.RandomAccessDataSource):
         )
         return jax.tree.map(lambda x: x.numpy(), tensor_dict)
 
+    def __repr__(self):
+        return "RTEDataset: 0.0.2"
+
     @property
     def metadata(self) -> dict[str, dict[str, int]]:
         return {
