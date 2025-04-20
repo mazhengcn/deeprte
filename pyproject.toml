@@ -28,10 +28,6 @@ dependencies = [
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.uv]
 dev-dependencies = [
     "jupyter>=1.1.1",
@@ -42,3 +38,7 @@ dev-dependencies = [
 
 [tool.uv.sources]
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
+
+[build-system]
+requires = ["uv_build>=0.6"]
+build-backend = "uv_build"
