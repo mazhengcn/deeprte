@@ -2,7 +2,10 @@
     "name": "deeprte",
     "build": {
         "context": "..",
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "args": {
+            "VARIANT": "ubuntu"
+        }
     },
     "customizations": {
         "vscode": {
@@ -28,7 +31,7 @@
     ],
     "postCreateCommand": {
         "fix-volume-permissions": "sudo chown -R $(whoami): data && sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): $HOME/.cache",
-        "sync-environment": "uv sync --frozen"
+        "sync-environment": "uv sync --frozen --extra cuda"
     },
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
