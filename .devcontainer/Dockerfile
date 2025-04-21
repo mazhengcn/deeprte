@@ -8,6 +8,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_LINK_MODE=copy
+ENV UV_CACHE_DIR=/tmp/uv-cache
 # Only use the managed Python version
 ENV UV_PYTHON_PREFERENCE=only-managed
 # Configure the Python directory so it is consistent
