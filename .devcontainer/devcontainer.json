@@ -23,6 +23,7 @@
         "type=volume,src=uv-cache,dst=/home/vscode/.cache/uv"
     ],
     "runArgs": [
+        "--security-opt=seccomp=unconfined",
         "--gpus=all",
         "--shm-size=1g"
     ],
