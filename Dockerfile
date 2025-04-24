@@ -15,7 +15,7 @@ ENV UV_PYTHON_INSTALL_DIR=/python
 # Only use the managed Python version
 ENV UV_PYTHON_PREFERENCE=only-managed
 
-WORKDIR /app/deeprte
+WORKDIR /deeprte
 # Install Python before the project for caching
 RUN --mount=type=bind,source=.python-version,target=.python-version \
     uv python install
@@ -25,18 +25,18 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 # Install the project
-ADD . /app/deeprte
+COPY . /deeprte
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Then, use a final image without uv
-FROM debian:bookworm-slim
+FROM debian:slim-bookworm
 
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
 
 # Copy the application from the builder
-COPY --from=builder --chown=app:app /app/deeprte /app/deeprte
+COPY --from=builder --chown=deeprte:deeprte /deeprte /deeprte
 
 # Place executables in the environment at the front of the path
-ENV PATH="/app/deeprte/.venv/bin:$PATH"
+ENV PATH="/deeprte/.venv/bin:$PATH"

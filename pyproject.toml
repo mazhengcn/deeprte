@@ -1,3 +1,7 @@
+[build-system]
+requires = ["uv_build>=0.6"]
+build-backend = "uv_build"
+
 [project]
 name = "deeprte"
 version = "2.0.0"
@@ -18,28 +22,22 @@ classifiers = [
 dependencies = [
     "clu>=0.0.12",
     "dill>=0.3.9",
-    "jax-ai-stack[grain]>=2025.1.9",
-    "jax[cuda]>=0.4.38",
+    "jax-ai-stack[grain]>=2025.4.9",
     "matplotlib>=3.10.0",
     "rte-dataset",
-    "tensorflow-cpu>=2.18.0",
     "tensorflow-datasets>=4.9.7",
+    "tf-nightly-cpu>=2.20.0.dev20250214",
 ]
+
+[project.optional-dependencies]
+cuda = ["jax-cuda12-plugin[with-cuda]>=0.6.0"]
 
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"
 
-[tool.uv]
-dev-dependencies = [
-    "jupyter>=1.1.1",
-    "penzai>=0.2.4",
-    "pre-commit>=3.8.0",
-    "ruff>=0.6.3",
-]
+[dependency-groups]
+dev = ["jupyter>=1.1.1", "penzai>=0.2.4", "pre-commit>=3.8.0", "ruff>=0.6.3"]
 
 [tool.uv.sources]
+jax-ai-stack = { git = "https://github.com/jax-ml/jax-ai-stack" }
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
-
-[build-system]
-requires = ["uv_build>=0.6"]
-build-backend = "uv_build"
