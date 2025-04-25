@@ -87,7 +87,7 @@ class Config:
     # Attention dimension.
     qkv_dim: int = 64
     # Output dimensions of attention.
-    optical_depth_dim: int = 17
+    optical_depth_dim: int = 2
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.
@@ -138,7 +138,7 @@ def get_config(cfg_path: str | None = None) -> Config:
         else:
             raise ValueError(f"Unsupported configuration file format: {suffix}")
 
-        with open(cfg_path, "r") as f:
+        with pathlib.Path(cfg_path).open("r") as f:
             cfg = file_loader(f)
 
         return config.replace(**cfg)

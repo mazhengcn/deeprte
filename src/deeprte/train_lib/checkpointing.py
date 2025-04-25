@@ -1,6 +1,6 @@
 """Create an Orbax CheckpointManager with specified (Async or not) Checkpointer."""
 
-from typing import Any, Optional
+from typing import Any
 
 import grain.python as grain
 import orbax.checkpoint as ocp
@@ -8,7 +8,7 @@ import orbax.checkpoint.experimental.emergency.checkpoint_manager as emergency_c
 from absl import logging
 from etils import epath
 from flax import nnx
-from orbax.checkpoint.logging import abstract_logger
+from orbax.checkpoint.logging import AbstractLogger
 
 from deeprte.train_lib.multihost_dataloading import MultiHostDataLoadIterator
 
@@ -23,8 +23,8 @@ def create_orbax_checkpoint_manager(
     enable_checkpointing: bool,
     use_async: bool,
     save_interval_steps: int,
-    dataset_type: Optional[str] = "tfds",
-    orbax_logger: Optional[abstract_logger.AbstractLogger] = None,
+    dataset_type: str | None = "tfds",
+    orbax_logger: AbstractLogger | None = None,
 ):
     """Returns specified Orbax (async or not) CheckpointManager or None if checkpointing is disabled."""
     if not enable_checkpointing:
@@ -39,7 +39,8 @@ def create_orbax_checkpoint_manager(
         item_names = ("train_state",)
 
     options = ocp.CheckpointManagerOptions(
-        save_interval_steps=save_interval_steps, enable_async_checkpointing=use_async
+        save_interval_steps=save_interval_steps,  # type: ignore
+        enable_async_checkpointing=use_async,  # type: ignore
     )
     mngr = ocp.CheckpointManager(
         p, item_names=item_names, options=options, logger=orbax_logger
@@ -60,15 +61,14 @@ def save_checkpoint(
         return checkpoint_manager.save(
             step,
             args=ocp.args.Composite(
-                train_state=ocp.args.StandardSave(state),
-                data_iter=grain.PyGrainCheckpointSave(data_iterator.local_iterator),
+                train_state=ocp.args.StandardSave(state),  # type: ignore
+                data_iter=grain.PyGrainCheckpointSave(data_iterator.local_iterator),  # type: ignore
             ),
         )
-    else:
-        return checkpoint_manager.save(
-            step,
-            args=ocp.args.Composite(train_state=ocp.args.StandardSave(state)),
-        )
+    return checkpoint_manager.save(
+        step,
+        args=ocp.args.Composite(train_state=ocp.args.StandardSave(state)),  # type: ignore
+    )
 
 
 def load_state_if_possible(
@@ -77,7 +77,7 @@ def load_state_if_possible(
     load_parameters_from_path: str,
     load_full_state_from_path: str,
     abstract_train_state: nnx.State,
-    dataset_type: Optional[str] = "tfds",
+    dataset_type: str | None = "tfds",
 ):
     if checkpoint_manager is not None:
         logging.info(
@@ -95,40 +95,38 @@ def load_state_if_possible(
                     checkpoint_manager.restore(
                         latest_step,
                         args=ocp.args.Composite(
-                            train_state=ocp.args.StandardRestore(abstract_train_state),
-                            data_iter=grain.PyGrainCheckpointRestore(
-                                data_iterator.local_iterator
+                            train_state=ocp.args.StandardRestore(abstract_train_state),  # type: ignore
+                            data_iter=grain.PyGrainCheckpointRestore(  # type: ignore
+                                data_iterator.local_iterator  # type: ignore
                             ),
                         ),
                     ),
                     None,
                 )
-            else:
-                return (
-                    checkpoint_manager.restore(
-                        latest_step,
-                        args=ocp.args.Composite(
-                            train_state=ocp.args.StandardRestore(abstract_train_state)
-                        ),
+            return (
+                checkpoint_manager.restore(
+                    latest_step,
+                    args=ocp.args.Composite(
+                        train_state=ocp.args.StandardRestore(abstract_train_state)  # type: ignore
                     ),
-                    None,
-                )
+                ),
+                None,
+            )
 
     if load_parameters_from_path != "":
         restored_params = load_params_from_path(
             load_parameters_from_path, abstract_train_state.model
         )
         return None, restored_params
-    elif load_full_state_from_path != "":
+    if load_full_state_from_path != "":
         logging.info(f"restoring full state from {load_full_state_from_path=}")
         p = epath.Path(load_full_state_from_path)
         ckptr = ocp.StandardCheckpointer()
         restored_train_state = ckptr.restore(p, abstract_train_state)
         return {"train_state": restored_train_state}, None
 
-    else:
-        logging.info("No existing checkpoints found, not restoring checkpoint.")
-        return None, None
+    logging.info("No existing checkpoints found, not restoring checkpoint.")
+    return None, None
 
 
 def load_params_from_path(load_parameters_from_path, abstract_model_state):
