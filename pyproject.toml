@@ -2,10 +2,6 @@
 requires = ["uv_build>=0.6"]
 build-backend = "uv_build"
 
-[build-system]
-requires = ["uv_build>=0.6"]
-build-backend = "uv_build"
-
 [project]
 name = "deeprte"
 version = "2.0.0"
