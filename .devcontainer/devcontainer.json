@@ -26,6 +26,7 @@
         "type=volume,src=uv-cache,dst=/tmp/uv-cache"
     ],
     "runArgs": [
+        "--security-opt=seccomp=unconfined",
         "--gpus=all",
         "--shm-size=1g"
     ],

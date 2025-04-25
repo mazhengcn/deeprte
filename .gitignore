@@ -1,17 +1,11 @@
 # Project related files
-/data/
-slurm/
-ckpts/
-test/
-archive/
-results/
-CONFIGS.txt
-generator/2d-sweeping/config.m
-generator/remote_list.txt
-figures/
-# notebooks/
-*/.config/
-tfds-data/
+/data/**
+!/data/.gitkeep
+/models/**
+!/models/.gitkeep
+/reports/**
+!/reports/.gitkeep
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

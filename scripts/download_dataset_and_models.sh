@@ -14,15 +14,19 @@
 # limitations under the License.
 set -e
 
-TRAIN_STATE_DIR=${1:-"/workspaces/deeprte/ckpts/g0.1-gaussian-rte0202/141000"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/g0.1-gaussian-rte0202/infer"}
+DATA_DIR=${1:-"./data"}
+MODELS_DIR=${2:-"./models"}
 
-TRAIN_CKPT_DIR="$(dirname "${TRAIN_STATE_DIR}")"
-cp $TRAIN_CKPT_DIR/config.yaml $TRAIN_CKPT_DIR/temp.yaml
-echo "load_full_state_path: ${TRAIN_STATE_DIR}/train_state" >> $TRAIN_CKPT_DIR/temp.yaml
+DATASET_REPO="mazhengcn/rte-dataset"
+MODEL_REPO="mazhengcn/deeprte"
 
-python generate_param_only_checkpoint.py \
-    --config=${TRAIN_CKPT_DIR}/temp.yaml \
-    --checkpoint_dir=${CKPT_DIR}
+# Download rte-dataset
+huggingface-cli download mazhengcn/rte-dataset \
+    --exclude=interim/* \
+    --local-dir=${DATA_DIR} \
+    --repo-type=dataset
 
-rm -f $TRAIN_CKPT_DIR/temp.yaml
+# Download models
+huggingface-cli download mazhengcn/deeprte \
+    --local-dir=${MODELS_DIR} \
+    --repo-type=model
