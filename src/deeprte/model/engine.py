@@ -82,7 +82,7 @@ class RteEngine:
         """
         logging.info(
             "Running predict with shape(feat) = %s",
-            jax.tree_map(lambda x: x.shape, feat),
+            jax.tree.map(lambda x: x.shape, feat),
         )
         phase_feat, other_feat = features.split_feature(feat)
         predictions = self.predict_fn(phase_feat, other_feat)

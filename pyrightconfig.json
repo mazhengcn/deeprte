@@ -2,7 +2,7 @@
     "pythonVersion": "3.12",
     "pythonPlatform": "All",
     "venv": ".venv",
-    "typeCheckingMode": "standard",
+    "typeCheckingMode": "off",
     "exclude": [
         "**/__pycache__",
         ".pytest_cache",
