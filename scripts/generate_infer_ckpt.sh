@@ -14,8 +14,8 @@
 # limitations under the License.
 set -e
 
-TRAIN_STATE_DIR=${1:-"/workspaces/deeprte/ckpts/train/g0.5/500000"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.5-infer"}
+TRAIN_STATE_DIR=${1:-"/home/zheng/repos/deeprte/data/interim/ckpts/g0.1/500000"}
+CKPT_DIR=${2:-"/home/zheng/repos/deeprte/models/v2/g0.1"}
 
 TRAIN_CKPT_DIR="$(dirname "${TRAIN_STATE_DIR}")"
 cp $TRAIN_CKPT_DIR/config.yaml $TRAIN_CKPT_DIR/temp.yaml

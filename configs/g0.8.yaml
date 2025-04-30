@@ -1,7 +1,7 @@
 # Dataset type.
 dataset_type: grain
 # Path to directory where TFDS data is stored.
-data_dir: /workspaces/deeprte/data/raw_data/train/g0.8-sigma_a3-sigma_t6
+data_dir: /home/zheng/repos/deeprte/data/raw/train/g0.8-sigma_a3-sigma_t6
 # Name of TFDS dataset to use.
 dataset_name: g0.8-sigma_a3-sigma_t6.mat
 # TFDS split for training dataset.
@@ -24,4 +24,4 @@ num_train_steps: 500_001
 # Frequency of logging metrics during training, e.g. every 1_000 steps.
 log_every_steps: 1_000
 # Frequency of eval during training, e.g. every 1_000 steps.
-eval_every_steps: 50_000
+eval_every_steps: -1

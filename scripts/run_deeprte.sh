@@ -14,9 +14,9 @@
 # limitations under the License.
 set -e
 
-DATA_PATH=${1:-"/workspaces/deeprte/data/raw_data/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.5-infer"}
-OUTPUT_DIR=${3:-"/workspaces/deeprte/test"}
+DATA_PATH=${1:-"/home/zheng/repos/deeprte/data/raw/test/sin-rv-g0.1-amplitude5-wavenumber10/sin-rv-g0.1-amplitude5-wavenumber10.mat"}
+MODEL_DIR=${2:-"/home/zheng/repos/deeprte/models/v2/g0.1"}
+OUTPUT_DIR=${3:-"/home/zheng/repos/deeprte/reports/tmp"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
