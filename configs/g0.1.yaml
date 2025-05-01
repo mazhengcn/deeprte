@@ -1,7 +1,7 @@
 # Dataset type.
 dataset_type: grain
 # Path to directory where TFDS data is stored.
-data_dir: /home/zheng/repos/deeprte/data/raw/train/g0.1-sigma_a3-sigma_t6
+data_dir: ./data/raw/train/g0.1-sigma_a3-sigma_t6
 # Name of TFDS dataset to use.
 dataset_name: g0.1-sigma_a3-sigma_t6.mat
 # TFDS split for training dataset.

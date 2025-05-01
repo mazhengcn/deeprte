@@ -14,7 +14,6 @@
 
 
 import json
-import os
 import pathlib
 import time
 from typing import Any
@@ -36,7 +35,9 @@ logging.set_verbosity(logging.INFO)
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("config", None, "Path to the configuration file.")
+flags.DEFINE_string(
+    "model_dir", None, "Model directory containing the params and config."
+)
 flags.DEFINE_string("data_path", None, "Path to directory containing the data.")
 flags.DEFINE_string(
     "output_dir",
@@ -46,7 +47,7 @@ flags.DEFINE_string(
 )
 flags.DEFINE_bool("benchmark", True, "If True, benchmark the model.")
 flags.DEFINE_integer("num_eval", None, "Number of examples to evaluate.")
-flags.mark_flags_as_required(["config", "data_path", "output_dir"])
+flags.mark_flags_as_required(["model_dir", "data_path", "output_dir"])
 
 
 def rmse(pred, target):
@@ -176,8 +177,7 @@ def predict_radiative_transfer(
                 t_diff = time.time() - t_0
                 timings["predict_benchmark"] = t_diff
                 logging.info(
-                    "Total JAX model predict time "
-                    "(excludes compilation time): %.6fs",
+                    "Total JAX model predict time (excludes compilation time): %.6fs",
                     t_diff,
                 )
         else:
@@ -254,25 +254,30 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
+    model_dir = pathlib.Path(FLAGS.model_dir)
     output_dir = pathlib.Path(FLAGS.output_dir)
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
 
     logging.info("Writing config file...")
-    config_path = os.path.join(output_dir, "config.json")
-    config = {
-        "config": FLAGS.config,
+    record_config_path = output_dir / "config.json"
+    model_config_path = model_dir / "config.json"
+    record_config = {
+        "config": str(model_config_path),
         "data_dir": FLAGS.data_path,
     }
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=4)
+    with record_config_path.open("w") as f:
+        json.dump(record_config, f, indent=2)
 
     data_path = pathlib.Path(FLAGS.data_path)
     data_pipeline = pipeline.DataPipeline(data_path.parent, [data_path.name])
     logging.info("Data pipeline created from %s", FLAGS.data_path)
 
-    config = default.get_config(FLAGS.config)
-    rte_engine = RteEngine(config)
+    model_config = default.get_config(model_config_path)
+    model_config = model_config.replace(
+        load_parameters_path=model_dir.resolve() / "params"
+    )
+    rte_engine = RteEngine(model_config)
 
     logging.info("Running prediction...")
     predict_radiative_transfer(

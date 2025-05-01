@@ -14,13 +14,13 @@
 # limitations under the License.
 set -e
 
-DATA_PATH=${1:-"/home/zheng/repos/deeprte/data/raw/test/sin-rv-g0.1-amplitude5-wavenumber10/sin-rv-g0.1-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"/home/zheng/repos/deeprte/models/v2/g0.1"}
-OUTPUT_DIR=${3:-"/home/zheng/repos/deeprte/reports/tmp"}
+DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
+MODEL_DIR=${2:-"./models/v1/g0.5"}
+OUTPUT_DIR=${3:-"./reports"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
 python run_deeprte.py \
-  --config="${MODEL_DIR}/config.yaml" \
+  --model_dir="${MODEL_DIR}" \
   --data_path="${DATA_PATH}" \
   --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"

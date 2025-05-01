@@ -1,10 +1,10 @@
 import dataclasses
+import json
+import pathlib
 
 import jax
 import jax.numpy as jnp
 import optax
-import tensorflow as tf
-import yaml
 from absl import logging
 from clu import metric_writers, periodic_actions
 from flax import nnx
@@ -85,15 +85,18 @@ def evaluate(model, metrics, eval_iter, subcollocation_size: int = 128):
             eval_step(model, metrics, subcollocation_feat | other_feat)
 
 
-def train_and_evaluate(config: default.Config, workdir: str):
+def train_and_evaluate(config: default.Config, workdir: str | pathlib.Path):
     """Runs a training and evaluation loop.
 
     Args:
       config: Configuration to use.
       workdir: Working directory for checkpoints and TF summaries. If this
         contains checkpoint training will be resumed from the latest checkpoint.
+
     """
-    tf.io.gfile.makedirs(workdir)
+    # tf.io.gfile.makedirs(workdir)
+    workdir = pathlib.Path(workdir).resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
 
     init_rng = jax.random.key(config.seed)
 
@@ -161,8 +164,8 @@ def train_and_evaluate(config: default.Config, workdir: str):
     start_step = optimizer.step.value // config.micro_steps
     if start_step == 0:
         writer.write_hparams(dataclasses.asdict(config))
-        with open(f"{workdir}/config.yaml", "w") as f:
-            yaml.dump(dataclasses.asdict(config), f)
+        with (workdir / "config.json").open("w") as f:
+            json.dump(dataclasses.asdict(config), f, indent=2)
 
     # Main Train Loop
     # ---------------------------------------------------------------------------
