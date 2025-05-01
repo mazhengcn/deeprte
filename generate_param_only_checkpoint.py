@@ -1,8 +1,9 @@
 import dataclasses
+import json
+import pathlib
 
 import jax
 import optax
-import yaml
 from absl import app, flags, logging
 from etils import epath
 from flax import nnx
@@ -44,13 +45,11 @@ def _read_train_checkpoint(config, mesh):
 
 
 def generate_infer_checkpoint(config, checkpoint_dir):
-    """
-    Generate an inference checkpoint and params checkpoint from a given training checkpoint.
+    """Generate an inference checkpoint and params checkpoint from a given training checkpoint.
     - Training checkpoint is loaded from config.load_full_state_path.
     - Inference checkpoint will be saved at the checkpoint directory under 0/train_state folder.
     - Params checkpoint will be saved at the checkpoint driectory under params folder.
     """
-
     devices_array = train_utils.create_device_mesh(config)
     mesh = Mesh(devices_array, config.mesh_axes)
 
@@ -91,10 +90,10 @@ def generate_infer_checkpoint(config, checkpoint_dir):
     )
     config_dict = dataclasses.asdict(model_config)
     config_dict["load_full_state_path"] = config.load_full_state_path
-    with open(f"{checkpoint_dir}/config.yaml", "w") as f:
-        yaml.dump(config_dict, f)
+    with pathlib.Path(f"{checkpoint_dir}/config.json").open("w") as f:
+        json.dump(config_dict, f, indent=2)
     logging.info(
-        f"Successfully save model config file at: {checkpoint_dir}/config.yaml"
+        f"Successfully save model config file at: {checkpoint_dir}/config.json"
     )
 
     return True
