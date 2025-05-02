@@ -1,9 +1,3 @@
-"""This file is intentionally kept short.
-
-The majority for logic is in libraries
-that can be easily tested and imported in Colab.
-"""
-
 import jax
 import tensorflow as tf
 from absl import app, flags, logging
