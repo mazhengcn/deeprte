@@ -9,9 +9,9 @@ _DeepRTE is a neural operator architecture designed for solving the Radiative Tr
 
 DeepRTE learns the solution operator:
 
-$$
+```math
   \mathcal{A}: (I_{-}; \mu_t, \mu_s, p) \to I,
-$$
+```
 
 of the following steady-state radiative transfer equaiton,
 
@@ -21,15 +21,15 @@ of the following steady-state radiative transfer equaiton,
 
 with in-flow boundary condition:
 
-$$
+```math
   I(\mathbf{r},\mathbf{\Omega}) = I_{-}(\mathbf{r},\mathbf{\Omega}), \quad\text{on } \Gamma_{-},
-$$
+```
 
 where
 
-$$
+```math
   \Gamma_{-} = \{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0 \}.
-$$
+```
 
 <!-- ## Repository Structure
 
