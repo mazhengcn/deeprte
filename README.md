@@ -15,9 +15,9 @@ $$
 
 of the following steady-state radiative transfer equaiton,
 
-$$
-  \Omega \cdot \nabla I(r, \Omega) + \mu_t(r) I(r, \Omega) = \frac{\mu_s(r)}{\mathbb{S}_d} \int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*) d\Omega^*,
-$$
+```math
+  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \frac{\mu_s(r)}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*)d\Omega^*,
+```
 
 with in-flow boundary condition:
 
