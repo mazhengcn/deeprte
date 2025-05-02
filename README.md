@@ -2,7 +2,7 @@
 
 [**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and pretrained models**](#datasets-and-pretrained-models)
 
-DeepRTE is a neural operator architecture designed for solving the Radiative Transfer Equation (RTE) in the phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets.
+_DeepRTE is a neural operator architecture designed for solving the Radiative Transfer Equation (RTE) in the phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
 
 
 ## Overview
@@ -17,8 +17,8 @@ of the following steady-state radiative transfer equaiton,
 
 $$
   \mathbf{\Omega} \cdot \nabla I(\mathbf{r}, \mathbf{\Omega}) + \mu_t(\mathbf{r}) I(\mathbf{r}, \mathbf{\Omega}) =
-  \frac{\mu_s(\mathbf{r})}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\mathbf{\Omega}, \mathbf{\Omega}^*)
-  I(\mathbf{r},\mathbf{\Omega}^*)\,\mathrm{d}\mathbf{\Omega}^*,
+  \frac{\mu_s(\mathbf{r})}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\mathbf{\Omega}, mathbf{\Omega}^*)
+  I(\mathbf{r},\mathbf{\Omega}^*)\mathrm{d}\mathbf{\Omega}^*,
 $$
 
 with in-flow boundary condition:
