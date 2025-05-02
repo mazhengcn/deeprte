@@ -1,6 +1,6 @@
 # DeepRTE: neural operator for radiative transfer
 
-[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and pretrained models**](#datasets-and-pretrained-models)
+[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and pretrained models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte)
 
 _DeepRTE is a neural operator architecture designed for solving the Radiative Transfer Equation (RTE) in the phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
 
@@ -16,7 +16,7 @@ DeepRTE learns the solution operator:
 of the following steady-state radiative transfer equaiton,
 
 ```math
-  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \frac{\mu_s(r)}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*)d\Omega^*,
+  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \mu_s(r)\int p(\Omega,\Omega^*)I(r,\Omega^*)d\Omega^*,
 ```
 
 with in-flow boundary condition:
@@ -174,37 +174,67 @@ uv run ./scrips/download_dataset_and_models.sh
 
 ## Run DeepRTE
 
-
-
-## Training
-
-To start a training experiment:
+To run DeepRTE inference, use
 
 ```bash
-./run_train.sh <DATA_PATH>
+uv run run_deeprte.py --model_dir=${MODEL_DIR} --data_path=${DATA_PATH} --output_dir=${OUTPUT_DIR}
 ```
 
-- Reads training config from `deeprte/config.py` and model config from `deeprte/model/config.py`.
-- Loads dataset from `<DATA_PATH>`.
-- Runs training and evaluation in multithreaded mode.
-- Saves configs, checkpoints, and model parameters to `./data/experiments/square_full_*_${TIMESTAMP}`.
-
----
-
-## Evaluation
-
-To evaluate a trained model:
+or
 
 ```bash
-./run_eval.sh <RESTORE_PATH> <TEST_DATA_PATH> <EVAL_CKPT_DIR>
+python run_deeprte.py --model_dir=${MODEL_DIR} --data_path=${DATA_PATH} --output_dir=${OUTPUT_DIR}
 ```
 
-- Reads configs from `deeprte/config.py` and `deeprte/model/config.py`.
-- Loads model parameters from `<RESTORE_PATH>`.
-- Loads evaluation dataset from `<TEST_DATA_PATH>`.
-- Saves evaluation logs to `<EVAL_CKPT_DIR>`.
+where `${MODEL_DIR}` is the pretrained model params and config downloaded in previous step, `${DATA_PATH}` is the data path for inference, `${OUTPUT_DIR}` is the ourput directory you want to store the results.
 
----
+For example,
+
+```bash
+DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
+MODEL_DIR=${2:-"./models/v1/g0.5"}
+OUTPUT_DIR=${3:-"./reports"}
+
+TIMESTAMP="$(date --iso-8601="seconds")"
+
+python run_deeprte.py \
+  --model_dir="${MODEL_DIR}" \
+  --data_path="${DATA_PATH}" \
+  --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
+```
+
+And a convenient shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) is provided with above content to run deeprte inference:
+
+```bash
+uv run ./scripts/run_deeprte.sh
+```
+
+
+## Pretrain the DeepRTE
+
+If you want to train the DeepRTE from scratch, run following
+
+```bash
+python run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
+```
+
+or
+
+```bash
+uv run run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
+```
+
+After training the ckpts are saved under `${CKPT_DIR}`, to get inference ckpt please run
+
+```bash
+python generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
+```
+
+or
+
+```bash
+uv run  generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
+```
 
 ## Development Environment
 
