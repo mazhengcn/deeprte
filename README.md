@@ -17,8 +17,8 @@ of the following steady-state radiative transfer equaiton,
 
 $$
   \mathbf{\Omega} \cdot \nabla I(\mathbf{r}, \mathbf{\Omega}) + \mu_t(\mathbf{r}) I(\mathbf{r}, \mathbf{\Omega}) =
-  \mu_s(\mathbf{r})\left(\frac{1}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\mathbf{\Omega}, \mathbf{\Omega}^*)
-  I(\mathbf{r},\mathbf{\Omega}^*)\,\mathrm{d}\mathbf{\Omega}^*\right),
+  \mu_s(\mathbf{r})\bigg(\frac{1}{\mathbb{S}_d}\int_{\mathbb{S}^{d-1}} p(\mathbf{\Omega}, \mathbf{\Omega}^*)
+  I(\mathbf{r},\mathbf{\Omega}^*)\,\mathrm{d}\mathbf{\Omega}^*\bigg),
 $$
 
 with in-flow boundary condition:
@@ -30,7 +30,7 @@ $$
 where
 
 $$
-  \Gamma_{-} = \left\{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0\right\}.
+  \Gamma_{-} = \big\{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0\big\}.
 $$
 
 <!-- ## Repository Structure
@@ -59,7 +59,7 @@ deeprte/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/mazhengcn/deeprte.git --brance v1.0.0
+git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.0
 cd deeprte
 ```
 
