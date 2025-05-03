@@ -1,9 +1,8 @@
-# DeepRTE: neural operator for radiative transfer
+# DeepRTE: Neural Operator for Radiative Transfer
 
-[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and pretrained models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte)
+[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte)
 
-_DeepRTE is a neural operator architecture designed for solving the Radiative Transfer Equation (RTE) in the phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
-
+_DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
 
 ## Overview
 
@@ -13,13 +12,13 @@ DeepRTE learns the solution operator:
   \mathcal{A}: (I_{-}; \mu_t, \mu_s, p) \to I,
 ```
 
-of the following steady-state radiative transfer equaiton,
+for the following steady-state radiative transfer equation:
 
 ```math
   \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \mu_s(r)\int p(\Omega,\Omega^*)I(r,\Omega^*)d\Omega^*,
 ```
 
-with in-flow boundary condition:
+with the in-flow boundary condition:
 
 ```math
   I(\mathbf{r},\mathbf{\Omega}) = I_{-}(\mathbf{r},\mathbf{\Omega}), \quad\text{on } \Gamma_{-},
@@ -31,7 +30,8 @@ where
   \Gamma_{-} = \{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0 \}.
 ```
 
-<!-- ## Repository Structure
+<!--
+## Repository Structure
 
 ```bash
 deeprte/
@@ -50,26 +50,27 @@ deeprte/
 ├── run_eval.sh              # Script to launch evaluation
 ├── Dockerfile               # Container build file
 └── README.md                # This file
-``` -->
+```
+-->
 
 ## Setup
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.0
 cd deeprte
 ```
 
-### 2. Install dependencies
+### 2. Install Dependencies
 
-This project uses [```jax-ai-stack```](https://github.com/jax-ml/jax-ai-stack) (JAX, Flax, Optax, Orbax, ...). The recommended way to install dependencies is using [`uv`](https://github.com/astral-sh/uv). Simply run:
+This project uses [jax-ai-stack](https://github.com/jax-ml/jax-ai-stack) (JAX, Flax, Optax, Orbax, etc.). The recommended way to install dependencies is with [`uv`](https://github.com/astral-sh/uv):
 
 ```bash
 uv sync
 ```
 
-to install all the neccesary dependencies including the project itself or if you want to use nvidia gpu (of course you want):
+This installs all necessary dependencies, including the project itself. For NVIDIA GPU support, use:
 
 ```bash
 uv sync --extra cuda
@@ -81,29 +82,29 @@ For development, run:
 uv sync --dev --all-extras
 ```
 
-which will install all the dev dependencies.
+to install all development dependencies.
 
 ### 3. Container
 
-This repository also provide a [Dockerfile](./Dockerfile) to build the runtime image for inference. You can build the image by running:
+A [Dockerfile](./Dockerfile) is provided to build a runtime image for inference:
 
 ```bash
 docker build -t deeprte .
 ```
 
-#### Dev container
+#### Dev Container
 
-For development, this repository also provides a [devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) for reproducible development. You can open the repo root folder in VSCode and it will automatically build the container with all dependencies and developing tools, and also the needed data folder volume mount. The python and its dependencies are also managed by `uv`.
+For development, a [devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) is available for reproducible environments. Open the repository root in VSCode, and it will automatically build the container with all dependencies, development tools, and required data volume mounts. Python and its dependencies are managed by `uv`.
 
-The devcontainer [.devcontainer/Dockerfile](./.devcontainer/Dockerfile) and [.devcontainer/devcontainer.json](./.devcontainer/devcontainer.json) config can be found under [.devcontainer](./.devcontainer) folder. You can modify it for your own preference.
+The devcontainer configuration files are located in [.devcontainer/](./.devcontainer). You can modify them as needed.
 
-## Datasets and pretrained models
+## Datasets and Pretrained Models
 
-### Download datasets
+### Download Datasets
 
-The datasets for train and test deeprte are generated using conventional numerical methods writtern in MATLAB and Python. The source code can be found in a separate repo [rte-dataset](https://github.com/mazhengcn/rte-dataset), for more detailed information, please check that repo.
+Datasets for training and testing DeepRTE are generated using conventional numerical methods in MATLAB and Python. The source code is available in a separate repository: [rte-dataset](https://github.com/mazhengcn/rte-dataset). For more details, refer to that repository.
 
-The datasets for inference (test) and pretrain are in Huggingface repo https://huggingface.co/datasets/mazhengcn/rte-dataset. The datasets can be download to `DATA_DIR` by (the huggingface-cli should be installed first, if you follow above setup then you already have it, otherwise check https://huggingface.co/docs/huggingface_hub/guides/cli):
+Inference (test) and pretraining datasets are hosted on Huggingface: https://huggingface.co/datasets/mazhengcn/rte-dataset. Download datasets to `DATA_DIR` with (ensure `huggingface-cli` is installed; if you followed the setup above, it is already included):
 
 ```bash
 huggingface-cli download mazhengcn/rte-dataset \
@@ -112,19 +113,19 @@ huggingface-cli download mazhengcn/rte-dataset \
     --local-dir=${DATA_DIR}
 ```
 
-The resulting folder structure should be (for inference we only need datasets under `raw/test`):
+The resulting folder structure should be (for inference, only datasets under `raw/test` are needed):
 
 ```bash
 ${DATA_DIR}
 ├── processed
 │   └── tfds      # Processed TFDS dataset for pretraining.
 ├── raw
-│   ├── test      # Raw Matlab dataset for test/inference.
-│   └── train     # Raw Matlab dataset for pretraining using grain.
+│   ├── test      # Raw MATLAB dataset for test/inference.
+│   └── train     # Raw MATLAB dataset for pretraining using grain.
 └── README.md
 ```
 
-Each Matlab dataset contains the following keys:
+Each MATLAB dataset contains the following keys:
 
 | Key            | Array Shape     | Description                                 |
 | -------------- | --------------- | ------------------------------------------- |
@@ -138,9 +139,9 @@ Each Matlab dataset contains the following keys:
 | `ct`, `st`     | `[1, M]`        | Discrete velocity coordinates (quadratures) |
 | `omega`        | `[1, M]`        | Weights of velocity coordinates             |
 
-### Download pretrained models
+### Download Pretrained Models
 
-The pretrained models can be loaded to `MODEL_DIR` from Huggingface using:
+Pretrained models can be downloaded to `MODEL_DIR` from Huggingface:
 
 ```bash
 huggingface-cli download mazhengcn/deeprte \
@@ -148,13 +149,13 @@ huggingface-cli download mazhengcn/deeprte \
     --local-dir=${MODELS_DIR}
 ```
 
-with the following folder structure:
+The folder structure will be:
 
 ```bash
 ${MODELS_DIR}
 ├── README.md
-├── v0                    # Pre-release version corresponding to branch deeprte-haiku, depracated.
-└── v1                    # Current release models for difference scattering kernel range.
+├── v0                    # Pre-release version (deprecated).
+└── v1                    # Current release models for different scattering kernel ranges.
     ├── g0.1
     │   ├── config.json
     │   └── params
@@ -166,29 +167,23 @@ ${MODELS_DIR}
         └── params
 ```
 
-We provide a convient shell script at [scripts/download_dataset_and_models.sh](./scripts/download_dataset_and_models.sh) to download datasets to [./data](./data/) and pretrained models under [./models](./models/) by
+A convenient shell script [scripts/download_dataset_and_models.sh](./scripts/download_dataset_and_models.sh) is provided to download datasets to [./data](./data/) and pretrained models to [./models](./models/):
 
 ```bash
-uv run ./scrips/download_dataset_and_models.sh
+uv run ./scripts/download_dataset_and_models.sh
 ```
 
 ## Run DeepRTE
 
-To run DeepRTE inference, use
+To run DeepRTE inference:
 
 ```bash
 uv run run_deeprte.py --model_dir=${MODEL_DIR} --data_path=${DATA_PATH} --output_dir=${OUTPUT_DIR}
 ```
 
-or
+where `${MODEL_DIR}` is the pretrained model directory, `${DATA_PATH}` is the data path for inference, and `${OUTPUT_DIR}` is the directory to store results.
 
-```bash
-python run_deeprte.py --model_dir=${MODEL_DIR} --data_path=${DATA_PATH} --output_dir=${OUTPUT_DIR}
-```
-
-where `${MODEL_DIR}` is the pretrained model params and config downloaded in previous step, `${DATA_PATH}` is the data path for inference, `${OUTPUT_DIR}` is the ourput directory you want to store the results.
-
-For example,
+For example:
 
 ```bash
 DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
@@ -203,28 +198,21 @@ python run_deeprte.py \
   --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
 ```
 
-And a convenient shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) is provided with above content to run deeprte inference:
+A shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) is also provided for convenience:
 
 ```bash
 uv run ./scripts/run_deeprte.sh
 ```
 
+## Pretrain DeepRTE
 
-## Pretrain the DeepRTE
-
-If you want to train the DeepRTE from scratch, run following
-
-```bash
-python run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
-```
-
-or
+To train DeepRTE from scratch, run:
 
 ```bash
 uv run run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
 ```
 
-After training the ckpts are saved under `${CKPT_DIR}`, to get inference ckpt please run
+After training, checkpoints are saved under `${CKPT_DIR}`. To generate an inference checkpoint, run:
 
 ```bash
 python generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
@@ -233,7 +221,7 @@ python generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --
 or
 
 ```bash
-uv run  generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
+uv run generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
 ```
 
 ## Development Environment
@@ -246,7 +234,7 @@ This repository is ready for use with VSCode Dev Containers. The `.devcontainer/
 - Volume mounts for data, virtual environments, and cache
 - Automatic environment sync and pre-commit hooks
 
-To use, simply open the folder in VSCode and select "Reopen in Container".
+To get started, open the folder in VSCode and select "Reopen in Container".
 
 ---
 
