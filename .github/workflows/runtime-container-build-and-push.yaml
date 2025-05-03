@@ -11,7 +11,7 @@ on:
   pull_request:
 
 jobs:
-  docker:
+  build-and-push:
     runs-on: self-hosted
     steps:
       - name: Docker meta
