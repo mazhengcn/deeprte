@@ -23,14 +23,14 @@ RUN --mount=type=bind,source=.python-version,target=.python-version \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --all-extras --no-dev
 # Install the project
 COPY . /deeprte
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --all-extras --no-dev
 
 # Then, use a final image without uv
-FROM debian:slim-bookworm
+FROM debian:bookworm-slim
 
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
@@ -40,3 +40,5 @@ COPY --from=builder --chown=deeprte:deeprte /deeprte /deeprte
 
 # Place executables in the environment at the front of the path
 ENV PATH="/deeprte/.venv/bin:$PATH"
+
+WORKDIR /deeprte

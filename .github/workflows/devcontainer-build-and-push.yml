@@ -1,11 +1,11 @@
 name: Dev containers build and push
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 20 * * 0'
-  push:
-    branches:
-      - main
+  # schedule:
+  #   - cron: '0 20 * * 0'
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   build:
