@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --all-extras --no-dev
 
 # Then, use a final image without uv
-FROM ghcr.io/astral-sh/uv:debian-slim
+FROM debian:bookworm-slim
 
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
