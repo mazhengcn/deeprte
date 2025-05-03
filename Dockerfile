@@ -1,5 +1,5 @@
-# First, build the application in the `/app` directory
-FROM ghcr.io/astral-sh/uv:bookworm-slim AS builder
+# First, build the application in the `/deeprte` directory
+FROM ghcr.io/astral-sh/uv:debian-slim AS builder
 # Install system packages
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --all-extras --no-dev
 
 # Then, use a final image without uv
-FROM debian:bookworm-slim
+FROM ghcr.io/astral-sh/uv:debian-slim
 
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
