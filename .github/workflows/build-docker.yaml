@@ -1,11 +1,9 @@
 name: Build and Push Docker Image
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 10 * * *"
+  # schedule:
+  #   - cron: "0 10 * * *"
   push:
-    branches:
-      - "**"
     tags:
       - "v*.*.*"
   pull_request:
@@ -28,15 +26,12 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             ghcr.io/${{ github.repository}}
+          flavor: |
+            latest=auto
           # generate Docker tags based on the following events/attributes
           tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha
+            type=semver,pattern={{ version }}
+            type=sha,format=long
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
