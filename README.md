@@ -32,10 +32,9 @@ where
 
 ### Architecture
 
-<div align="center" style="background: linear-gradient(135deg, #f7fafc 0%, #e3eaf6 100%); padding: 20px; border-radius: 20px;">
-  <img src="./reports/figures/architecture.png" alt="Architecture" style="border-radius: 16px; max-width: 100%;">
+<div style="display: flex; justify-content: center;">
+  <img src="./reports/figures/architecture.png" alt="Architecture" style="border-radius: 22px; border: 2.5px solid #b3c6e0; max-width: 100%; box-shadow: 0 2px 16px rgba(0,0,0,0.07);">
 </div>
-
 
 ## Setup
 
