@@ -1,6 +1,6 @@
 # DeepRTE: Neural Operator for Radiative Transfer
 
-[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte)
+[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte) | [**Pretrain DeepRTE**](#pretrain-deeprte) | [**Repository Structure**](#repository-structure) | [**References**](#references)
 
 _DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
 
@@ -30,28 +30,12 @@ where
   \Gamma_{-} = \{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0 \}.
 ```
 
-<!--
-## Repository Structure
+### Architecture
 
-```bash
-deeprte/
-├── .devcontainer/           # VSCode devcontainer configuration
-├── data/                    # (Mounted) Datasets directory
-├── src/
-│   └── deeprte/
-│       ├── train_lib/
-│       │   └── multihost_dataloading.py  # Multi-host dataloader utilities
-│       ├── config.py        # Training configuration
-│       └── model/
-│           └── config.py    # Model configuration
-├── download_datasets.sh     # Script to download datasets
-├── convert_dataset.sh       # Script to convert MATLAB to Numpy datasets
-├── run_train.sh             # Script to launch training
-├── run_eval.sh              # Script to launch evaluation
-├── Dockerfile               # Container build file
-└── README.md                # This file
-```
--->
+The architecture containers two modules (Attenuation + Scattering):
+
+![Architecture](./reports/figures/architecture.png)
+
 
 ## Setup
 
@@ -86,7 +70,19 @@ to install all development dependencies.
 
 ### 3. Container
 
-A [Dockerfile](./Dockerfile) is provided to build a runtime image for inference:
+A pre-built runtime container is available. To pull the latest image, run:
+
+```bash
+docker pull ghcr.io/mazhengcn/deeprte:latest
+```
+
+Start the container with:
+
+```bash
+docker run --gpus=all --shm-size=1g ghcr.io/mazhengcn/deeprte:latest /bin/bash
+```
+
+Alternatively, if you prefer to build the image yourself, use the provided [Dockerfile](./Dockerfile):
 
 ```bash
 docker build -t deeprte .
@@ -94,9 +90,9 @@ docker build -t deeprte .
 
 #### Dev Container
 
-For development, a [devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) is available for reproducible environments. Open the repository root in VSCode, and it will automatically build the container with all dependencies, development tools, and required data volume mounts. Python and its dependencies are managed by `uv`.
+For development, a [devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) is provided to ensure a reproducible environment. Simply open the repository root in VSCode, and the container will be built automatically with all required dependencies, development tools, and data volume mounts. Python and its dependencies are managed by `uv`.
 
-The devcontainer configuration files are located in [.devcontainer/](./.devcontainer). You can modify them as needed.
+The devcontainer configuration files are located in the [.devcontainer/](./.devcontainer) directory and can be customized as needed.
 
 ## Datasets and Pretrained Models
 
@@ -198,7 +194,7 @@ python run_deeprte.py \
   --output_dir="${OUTPUT_DIR}/${TIMESTAMP%+*}"
 ```
 
-A shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) is also provided for convenience:
+A shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) containing above contents is also provided for convenience, you can modify it and run:
 
 ```bash
 uv run ./scripts/run_deeprte.sh
@@ -215,35 +211,53 @@ uv run run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
 After training, checkpoints are saved under `${CKPT_DIR}`. To generate an inference checkpoint, run:
 
 ```bash
-python generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
-```
-
-or
-
-```bash
 uv run generate_param_only_checkpoint.py --train_state_dir=${TRAIN_STATE_DIR} --checkpoint_dir=${CKPT_DIR}
 ```
 
-## Development Environment
+You can also modify and run the convenient scripts:
 
-This repository is ready for use with VSCode Dev Containers. The `.devcontainer/devcontainer.json` configures:
+```bash
+uv run ./scripts/run_train.sh
+```
 
-- Python, Jupyter, TensorBoard, and other useful extensions
-- GPU access (`--gpus=all`)
-- Shared memory and security options
-- Volume mounts for data, virtual environments, and cache
-- Automatic environment sync and pre-commit hooks
+```bash
+uv run ./scripts/generate_param_only_checkpoint.sh
+```
 
-To get started, open the folder in VSCode and select "Reopen in Container".
+## Repository Structure
 
----
+```bash
+deeprte
+├── configs                                       # Model conifgs for training.
+├── data                                          # Dataset directory.
+├── Dockerfile                                    # Runtime Dockerfile.
+├── generate_param_only_checkpoint.py             # Convert train ckpts to infer ckpts.
+├── LICENSE
+├── models                                        # Pretrained model directory.
+├── notebooks                                     # Notebook directory for testing.
+├── pyproject.toml                                # Python project.toml.
+├── pyrightconfig.json
+├── README.md
+├── reports
+├── ruff.toml
+├── run_deeprte.py                                 # Run deeprte inference script.
+├── run_train.py                                   # Train script entrance.
+├── scripts
+├── src
+│   └── deeprte                                    # Libraries source dir.
+│       ├── configs                                # Default config.
+│       ├── __init__.py
+│       ├── input_pipeline                         # Inpute pipeline.
+│       ├── model                                  # Model directory.
+│       └── train_lib                              # Train library.
+└── uv.lock
+```
 
 ## References
 
 - [Radiative Transfer Equation (Wikipedia)](https://en.wikipedia.org/wiki/Radiative_transfer_equation)
-- [JAX Documentation](https://jax.readthedocs.io/)
+- [JAX AI Stack](https://docs.jaxstack.ai/en/latest/)
+- [uv](https://docs.astral.sh/uv/)
 - [VSCode Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)
-
----
 
 For questions or contributions, please open an issue or pull request.
