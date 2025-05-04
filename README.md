@@ -32,9 +32,9 @@ where
 
 ### Architecture
 
-The architecture containers two modules (Attenuation + Scattering):
-
-![Architecture](./reports/figures/architecture.png)
+<div align="center" style="background: linear-gradient(135deg, #f7fafc 0%, #e3eaf6 100%); padding: 20px; border-radius: 20px;">
+  <img src="./reports/figures/architecture.png" alt="Architecture" style="border-radius: 16px; max-width: 100%;">
+</div>
 
 
 ## Setup
