@@ -20,16 +20,17 @@
     "mounts": [
         "type=volume,src=rte_data,dst=${containerWorkspaceFolder}/data",
         "type=volume,src=${localWorkspaceFolderBasename}-venv,dst=${containerWorkspaceFolder}/.venv",
-        "type=volume,src=uv-cache,dst=/home/vscode/.cache/uv"
+        "type=volume,src=uv-cache,dst=/tmp/uv-cache"
     ],
     "runArgs": [
+        "--cap-add=SYS_PTRACE",
         "--security-opt=seccomp=unconfined",
         "--gpus=all",
         "--shm-size=1g"
     ],
     "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): data && sudo chown -R $(whoami): $HOME/.cache",
-        "sync-environment": "uv sync --frozen"
+        "fix-volume-permissions": "sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): data",
+        "sync-environment": "uv sync --frozen --all-extras"
     },
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"

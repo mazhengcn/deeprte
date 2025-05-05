@@ -1,9 +1,3 @@
-"""This file is intentionally kept short.
-
-The majority for logic is in libraries
-that can be easily tested and imported in Colab.
-"""
-
 import jax
 import tensorflow as tf
 from absl import app, flags, logging
@@ -21,9 +15,9 @@ flags.DEFINE_string(
 flags.mark_flags_as_required(["config", "workdir"])
 
 
-def main(argv):
+def main(argv) -> None:  # noqa: ANN001, D103
     if len(argv) > 1:
-        raise app.UsageError("Too many command-line arguments.")
+        raise app.UsageError("Too many command-line arguments.")  # noqa: EM101, TRY003
 
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.
@@ -35,8 +29,7 @@ def main(argv):
     # Add a note so that we can tell which task is which JAX host.
     # (Depending on the platform task 0 is not guaranteed to be host 0)
     platform.work_unit().set_task_status(
-        f"process_index: {jax.process_index()}, "
-        f"process_count: {jax.process_count()}"
+        f"process_index: {jax.process_index()}, process_count: {jax.process_count()}"
     )
     platform.work_unit().create_artifact(
         platform.ArtifactType.DIRECTORY, FLAGS.workdir, "workdir"

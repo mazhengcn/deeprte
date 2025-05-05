@@ -14,15 +14,9 @@
 # limitations under the License.
 set -e
 
-TRAIN_STATE_DIR=${1:-"/workspaces/deeprte/ckpts/train/g0.5/500000"}
-CKPT_DIR=${2:-"/workspaces/deeprte/ckpts/infer/g0.5-infer"}
-
-TRAIN_CKPT_DIR="$(dirname "${TRAIN_STATE_DIR}")"
-cp $TRAIN_CKPT_DIR/config.yaml $TRAIN_CKPT_DIR/temp.yaml
-echo "load_full_state_path: ${TRAIN_STATE_DIR}/train_state" >> $TRAIN_CKPT_DIR/temp.yaml
+TRAIN_STATE_DIR=${1:-"./data/interim/ckpts/v1/g0.5/500000"}
+CKPT_DIR=${2:-"./models/v1/g0.5"}
 
 python generate_param_only_checkpoint.py \
-    --config=${TRAIN_CKPT_DIR}/temp.yaml \
+    --train_state_dir=${TRAIN_STATE_DIR} \
     --checkpoint_dir=${CKPT_DIR}
-
-rm -f $TRAIN_CKPT_DIR/temp.yaml

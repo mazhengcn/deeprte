@@ -1,8 +1,9 @@
 import dataclasses
+import json
+import pathlib
 
 import jax
 import optax
-import yaml
 from absl import app, flags, logging
 from etils import epath
 from flax import nnx
@@ -14,11 +15,9 @@ from deeprte.train_lib import checkpointing, optimizers
 from deeprte.train_lib import utils as train_utils
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string(
-    "config", None, "File path to the training hyperparameter configuration."
-)
+flags.DEFINE_string("train_state_dir", None, "Training state directory to load from.")
 flags.DEFINE_string("checkpoint_dir", None, "Directory to store model params.")
-flags.mark_flags_as_required(["config", "checkpoint_dir"])
+flags.mark_flags_as_required(["train_state_dir", "checkpoint_dir"])
 
 
 def _read_train_checkpoint(config, mesh):
@@ -44,19 +43,17 @@ def _read_train_checkpoint(config, mesh):
 
 
 def generate_infer_checkpoint(config, checkpoint_dir):
-    """
-    Generate an inference checkpoint and params checkpoint from a given training checkpoint.
+    """Generate an inference checkpoint and params checkpoint from a given training checkpoint.
     - Training checkpoint is loaded from config.load_full_state_path.
     - Inference checkpoint will be saved at the checkpoint directory under 0/train_state folder.
     - Params checkpoint will be saved at the checkpoint driectory under params folder.
     """
-
     devices_array = train_utils.create_device_mesh(config)
     mesh = Mesh(devices_array, config.mesh_axes)
 
     assert checkpoint_dir, "checkpoint_dir not configured"
     # Remove any old checkpoint
-    path = epath.Path(checkpoint_dir)
+    path = epath.Path(checkpoint_dir).resolve()
     if path.exists():
         if jax.process_index() == 0:
             path.rmtree()
@@ -68,7 +65,7 @@ def generate_infer_checkpoint(config, checkpoint_dir):
 
     # Save params to checkpoint directory under params folder
     logging.info(f"Save infer checkpoint at: {checkpoint_dir}")
-    checkpointing.save_params_to_path(f"{checkpoint_dir}/params", model_state)
+    checkpointing.save_params_to_path(path / "params", model_state)
     logging.info(
         f"Successfully generated params checkpoint at: {checkpoint_dir}/params"
     )
@@ -87,14 +84,13 @@ def generate_infer_checkpoint(config, checkpoint_dir):
         scattering_dim=config.scattering_dim,
         subcollocation_size=config.subcollocation_size,
         normalization=config.normalization,
-        load_parameters_path=f"{checkpoint_dir}/params",
+        load_parameters_path="./params",
     )
     config_dict = dataclasses.asdict(model_config)
-    config_dict["load_full_state_path"] = config.load_full_state_path
-    with open(f"{checkpoint_dir}/config.yaml", "w") as f:
-        yaml.dump(config_dict, f)
+    with pathlib.Path(f"{checkpoint_dir}/config.json").open("w") as f:
+        json.dump(config_dict, f, indent=2)
     logging.info(
-        f"Successfully save model config file at: {checkpoint_dir}/config.yaml"
+        f"Successfully save model config file at: {checkpoint_dir}/config.json"
     )
 
     return True
@@ -104,7 +100,9 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
-    config = default.get_config(FLAGS.config)
+    train_state_dir = pathlib.Path(FLAGS.train_state_dir).resolve()
+    config = default.get_config(train_state_dir.parent / "config.json")
+    config = config.replace(load_full_state_path=train_state_dir / "train_state")
     generate_infer_checkpoint(config, FLAGS.checkpoint_dir)
 
 

@@ -1,6 +1,9 @@
 {
     "files.insertFinalNewline": true,
     "files.trimTrailingWhitespace": true,
+    "files.exclude": {
+        "**/.venv": true
+    },
     "[python]": {
         "editor.codeActionsOnSave": {
             "source.fixAll": "explicit",
@@ -17,5 +20,5 @@
         "editor.autoIndent": "advanced",
         "editor.defaultFormatter": "redhat.vscode-yaml",
         "editor.formatOnSave": true,
-    }
+    },
 }

@@ -139,13 +139,11 @@ def create_init_fn(model_class, config, key, tx, sharded: bool = True):
         if tx:
             optimizer = nnx.Optimizer(model, tx)
             return model, optimizer
-        else:
-            return model
+        return model
 
     if sharded:
         return nnx.jit(init_fn)
-    else:
-        return init_fn
+    return init_fn
 
 
 def setup_training_state(
@@ -178,14 +176,13 @@ def setup_training_state(
         ):
             data_iterator.local_iterator = restored_train_state["data_iter"]
         nnx.update(optimizer, restored_train_state["train_state"])
+    elif restored_model_state:
+        nnx.update(model, restored_model_state)
+        optimizer = nnx.Optimizer(model, tx)
     else:
-        if restored_model_state:
-            nnx.update(model, restored_model_state)
-            optimizer = nnx.Optimizer(model, tx)
-        else:
-            init_model_and_opt = create_init_fn(model_class, config, rng, tx)
-            with mesh:
-                model, optimizer = init_model_and_opt()
+        init_model_and_opt = create_init_fn(model_class, config, rng, tx)
+        with mesh:
+            model, optimizer = init_model_and_opt()
 
     return model, optimizer, data_iterator
 

@@ -87,7 +87,7 @@ class Config:
     # Attention dimension.
     qkv_dim: int = 64
     # Output dimensions of attention.
-    optical_depth_dim: int = 17
+    optical_depth_dim: int = 2
     # Number of MLP layers.
     num_mlp_layers: int = 4
     # MLP dimension.
@@ -126,11 +126,12 @@ class Config:
         return dataclasses.replace(self, **kwargs)
 
 
-def get_config(cfg_path: str | None = None) -> Config:
+def get_config(cfg_path: str | None = None | pathlib.Path) -> Config:
     """Get the default hyperparameter configuration."""
     config = Config()
     if cfg_path:
-        suffix = pathlib.Path(cfg_path).suffix
+        cfg_path = pathlib.Path(cfg_path)
+        suffix = cfg_path.suffix
         if suffix in [".yaml", ".yml"]:
             file_loader = yaml.full_load
         elif suffix == ".json":
@@ -138,7 +139,7 @@ def get_config(cfg_path: str | None = None) -> Config:
         else:
             raise ValueError(f"Unsupported configuration file format: {suffix}")
 
-        with open(cfg_path, "r") as f:
+        with cfg_path.open("r") as f:
             cfg = file_loader(f)
 
         return config.replace(**cfg)
