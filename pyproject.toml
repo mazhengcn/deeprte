@@ -4,10 +4,10 @@ build-backend = "uv_build"
 
 [project]
 name = "deeprte"
-version = "2.0.0"
+version = "2.0.dev0"
 description = "Source code for solving radiative transfer equation using deep neural network"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ email = "mazhengcn@outlook.com" }, { name = "Zheng Ma" }]
 license = { text = "Apache License, Version 2.0" }
 classifiers = [
@@ -33,17 +33,10 @@ dependencies = [
 homepage = "https://github.com/mazhengcn/deeprte"
 
 [project.optional-dependencies]
-cuda = [
-    "jax-cuda12-plugin[with-cuda]>=0.5.3",
-]
+cuda = ["jax-cuda12-plugin[with-cuda]>=0.6.0"]
 
 [dependency-groups]
-dev = [
-    "jupyter>=1.1.1",
-    "penzai>=0.2.5",
-    "pre-commit>=4.2.0",
-    "ruff>=0.11.6",
-]
+dev = ["jupyter>=1.1.1", "penzai>=0.2.5", "pre-commit>=4.2.0", "ruff>=0.11.6"]
 
 [tool.uv.sources]
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
