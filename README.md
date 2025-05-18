@@ -72,7 +72,7 @@ to install all development dependencies.
 A pre-built runtime container is available. To pull the latest image, run:
 
 ```bash
-docker pull ghcr.io/mazhengcn/deeprte:latest
+docker pull ghcr.io/mazhengcn/deeprte:1.0.0
 ```
 
 Start the container with:
