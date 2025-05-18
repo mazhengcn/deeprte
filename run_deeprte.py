@@ -24,6 +24,7 @@ import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
 from rte_dataset.builders import pipeline
@@ -115,11 +116,11 @@ def plot_phi(r, phi_pre, phi_label, save_path):
 
 
 def predict_radiative_transfer(
-    output_dir_base: str,
+    output_dir_base: str | pathlib.Path,
     data_pipeline: pipeline.DataPipeline,
     engine: RteEngine,
     benchmark: bool,
-    num_eval: int = None,
+    num_eval: int | None = None,
 ):
     # Get features.
     raw_feature_dict = data_pipeline.process()
@@ -253,6 +254,10 @@ def predict_radiative_transfer(
 def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
+
+    # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
+    # it unavailable to JAX.
+    tf.config.set_visible_devices([], "GPU")
 
     model_dir = pathlib.Path(FLAGS.model_dir)
     output_dir = pathlib.Path(FLAGS.output_dir)

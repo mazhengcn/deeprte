@@ -1,11 +1,12 @@
 {
     "recommendations": [
         "ms-python.python",
-        "ms-toolsai.tensorboard",
-        "ms-toolsai.jupyter",
         "charliermarsh.ruff",
+        "astral-sh.ty",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.tensorboard",
         "redhat.vscode-yaml",
         "tamasfe.even-better-toml",
-        "yzhang.markdown-all-in-one"
+        "yzhang.markdown-all-in-one",
     ]
 }

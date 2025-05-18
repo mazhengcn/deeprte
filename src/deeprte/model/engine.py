@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
 
 import jax
 import jax.experimental
@@ -76,7 +75,7 @@ class RteEngine:
         """Processes features to prepare for feeding them into the model."""
         return features.np_data_to_features(raw_features)
 
-    def predict(self, feat: features.FeatureDict) -> Mapping[str, jax.Array]:
+    def predict(self, feat: features.FeatureDict) -> jax.Array:
         """Makes a prediction by inferencing the model on the provided
         features.
         """
