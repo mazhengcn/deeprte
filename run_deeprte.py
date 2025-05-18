@@ -21,7 +21,7 @@ from typing import Any
 import dill
 import jax
 import jax.numpy as jnp
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -46,20 +46,23 @@ flags.DEFINE_string(
     "Path to output directory. If not specified, a directory will be created "
     "in the system's temporary directory.",
 )
-flags.DEFINE_bool("benchmark", True, "If True, benchmark the model.")
+flags.DEFINE_bool("benchmark", True, "If True, benchmark the model.")  # noqa: FBT003
 flags.DEFINE_integer("num_eval", None, "Number of examples to evaluate.")
 flags.mark_flags_as_required(["model_dir", "data_path", "output_dir"])
 
 
-def rmse(pred, target):
+def rmse(pred: np.ndarray, target: np.ndarray) -> float:
+    """Compute the root mean square error (RMSE) between prediction and target."""
     return np.sqrt(np.mean((pred - target) ** 2) / np.mean(target**2))
 
 
-def mse(pred, target):
+def mse(pred: np.ndarray, target: np.ndarray) -> float:
+    """Compute the mean square error (MSE) between prediction and target."""
     return np.mean((pred - target) ** 2)
 
 
-def get_normalization_ratio(psi_range, boundary_range):
+def get_normalization_ratio(psi_range: list, boundary_range: list) -> float:
+    """Compute the normalization ratio between psi and boundary."""
     psi_range = float(psi_range.split(" ")[-1])
     boundary_range = float(boundary_range.split(" ")[-1])
     return psi_range / boundary_range
@@ -75,12 +78,31 @@ def _jnp_to_np(output: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
-def plot_phi(r, phi_pre, phi_label, save_path):
+def plot_phi(
+    r: np.ndarray,
+    phi_pre: np.ndarray,
+    phi_label: np.ndarray,
+    save_path: str | pathlib.Path,
+) -> None:
+    r"""Plot the exact, predicted, and absolute error of $f(r,\Omega)$ and save the figure.
+
+    Parameters
+    ----------
+    r : np.ndarray
+        The position coordinates array.
+    phi_pre : np.ndarray
+        The predicted phi values.
+    phi_label : np.ndarray
+        The exact phi values.
+    save_path : str or pathlib.Path
+        The path where the plot image will be saved.
+
+    """  # noqa: E501
     fig, _axs = plt.subplots(nrows=1, ncols=3, figsize=(20, 6))
     fig.subplots_adjust(hspace=0.3)
     axs = _axs.flatten()
 
-    viridis = matplotlib.colormaps["viridis"](np.linspace(0, 1.2, 128))
+    viridis = mpl.colormaps["viridis"](np.linspace(0, 1.2, 128))
     cs_1 = axs[0].contourf(
         r[..., 0], r[..., 1], phi_label, cmap=ListedColormap(viridis)
     )
@@ -115,13 +137,15 @@ def plot_phi(r, phi_pre, phi_label, save_path):
     plt.savefig(save_path)
 
 
-def predict_radiative_transfer(
-    output_dir_base: str | pathlib.Path,
+def predict_radiative_transfer(  # noqa: PLR0915
+    output_dir_base: pathlib.Path,
     data_pipeline: pipeline.DataPipeline,
     engine: RteEngine,
+    *,
     benchmark: bool,
     num_eval: int | None = None,
-):
+) -> None:
+    """Predict the radiative transfer equation (RTE) using the given engine."""
     # Get features.
     raw_feature_dict = data_pipeline.process()
 
@@ -144,7 +168,8 @@ def predict_radiative_transfer(
 
         feature_dict = {
             "functions": jax.tree.map(
-                lambda x: x[i : i + 1], raw_feature_dict["functions"]
+                lambda x: x[i : i + 1],  # noqa: B023
+                raw_feature_dict["functions"],
             ),
             "grid": raw_feature_dict["grid"],
             "shape": raw_feature_dict["shape"],
@@ -152,7 +177,7 @@ def predict_radiative_transfer(
 
         # Write out features as a pickled dictionary.
         features_output_path = output_dir / "features.dill"
-        with open(features_output_path, "wb") as f:
+        with features_output_path.open("wb") as f:
             dill.dump(feature_dict, f)
 
         # Run the model.
@@ -230,15 +255,15 @@ def predict_radiative_transfer(
             "phi_label": phi_label,
         }
         result_output_path = output_dir / "result.dill"
-        with open(result_output_path, "wb") as f:
+        with result_output_path.open("wb") as f:
             dill.dump(np_result, f)
 
         metrics_output_path = output_dir / "metrics.json"
-        with open(metrics_output_path, "w") as f:
+        with metrics_output_path.open("w") as f:
             f.write(json.dumps(metrics, indent=4))
 
         timings_output_path = output_dir / "timings.json"
-        with open(timings_output_path, "w") as f:
+        with timings_output_path.open("w") as f:
             f.write(json.dumps(timings, indent=4))
 
         figure_save_path = output_dir / "plot.png"
@@ -251,9 +276,9 @@ def predict_radiative_transfer(
 
 
 @app.run
-def main(argv):
+def main(argv) -> None:  # noqa: ANN001, D103
     if len(argv) > 1:
-        raise app.UsageError("Too many command-line arguments.")
+        raise app.UsageError("Too many command-line arguments.")  # noqa: EM101, TRY003
 
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.
@@ -286,7 +311,11 @@ def main(argv):
 
     logging.info("Running prediction...")
     predict_radiative_transfer(
-        output_dir, data_pipeline, rte_engine, FLAGS.benchmark, FLAGS.num_eval
+        output_dir,
+        data_pipeline,
+        rte_engine,
+        benchmark=FLAGS.benchmark,
+        num_eval=FLAGS.num_eval,
     )
 
 

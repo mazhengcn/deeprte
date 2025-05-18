@@ -15,9 +15,9 @@ flags.DEFINE_string(
 flags.mark_flags_as_required(["config", "workdir"])
 
 
-def main(argv):
+def main(argv) -> None:  # noqa: ANN001, D103
     if len(argv) > 1:
-        raise app.UsageError("Too many command-line arguments.")
+        raise app.UsageError("Too many command-line arguments.")  # noqa: EM101, TRY003
 
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.

@@ -32,6 +32,8 @@ jobs:
             suffix=
           # generate Docker tags based on the following events/attributes
           tags: |
+            # set latest tag for main/master branch
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
             type=pep440,pattern={{ version }}
 
       - name: Login to GHCR
