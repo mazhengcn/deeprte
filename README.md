@@ -78,7 +78,7 @@ docker pull ghcr.io/mazhengcn/deeprte:latest
 Start the container with:
 
 ```bash
-docker run --gpus=all --shm-size=1g ghcr.io/mazhengcn/deeprte:latest /bin/bash
+docker run -it --gpus=all --shm-size=1g ghcr.io/mazhengcn/deeprte:latest /bin/bash
 ```
 
 Alternatively, if you prefer to build the image yourself, use the provided [Dockerfile](./Dockerfile):
