@@ -83,7 +83,7 @@ def np_to_tensor_dict(
             Only the given features are returned, all other ones are
             filtered out.
     """
-    features_metadata = _make_features_metadata(features_names)
+    features_metadata = _make_features_metadata(features_names)  # ty: ignore
     tensor_dict = {
         k: tf.constant(v) if not isinstance(v, tf.Tensor) else v
         for k, v in np_example.items()

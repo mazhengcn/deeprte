@@ -23,7 +23,7 @@ from deeprte.train_lib.metrics import RelativeError
 def loss_fn(model: nnx.Module, batch):
     """Loss function used for training."""
     labels = batch["psi_label"]
-    predictions = model(batch)
+    predictions = model(batch)  # ty:ignore
     return jnp.mean((predictions - labels) ** 2)
 
 

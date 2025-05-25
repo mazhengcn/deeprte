@@ -199,4 +199,4 @@ def _rel_to_abs_instr(
         to = num_examples + to
     elif to == num_examples:
         to = None
-    return AbsoluteInstruction(split, from_, to)
+    return AbsoluteInstruction(split, from_, to)  # ty: ignore

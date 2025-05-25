@@ -88,7 +88,7 @@ def get_next_batch_sharded(
             local_data = next(local_iterator)
             loaded_data_success = True
         except tf.errors.FailedPreconditionError:
-            logging.log("Failed to get next data batch, retrying")
+            logging.log("Failed to get next data batch, retrying")  # ty: ignore
             time.sleep(SLEEP_TIME)
 
     # Try one last time, if this fails we will see the full stack trace.

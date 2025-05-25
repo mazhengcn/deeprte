@@ -22,9 +22,13 @@ def collect_pytrees(
     axes_ = _expand_axes(axes, pytrees[0])
 
     if collective_fn:
-        collect_args = lambda *args: collective_fn(args[:-1], args[-1])  # noqa
+
+        def collect_args(*args):
+            return collective_fn(args[:-1], args[-1])  # ty: ignore
     else:
-        collect_args = lambda *args: list(args[:-1])  # noqa
+
+        def collect_args(*args):
+            return list(args[:-1])
 
     return jax.tree.map(collect_args, *pytrees, axes_)
 
@@ -92,7 +96,7 @@ def sharded_apply(
 
         outputs = []
         for i in range(num_shards):
-            sliced_outputs = compute_shard(i * shard_size, shard_size)
+            sliced_outputs = compute_shard(i * shard_size, shard_size)  # ty: ignore
             outputs.append(sliced_outputs)
 
         if last_shard_size != 0:
@@ -209,8 +213,8 @@ def sharded_apply_with_scan(
 def inference_subbatch(
     module: Callable[..., PYTREE_JAX_ARRAY],
     subbatch_size: int,
-    batched_args: dict[PYTREE_JAX_ARRAY],
-    nonbatched_args: dict[PYTREE_JAX_ARRAY],
+    batched_args: dict[PYTREE_JAX_ARRAY],  # ty: ignore
+    nonbatched_args: dict[PYTREE_JAX_ARRAY],  # ty: ignore
     low_memory: bool = True,
     input_subbatch_dim: int = 0,
     output_subbatch_dim: Optional[int] = None,

@@ -36,7 +36,11 @@ Data = dict[str, Any]
 DatasetIterator = dataset_iterator.DatasetIterator
 
 
-features.register_feature("psi_label", tf.float32, [features.NUM_PHASE_COORDS])
+features.register_feature(
+    "psi_label",
+    tf.float32,
+    [features.NUM_PHASE_COORDS],  # ty: ignore
+)  # ty: ignore
 
 FEATURES = features.FEATURES
 PHASE_FEATURE_AXIS = {
@@ -59,7 +63,9 @@ class RTEDataset(grain.RandomAccessDataSource):
             **self.raw_data["grid"],
         }
         tensor_dict = rte_dataset.np_to_tensor_dict(
-            np_example, self.raw_data["shape"], FEATURES.keys()
+            np_example,
+            self.raw_data["shape"],
+            FEATURES.keys(),  # ty: ignore
         )
         return jax.tree.map(lambda x: x.numpy(), tensor_dict)
 
@@ -116,14 +122,14 @@ def get_datasets(dataset_name, data_dir, data_split: str) -> RTEDataset:
     raw_data = data_pipeline.process(normalization=True)
 
     num_examples = raw_data["shape"]["num_examples"]
-    split_instr = splits.get_split_instruction(data_split, num_examples)
+    split_instr = splits.get_split_instruction(data_split, num_examples)  # ty: ignore
 
     raw_data["functions"] = jax.tree.map(
         lambda x: x[split_instr.from_ : split_instr.to], raw_data["functions"]
     )
     raw_data["shape"]["num_examples"] = raw_data["functions"]["psi_label"].shape[0]
 
-    return RTEDataset(raw_data)
+    return RTEDataset(raw_data)  # ty: ignore
 
 
 def preprocessing_pipeline(
@@ -141,9 +147,9 @@ def preprocessing_pipeline(
     drop_remainder: bool = True,
 ):
     """Use grain to pre-process the dataset and return iterators"""
-    assert (
-        global_batch_size % global_mesh.size == 0
-    ), "Batch size should be divisible number of global devices."
+    assert global_batch_size % global_mesh.size == 0, (
+        "Batch size should be divisible number of global devices."
+    )
 
     # Batch examples.
     batch_size_per_process = global_batch_size // jax.process_count()
@@ -173,7 +179,9 @@ def preprocessing_pipeline(
         worker_buffer_size=worker_buffer_size,
     )
     multihost_gen = multihost_dataloading.MultiHostDataLoadIterator(
-        dataloader, global_mesh, data_pspec
+        dataloader,  # ty: ignore
+        global_mesh,
+        data_pspec,
     )
 
     # Return multi-host jax.Array prep iterator

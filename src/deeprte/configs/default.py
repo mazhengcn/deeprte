@@ -103,7 +103,7 @@ class Config:
 
     # Parallelism
     mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")
-    data_sharding: tuple[str, ...] = (("data", "fsdp", "tensor"),)
+    data_sharding: tuple[tuple | str, ...] = (("data", "fsdp", "tensor"),)
     # One axis for each parallelism type may hold a placeholder (-1)
     # value to auto-shard based on available slices and devices.
     # By default, product of the DCN axes should equal number of slices
@@ -126,7 +126,7 @@ class Config:
         return dataclasses.replace(self, **kwargs)
 
 
-def get_config(cfg_path: str | None = None | pathlib.Path) -> Config:
+def get_config(cfg_path: str | pathlib.Path | None = None) -> Config:
     """Get the default hyperparameter configuration."""
     config = Config()
     if cfg_path:

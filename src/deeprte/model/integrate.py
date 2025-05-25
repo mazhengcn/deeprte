@@ -40,7 +40,7 @@ def quad(
         in_axes_.insert(argnum, int(0))
         out = jax.vmap(fun, in_axes=tuple(in_axes_), out_axes=-1)(*args)
         if has_aux:
-            values, aux = out
+            values, aux = out  # ty: ignore
             result = jnp.dot(values, weights)
             return result, aux
 
@@ -68,7 +68,7 @@ def value_and_quad(
         in_axes_.insert(argnum, int(0))
         out = jax.vmap(fun, in_axes=in_axes_, out_axes=-1)(*args)
         if has_aux:
-            values, aux = out
+            values, aux = out  # ty: ignore
             result = jnp.dot(values, weights)
             return result, aux
 

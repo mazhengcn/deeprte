@@ -18,7 +18,9 @@ def np_data_to_features(raw_data: FeatureDict) -> FeatureDict:
     def to_features(x):
         raw_example = {**x, **raw_data["grid"]}
         tensor_dict = rte_dataset.np_to_tensor_dict(
-            raw_example, raw_data["shape"], rte_features.FEATURES.keys()
+            raw_example,
+            raw_data["shape"],  # ty: ignore
+            rte_features.FEATURES.keys(),  # ty: ignore
         )
         return tensor_dict
 

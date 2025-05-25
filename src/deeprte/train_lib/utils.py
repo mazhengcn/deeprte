@@ -40,9 +40,14 @@ def collect_pytrees(
 ):
     axes_ = _expand_axes(axes, pytrees[0])
     if collective_fn:
-        collect_args = lambda *args: collective_fn(args[:-1], args[-1])  # noqa
+
+        def collect_args(*args):
+            return collective_fn(args[:-1], args[-1])  # ty: ignore
     else:
-        collect_args = lambda *args: list(args[:-1])  # noqa
+
+        def collect_args(*args):
+            return list(args[:-1])
+
     return jax.tree.map(collect_args, *pytrees, axes_)
 
 
@@ -355,7 +360,9 @@ def get_coordinator_ip_address():
         max_coordinator_lookups = 50
         while not coordinator_found and lookup_attempt <= max_coordinator_lookups:
             try:
-                coordinator_ip_address = socket.gethostbyname(coordinator_address)
+                coordinator_ip_address = socket.gethostbyname(
+                    coordinator_address  # ty: ignore
+                )
                 coordinator_found = True
             except socket.gaierror:
                 logging.info(

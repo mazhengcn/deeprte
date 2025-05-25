@@ -59,7 +59,7 @@ def get_datasets(
 
 def preprocessing_pipeline(
     dataset,
-    dataset_info: tfds.core.DatasetInfo = None,
+    dataset_info: tfds.core.DatasetInfo = None,  # ty: ignore
     *,
     global_batch_size: int,
     collocation_size: Optional[int] = None,
@@ -82,9 +82,9 @@ def preprocessing_pipeline(
 
     dataset = dataset.repeat(num_epochs)
 
-    assert (
-        global_batch_size % global_mesh.size == 0
-    ), "Batch size should be divisible number of global devices."
+    assert global_batch_size % global_mesh.size == 0, (
+        "Batch size should be divisible number of global devices."
+    )
     # Batch examples.
     batch_size_per_process = global_batch_size // jax.process_count()
 

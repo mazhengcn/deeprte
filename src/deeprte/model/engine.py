@@ -14,7 +14,6 @@
 
 
 import jax
-import jax.experimental
 from absl import logging
 from flax import nnx
 from jax.sharding import PartitionSpec as P
