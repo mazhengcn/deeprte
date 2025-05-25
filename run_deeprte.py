@@ -51,21 +51,21 @@ flags.DEFINE_integer("num_eval", None, "Number of examples to evaluate.")
 flags.mark_flags_as_required(["model_dir", "data_path", "output_dir"])
 
 
-def rmse(pred: np.ndarray, target: np.ndarray) -> float:
+def rmse(pred: np.ndarray, target: np.ndarray) -> np.float32:
     """Compute the root mean square error (RMSE) between prediction and target."""
     return np.sqrt(np.mean((pred - target) ** 2) / np.mean(target**2))
 
 
-def mse(pred: np.ndarray, target: np.ndarray) -> float:
+def mse(pred: np.ndarray, target: np.ndarray) -> np.float32:
     """Compute the mean square error (MSE) between prediction and target."""
     return np.mean((pred - target) ** 2)
 
 
 def get_normalization_ratio(psi_range: list, boundary_range: list) -> float:
     """Compute the normalization ratio between psi and boundary."""
-    psi_range = float(psi_range.split(" ")[-1])
-    boundary_range = float(boundary_range.split(" ")[-1])
-    return psi_range / boundary_range
+    psi_range = float(psi_range.split(" ")[-1])  # ty: ignore
+    boundary_range = float(boundary_range.split(" ")[-1])  # ty: ignore
+    return psi_range / boundary_range  # ty: ignore
 
 
 def _jnp_to_np(output: dict[str, Any]) -> dict[str, Any]:
@@ -155,7 +155,7 @@ def predict_radiative_transfer(  # noqa: PLR0915
     logging.info("Predicting %d examples sequentially", num_examples)
 
     if not num_eval:
-        num_eval = num_examples
+        num_eval = num_examples  # ty: ignore
 
     for i in range(num_examples - num_eval, num_examples):
         timings = {}
@@ -231,10 +231,10 @@ def predict_radiative_transfer(  # noqa: PLR0915
         phi_label = np.sum(
             psi_label * feature_dict["grid"]["velocity_weights"], axis=-1
         )
-        psi_rmse = rmse(predicted_psi, psi_label)
-        phi_rmse = rmse(predicted_phi, phi_label)
-        psi_mse = mse(predicted_psi, psi_label)
-        phi_mse = mse(predicted_phi, phi_label)
+        psi_rmse = rmse(predicted_psi, psi_label)  # ty: ignore
+        phi_rmse = rmse(predicted_phi, phi_label)  # ty: ignore
+        psi_mse = mse(predicted_psi, psi_label)  # ty: ignore
+        phi_mse = mse(predicted_phi, phi_label)  # ty: ignore
 
         metrics.update(
             {
@@ -269,7 +269,7 @@ def predict_radiative_transfer(  # noqa: PLR0915
         figure_save_path = output_dir / "plot.png"
         plot_phi(
             feature_dict["grid"]["position_coords"].reshape(*psi_shape[1:-1], -1),
-            predicted_phi[0],
+            predicted_phi[0],  # ty: ignore
             phi_label[0],
             figure_save_path,
         )

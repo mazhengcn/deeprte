@@ -48,3 +48,6 @@ dev = [
 [tool.uv.sources]
 jax-ai-stack = { git = "https://github.com/jax-ml/jax-ai-stack" }
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
