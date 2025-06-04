@@ -1,4 +1,4 @@
-![header](./reports/figures/architecture.png)
+![header](docs/architecture.png)
 
 # DeepRTE
 
