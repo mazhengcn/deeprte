@@ -17,7 +17,7 @@ DeepRTE learns the solution operator:
 for the following steady-state radiative transfer equation:
 
 ```math
-  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \frac{\mu_s(r)}{S^{d-1}}\int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*)\,\mathrm{d}\Omega^*, \quad x\in D\subset\mathbb{R}^d,\; \Omega\in\mathbb{S}^{d-1}
+  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \frac{\mu_s(r)}{S^{d-1}}\int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*)\,\mathrm{d}\Omega^*, \quad x\in D\subset\mathbb{R}^d,\; \Omega\in\mathbb{S}^{d-1},
 ```
 
 with the in-flow boundary condition:
