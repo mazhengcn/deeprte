@@ -242,7 +242,6 @@ Any publication that discloses findings arising from using this source code, the
 ## Acknowledgements
 
 DeepRTE's release was made possible by the invaluable contributions of the following people:
-
 Zheng Ma, Yekun Zhu, Min Tang and Jingyi Fu.
 
 DeepRTE uses the following separate libraries and packages:
