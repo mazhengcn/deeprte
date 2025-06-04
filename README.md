@@ -41,7 +41,7 @@ git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.0
 cd deeprte
 ```
 
-or download directly from the [Release](https://github.com/mazhengcn/deeprte/releases/tag/v1.0.0rc3)
+or download directly from the [Release](https://github.com/mazhengcn/deeprte/releases)
 
 ### 2. Install Dependencies
 
@@ -70,13 +70,13 @@ to install all development dependencies.
 A pre-built runtime container is available. To pull the latest image, run:
 
 ```bash
-docker pull ghcr.io/mazhengcn/deeprte:1.0.0
+docker pull ghcr.io/mazhengcn/deeprte
 ```
 
 Start the container with:
 
 ```bash
-docker run -it --gpus=all --shm-size=1g ghcr.io/mazhengcn/deeprte:latest /bin/bash
+docker run -it --gpus=all --shm-size=1g ghcr.io/mazhengcn/deeprte /bin/bash
 ```
 
 Alternatively, if you prefer to build the image yourself, use the provided [Dockerfile](./Dockerfile):
@@ -117,20 +117,6 @@ ${DATA_DIR}
 │   └── train     # Raw MATLAB dataset for pretraining using grain.
 └── README.md
 ```
-
-Each MATLAB dataset contains the following keys:
-
-| Key            | Array Shape     | Description                                 |
-| -------------- | --------------- | ------------------------------------------- |
-| `list_Psi`     | `[2M, I, J, N]` | Numerical solutions (labels)                |
-| `list_psiL`    | `[M, J, N]`     | Left boundary values                        |
-| `list_psiR`    | `[M, J, N]`     | Right boundary values                       |
-| `list_psiB`    | `[M, I, N]`     | Bottom boundary values                      |
-| `list_psiT`    | `[M, I, N]`     | Top boundary values                         |
-| `list_sigma_a` | `[I, J, N]`     | Absorption coefficient                      |
-| `list_sigma_T` | `[I, J, N]`     | Total coefficient                           |
-| `ct`, `st`     | `[1, M]`        | Discrete velocity coordinates (quadratures) |
-| `omega`        | `[1, M]`        | Weights of velocity coordinates             |
 
 ### Download Pretrained Models
 
