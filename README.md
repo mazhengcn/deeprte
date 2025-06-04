@@ -1,6 +1,6 @@
 # DeepRTE: Neural Operator for Radiative Transfer
 
-[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte) | [**Pretrain DeepRTE**](#pretrain-deeprte) | [**Repository Structure**](#repository-structure) | [**References**](#references)
+[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte) | [**Pretrain DeepRTE**](#pretrain-deeprte) | [**Citing This Work**](#citing-this-work) | [**Acknowledgements**](#acknowledgements) | [**Get in Touch**](#get-in-touch)
 
 _DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
 
@@ -223,40 +223,45 @@ uv run ./scripts/run_train.sh
 uv run ./scripts/generate_param_only_checkpoint.sh
 ```
 
-## Repository Structure
+## Citing This Work
 
-```bash
-deeprte
-├── configs                                       # Model conifgs for training.
-├── data                                          # Dataset directory.
-├── Dockerfile                                    # Runtime Dockerfile.
-├── generate_param_only_checkpoint.py             # Convert train ckpts to infer ckpts.
-├── LICENSE
-├── models                                        # Pretrained model directory.
-├── notebooks                                     # Notebook directory for testing.
-├── pyproject.toml                                # Python project.toml.
-├── pyrightconfig.json
-├── README.md
-├── reports
-├── ruff.toml
-├── run_deeprte.py                                 # Run deeprte inference script.
-├── run_train.py                                   # Train script entrance.
-├── scripts
-├── src
-│   └── deeprte                                    # Libraries source dir.
-│       ├── configs                                # Default config.
-│       ├── __init__.py
-│       ├── input_pipeline                         # Inpute pipeline.
-│       ├── model                                  # Model directory.
-│       └── train_lib                              # Train library.
-└── uv.lock
+Any publication that discloses findings arising from using this source code, the model parameters or outputs produced by those should cite:
+
+```bibtex
+@misc{zhu2025,
+      title={DeepRTE: Pre-trained Attention-based Neural Network for Radiative Tranfer},
+      author={Yekun Zhu and Min Tang and Zheng Ma},
+      year={2025},
+      eprint={2505.23190},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2505.23190},
+}
 ```
 
-## References
+## Acknowledgements
 
-- [Radiative Transfer Equation (Wikipedia)](https://en.wikipedia.org/wiki/Radiative_transfer_equation)
-- [JAX AI Stack](https://docs.jaxstack.ai/en/latest/)
-- [uv](https://docs.astral.sh/uv/)
-- [VSCode Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)
+DeepRTE's release was made possible by the invaluable contributions of the following people:
 
-For questions or contributions, please open an issue or pull request.
+Zheng Ma, Yekun Zhu, Min Tang and Jingyi Fu.
+
+DeepRTE uses the following separate libraries and packages:
+
+*   [abseil-cpp](https://github.com/abseil/abseil-cpp) and
+    [abseil-py](https://github.com/abseil/abseil-py)
+*   [clu](https://github.com/google/CommonLoopUtils)
+*   [Docker](https://www.docker.com)
+*   [Grain](https://github.com/google/grain)
+*   [Hugging Face](https://huggingface.co)
+*   [JAX](https://github.com/jax-ml/jax)
+*   [Flax](https://github.com/google/flax)
+*   [Optax](https://github.com/google-deepmind/optax)
+*   [NumPy](https://github.com/numpy/numpy)
+*   [Tensorflow](https://github.com/tensorflow/tensorflow)
+*   [uv](https://github.com/astral-sh/uv)
+
+We thank all their contributors and maintainers!
+
+## Get in Touch
+
+If you have any questions not covered in this overview, please open an issue or contact the Zheng Ma at zhengma@sjtu.edu.cn.
