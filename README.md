@@ -1,10 +1,12 @@
-# DeepRTE: Neural Operator for Radiative Transfer
+![header](./reports/figures/architecture.png)
 
-[**Overview**](#overview) | [**Setup**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte) | [**Pretrain DeepRTE**](#pretrain-deeprte) | [**Citing This Work**](#citing-this-work) | [**Acknowledgements**](#acknowledgements) | [**Get in Touch**](#get-in-touch)
+# DeepRTE
 
-_DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using both MATLAB and Numpy datasets._
+[**Installation**](#setup) | [**Datasets and Pretrained Models**](#datasets-and-pretrained-models) | [**Run DeepRTE**](#run-deeprte) | [**Train DeepRTE**](#pretrain-deeprte) | [**Cite**](#citing-this-work) | [**Acknowledgements**](#acknowledgements) | [**Contact**](#get-in-touch)
 
-## Overview
+DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using provided RTE datasets.
+
+Any publication that discloses findings arising from using this source code, the model parameters or outputs produced by those should [cite](#citing-this-work) the [DeepRTE: Pre-trained Attention-based Neural Network for Radiative Tranfer](https://www.arxiv.org/abs/2505.23190) paper.
 
 DeepRTE learns the solution operator:
 
@@ -15,28 +17,22 @@ DeepRTE learns the solution operator:
 for the following steady-state radiative transfer equation:
 
 ```math
-  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \mu_s(r)\int p(\Omega,\Omega^*)I(r,\Omega^*)d\Omega^*,
+  \Omega \cdot \nabla I(r,\Omega)+\mu_t(r)I(r, \Omega) = \frac{\mu_s(r)}{S^{d-1}}\int_{\mathbb{S}^{d-1}} p(\Omega,\Omega^*)I(r,\Omega^*)\,\mathrm{d}\Omega^*, \quad x\in D\subset\mathbb{R}^d,\; \Omega\in\mathbb{S}^{d-1}
 ```
 
 with the in-flow boundary condition:
 
 ```math
-  I(\mathbf{r},\mathbf{\Omega}) = I_{-}(\mathbf{r},\mathbf{\Omega}), \quad\text{on } \Gamma_{-},
+  I(\mathbf{r},\mathbf{\Omega}) = I_{-}(\mathbf{r},\mathbf{\Omega}), \quad\text{on } \Gamma_{-} = \big\{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0 \big\}.
 ```
 
-where
-
-```math
-  \Gamma_{-} = \{(\mathbf{r},\mathbf{\Omega}) \mid \mathbf{n}_{\mathbf{r}}\cdot\mathbf{\Omega}<0 \}.
-```
-
-### Architecture
+<!-- ### Architecture
 
 <div style="display: flex; justify-content: center;">
   <img src="./reports/figures/architecture.png" alt="Architecture" style="border-radius: 22px; border: 2.5px solid #b3c6e0; max-width: 100%; box-shadow: 0 2px 16px rgba(0,0,0,0.07);">
-</div>
+</div> -->
 
-## Setup
+## Installation
 
 ### 1. Clone the Repository
 
@@ -44,6 +40,8 @@ where
 git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.0
 cd deeprte
 ```
+
+or download directly from the [Release](https://github.com/mazhengcn/deeprte/releases/tag/v1.0.0rc3)
 
 ### 2. Install Dependencies
 
@@ -199,7 +197,22 @@ A shell script [./scripts/run_deeprte.sh](./scripts/run_deeprte.sh) containing a
 uv run ./scripts/run_deeprte.sh
 ```
 
-## Pretrain DeepRTE
+You can also run using the runtime container:
+
+```bash
+docker run -it \
+    --volume <DATA_PATH>:/deeprte/data/data_path \
+    --volume <MODEL_DIR>:/deeprte/models \
+    --volume <OUTPUT_DIR>:/deeprte/output \
+    --gpus all \
+    ghcr.io/mazhengcn/deeprte \
+    python run_deeprte.py \
+    --model_dir=/deeprte/models \
+    --data_path=/deeprte/data \
+    --output_dir=/deeprte/deeprte_output
+```
+
+## Train DeepRTE
 
 To train DeepRTE from scratch, run:
 
@@ -241,8 +254,7 @@ Any publication that discloses findings arising from using this source code, the
 
 ## Acknowledgements
 
-DeepRTE's release was made possible by the invaluable contributions of the following people:
-Zheng Ma, Yekun Zhu, Min Tang and Jingyi Fu.
+DeepRTE's release was made possible by the contributions of the following people: Zheng Ma, Yekun Zhu, Min Tang and Jingyi Fu.
 
 DeepRTE uses the following separate libraries and packages:
 
