@@ -45,7 +45,7 @@ or download directly from the [Release](https://github.com/mazhengcn/deeprte/rel
 
 ### 2. Install Dependencies
 
-This project uses [jax-ai-stack](https://github.com/jax-ml/jax-ai-stack) (JAX, Flax, Optax, Orbax, etc.). The recommended way to install dependencies is with [`uv`](https://github.com/astral-sh/uv):
+This project uses [JAX AI Stack](https://github.com/jax-ml/jax-ai-stack) (JAX, Flax, Optax, Orbax, etc.). The recommended way to install dependencies is with [`uv`](https://github.com/astral-sh/uv):
 
 ```bash
 uv sync
