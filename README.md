@@ -37,7 +37,7 @@ with the in-flow boundary condition:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.0
+git clone https://github.com/mazhengcn/deeprte.git --branch v1.0.1
 cd deeprte
 ```
 
@@ -134,7 +134,8 @@ The folder structure will be:
 ${MODELS_DIR}
 ├── README.md
 ├── v0                    # Pre-release version (deprecated).
-└── v1                    # Current release models for different scattering kernel ranges.
+├── v1                    # Pre-release version (deprecated).
+└── v1.0.1                # Current release models for different scattering kernel ranges.
     ├── g0.1
     │   ├── config.json
     │   └── params
@@ -166,8 +167,8 @@ For example:
 
 ```bash
 DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"./models/v1/g0.5"}
-OUTPUT_DIR=${3:-"./reports"}
+MODEL_DIR=${2:-"./models/v1.0.1/g0.5"}
+OUTPUT_DIR=${3:-"./outputs"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
