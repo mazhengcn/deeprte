@@ -14,8 +14,8 @@
 # limitations under the License.
 set -e
 
-TRAIN_STATE_DIR=${1:-"./data/interim/ckpts/v1/g0.5/500000"}
-CKPT_DIR=${2:-"./models/v1/g0.5"}
+TRAIN_STATE_DIR=${1:-"./data/interim/ckpts/v1.0.1/g0.5/500000"}
+CKPT_DIR=${2:-"./models/v1.0.1/g0.5"}
 
 python generate_param_only_checkpoint.py \
     --train_state_dir=${TRAIN_STATE_DIR} \

@@ -15,8 +15,8 @@
 set -e
 
 DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"./models/v1/g0.5"}
-OUTPUT_DIR=${3:-"./reports"}
+MODEL_DIR=${2:-"./models/v1.0.1/g0.5"}
+OUTPUT_DIR=${3:-"./outputs"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"
 
