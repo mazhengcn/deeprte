@@ -1,12 +1,6 @@
 {
     "recommendations": [
-        "ms-python.python",
-        "charliermarsh.ruff",
-        "astral-sh.ty",
-        "ms-toolsai.jupyter",
-        "ms-toolsai.tensorboard",
-        "redhat.vscode-yaml",
-        "tamasfe.even-better-toml",
-        "yzhang.markdown-all-in-one",
+        "github.copilot-nightly",
+        "github.copilot-chat"
     ]
 }

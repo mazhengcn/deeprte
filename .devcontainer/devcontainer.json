@@ -1,37 +1,35 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/anaconda
 {
-    "name": "deeprte",
-    "build": {
-        "context": "..",
-        "dockerfile": "Dockerfile"
+    "name": "pytorch",
+    "image": "ghcr.io/zyresearch/devcontainers/pytorch:latest",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "username": "torch"
+        }
     },
+    "mounts": [
+        {
+            "source": "pytorch_data",
+            "target": "${containerWorkspaceFolder}/data",
+            "type": "volume"
+        }
+    ],
+    "runArgs": [
+        "--gpus=all",
+        "--shm-size=1g"
+    ],
+    // Configure tool-specific properties.
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-toolsai.tensorboard",
-                "ms-toolsai.jupyter",
+                "ms-python.vscode-pylance",
+                "ms-python.black-formatter",
                 "charliermarsh.ruff",
-                "redhat.vscode-yaml",
-                "tamasfe.even-better-toml",
-                "yzhang.markdown-all-in-one"
+                "ms-toolsai.jupyter"
             ]
         }
     },
-    "mounts": [
-        "type=volume,src=rte_data,dst=${containerWorkspaceFolder}/data",
-        "type=volume,src=${localWorkspaceFolderBasename}-venv,dst=${containerWorkspaceFolder}/.venv",
-        "type=volume,src=uv-cache,dst=/tmp/uv-cache"
-    ],
-    "runArgs": [
-        "--cap-add=SYS_PTRACE",
-        "--security-opt=seccomp=unconfined",
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
-    "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): data",
-        "sync-environment": "uv sync --frozen --all-extras"
-    },
-    "postStartCommand": "uv run pre-commit install",
-    "remoteUser": "vscode"
+    "remoteUser": "root"
 }

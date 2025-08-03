@@ -1,10 +1,6 @@
 # Project related files
-**/outputs/**
-/data/**
-!/data/.gitkeep
-/models/**
-!/models/.gitkeep
-
+data/
+deeponet/output/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
