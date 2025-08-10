@@ -26,6 +26,7 @@ dependencies = [
     "grain>=0.2.9",
     "huggingface-hub[cli,hf_xet]>=0.30.2",
     "jax>=0.6.0",
+    "jupyter>=1.1.1",
     "matplotlib>=3.10.0",
     "optax>=0.2.4",
     "orbax-checkpoint>=0.11.13",
@@ -51,7 +52,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
+rte-dataset = { path = "/home/zhuyekun/projects/repos/rte-dataset" , editable = true }
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
