@@ -1,0 +1,1 @@
+python /workspaces/deeprte/deeponet/train.py -c /workspaces/deeprte/deeponet/config/J.yaml

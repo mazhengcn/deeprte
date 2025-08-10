@@ -1,6 +1,7 @@
 # Project related files
 data/
 deeponet/output/
+models/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

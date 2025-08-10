@@ -10,9 +10,9 @@
     },
     "mounts": [
         {
-            "source": "pytorch_data",
+            "source": "/home/zhuyekun/projects/repos/deeprte/data",
             "target": "${containerWorkspaceFolder}/data",
-            "type": "volume"
+            "type": "bind"
         }
     ],
     "runArgs": [

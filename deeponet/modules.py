@@ -1,8 +1,9 @@
-import torch
-from typing import Dict, List, Tuple, Union
-import torch.nn as nn
-from modulus.sym.key import Key
 from functools import reduce
+from typing import Dict, List, Tuple, Union
+
+import torch
+import torch.nn as nn
+from modulus.key import Key
 
 # from common_modules import Mlp
 

@@ -21,21 +21,21 @@ model:
     # mlp, modified_mlp, resnet
     type: "mlp"
     hidden_units: [512, 1024]
-  branch_net_2:
-    input_key: "sigma_t"
-    output_key: "branch_2"
-    type: "mlp"
-    hidden_units: [512, 1024]
+  # branch_net_2:
+  #   input_key: "sigma_t"
+  #   output_key: "branch_2"
+  #   type: "mlp"
+  #   hidden_units: [512, 1024]
   branch_net_3:
     input_key: "boundary"
     output_key: "branch_3"
     type: "mlp"
     hidden_units: [512, 1024]
-  branch_net_4:
-    input_key: "scattering_kernel"
-    output_key: "branch_4"
-    type: "mlp"
-    hidden_units: [512, 1024]
+  # branch_net_4:
+  #   input_key: "scattering_kernel"
+  #   output_key: "branch_4"
+  #   type: "mlp"
+  #   hidden_units: [512, 1024]
   trunk_net:
     input_key: "phase_coords"
     output_key: "trunk"
