@@ -28,3 +28,6 @@ eval_every_steps: -1
 # coeffs_fn_dim
 coeffs_fn_dim: 2
 num_scattering_layers: 0
+mlp_dim: 256
+num_mlp_layers: 4
+num_heads: 4

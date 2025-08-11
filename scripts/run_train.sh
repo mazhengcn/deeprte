@@ -14,7 +14,7 @@
 # limitations under the License.
 set -e
 
-CONFIG_PATH=${1:-"./configs/S.yaml"}
-CKPT_DIR=${2:-"./data/interim/ckpts/v1.0.1/S"}
+CONFIG_PATH=${1:-"./configs/L.yaml"}
+CKPT_DIR=${2:-"./data/interim/ckpts/v1.0.1/L_v2"}
 
 python run_train.py --config=${CONFIG_PATH} --workdir=${CKPT_DIR}
