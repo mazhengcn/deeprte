@@ -1,0 +1,30 @@
+# Dataset type.
+dataset_type: grain
+# Path to directory where TFDS data is stored.
+data_dir: ./data/raw/train/g0.1-sigma_a3-sigma_t6
+# Name of TFDS dataset to use.
+dataset_name: g0.1-sigma_a3-sigma_t6.mat
+# TFDS split for training dataset.
+train_split: train[:80%]
+# TFDS split for evaluation dataset.
+eval_split: train[80%:]
+# per_device_batch_size for training.
+per_device_batch_size: 1
+# Global batch size for training.
+global_batch_size: 8
+# Number of collocation points to sample from phase space for training.
+collocation_size: 128
+# Number of same batch with different collocation points (in order to
+# increase collocation sizes for training).
+repeat_batch: 1
+# Global batch size for evaluation.
+eval_batch_size: 4
+# Number of steps to train for.
+num_train_steps: 500_001
+# Frequency of logging metrics during training, e.g. every 1_000 steps.
+log_every_steps: 1_000
+# Frequency of eval during training, e.g. every 1_000 steps.
+eval_every_steps: -1
+# coeffs_fn_dim
+coeffs_fn_dim: 2
+num_scattering_layers: 2

@@ -101,6 +101,10 @@ class SampleCollocationCoords(grain.RandomMapTransform):
     def random_map(self, data, rng: np.random.Generator):
         if "boundary_scattering_kernel" in data:
             del data["boundary_scattering_kernel"]
+        if "scattering_kernel" in data:
+            del data["scattering_kernel"]
+        if "self_scattering_kernel" in data:
+            del data["self_scattering_kernel"]
 
         num_phase_coords = (data["phase_coords"].shape)[
             self.collocation_axes["phase_coords"]

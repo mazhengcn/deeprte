@@ -45,11 +45,11 @@ FEATURES = {
     "velocity_weights": (tf.float32, [NUM_VELOCITY_COORDS]),
     "boundary": (tf.float32, [NUM_BOUNDARY_COORDS]),
     "sigma": (tf.float32, [NUM_POSITION_COORDS, 2]),
-    "scattering_kernel": (tf.float32, [NUM_PHASE_COORDS, NUM_VELOCITY_COORDS]),
-    "self_scattering_kernel": (
-        tf.float32,
-        [NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
-    ),
+    # "scattering_kernel": (tf.float32, [NUM_PHASE_COORDS, NUM_VELOCITY_COORDS]),
+    # "self_scattering_kernel": (
+    #     tf.float32,
+    #     [NUM_VELOCITY_COORDS, NUM_VELOCITY_COORDS],
+    # ),
 }
 
 FEATURE_TYPES = {k: v[0] for k, v in FEATURES.items()}
