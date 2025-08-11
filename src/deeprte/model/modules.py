@@ -66,9 +66,9 @@ class ScatteringLayer(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, inputs: jax.Array, kernel: jax.Array) -> jax.Array:
-        x = jnp.einsum("...V,Vd->...d", kernel, inputs)
-        x = self.linear(x)
+    def __call__(self, inputs: jax.Array) -> jax.Array:
+        # x = jnp.einsum("...V,Vd->...d", kernel, inputs)
+        x = self.linear(inputs)
         x = nnx.tanh(x)
         return x
 
@@ -91,16 +91,18 @@ class Scattering(nnx.Module):
     def __call__(
         self,
         act: jax.Array,
-        self_act: jax.Array,
-        kernel: jax.Array,
-        self_kernel: jax.Array,
+        # self_act: jax.Array,
+        # kernel: jax.Array,
+        # self_kernel: jax.Array,
     ) -> jax.Array:
-        self_act_0 = self_act
+        # self_act_0 = self_act
+        act_0 = act
         for idx in range(self.config.num_scattering_layers - 1):
-            self_act = self.scattering_layers[idx](self_act, self_kernel)
-            self_act = self.lns[idx](self_act)
-            self_act += self_act_0
-        act_res = self.scattering_layers[-1](self_act, kernel)
-        act_res = self.lns[-1](act_res)
+            # self_act = self.scattering_layers[idx](self_act, self_kernel)
+            act = self.scattering_layers[idx](act)
+            # act = self.lns[idx](act)
+            act += act_0
+        act_res = self.scattering_layers[-1](act)
+        # act_res = self.lns[-1](act_res)
         act += act_res
         return act
