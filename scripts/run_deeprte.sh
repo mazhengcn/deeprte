@@ -14,8 +14,8 @@
 # limitations under the License.
 set -e
 
-DATA_PATH=${1:-"./data/raw/test/sin-rv-g0.5-amplitude5-wavenumber10/sin-rv-g0.5-amplitude5-wavenumber10.mat"}
-MODEL_DIR=${2:-"./models/v1.0.1/g0.5"}
+DATA_PATH=${1:-"./data/raw/test/J-test/J-test.mat"}
+MODEL_DIR=${2:-"./models/v1.0.1/J"}
 OUTPUT_DIR=${3:-"./outputs"}
 
 TIMESTAMP="$(date --iso-8601="seconds")"

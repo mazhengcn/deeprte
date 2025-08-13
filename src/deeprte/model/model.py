@@ -82,7 +82,7 @@ class GreenFunction(nnx.Module):
     def __call__(self, coord1: jax.Array, coord2: jax.Array, batch):
         charac = Characteristics.from_tensor(batch["position_coords"])
         act = self.attenuation(
-            coord1=coord1, coord2=coord2, att_coeff=batch["sigma"], charac=charac
+            coord1=coord1, coord2=coord2, att_coeff=batch["sigma"][..., 0:1], charac=charac
         )
         if self.config.num_scattering_layers == 0:
             out = jnp.squeeze(jnp.exp(self.out(act)), axis=-1)
@@ -93,7 +93,7 @@ class GreenFunction(nnx.Module):
         def self_att_fn(velocity):
             coord = jnp.concatenate([position, velocity], axis=-1)
             out = self.attenuation(
-                coord1=coord, coord2=coord2, att_coeff=batch["sigma"], charac=charac
+                coord1=coord, coord2=coord2, att_coeff=batch["sigma"][..., 0:1], charac=charac
             )
             return out
 
