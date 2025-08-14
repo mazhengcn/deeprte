@@ -1,9 +1,9 @@
 # Dataset type.
 dataset_type: grain
 # Path to directory where TFDS data is stored.
-data_dir: ./data/raw/train/g0.1-sigma_a3-sigma_t6
+data_dir: ./data/raw/train/merge
 # Name of TFDS dataset to use.
-dataset_name: g0.1-sigma_a3-sigma_t6.mat
+dataset_name: merged_train.mat
 # TFDS split for training dataset.
 train_split: train[:80%]
 # TFDS split for evaluation dataset.
@@ -20,7 +20,7 @@ repeat_batch: 1
 # Global batch size for evaluation.
 eval_batch_size: 4
 # Number of steps to train for.
-num_train_steps: 500_001
+num_train_steps: 200_001
 # Frequency of logging metrics during training, e.g. every 1_000 steps.
 log_every_steps: 1_000
 # Frequency of eval during training, e.g. every 1_000 steps.
