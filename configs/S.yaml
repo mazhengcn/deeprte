@@ -1,9 +1,9 @@
 # Dataset type.
 dataset_type: grain
 # Path to directory where TFDS data is stored.
-data_dir: ./data/raw/train/merge
+data_dir: ./data/raw/train/S_all_g_scope
 # Name of TFDS dataset to use.
-dataset_name: merged_train.mat
+dataset_name: S_all_g_scope.mat
 # TFDS split for training dataset.
 train_split: train[:80%]
 # TFDS split for evaluation dataset.
