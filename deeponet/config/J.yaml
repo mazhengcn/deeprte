@@ -44,8 +44,8 @@ model:
 
 
 data:
-  train_data: "/root/projects/deeponet/data/g0.1-sigma_a3-sigma_t6_train_normalized.npz"
-  eval_data: "/root/projects/deeponet/data/g0.1-sigma_a3-sigma_t6_test_normalized.npz"
+  train_data: "/workspaces/deeprte/data/raw/train/no-scattering-sigma_a3-sigma_t6/no-scattering-sigma_a3-sigma_t6.npz"
+  eval_data: "/workspaces/deeprte/data/raw/train/no-scattering-sigma_a3-sigma_t6/no-scattering-sigma_a3-sigma_t6.npz"
   label_key: 'psi_label'
   collocation_size: 1000
 
