@@ -1,1 +1,2 @@
-python /workspaces/deeprte/deeponet/train.py -c /workspaces/deeprte/deeponet/config/J.yaml
+# uv run python deeponet/train.py -c deeponet/config/J.yaml
+python deeponet/train.py -c deeponet/config/J.yaml

@@ -1,9 +1,10 @@
-from typing import Dict, List, Tuple, Union
-from modulus.sym.key import Key
-from modulus.sym.models.arch import Arch
-from torch import Tensor
-import torch
 from functools import reduce
+from typing import Dict, List, Tuple, Union
+
+import torch
+from physicsnemo.sym.key import Key
+from physicsnemo.sym.models.arch import Arch
+from torch import Tensor
 
 
 class MioBranchNet(Arch):

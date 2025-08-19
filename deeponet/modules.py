@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
-from modulus.key import Key
+from physicsnemo.sym.key import Key
 
 # from common_modules import Mlp
 
@@ -46,7 +46,7 @@ class DeepONet(Arch):
         trunk_net: Arch,
         output_keys: List[Key] = None,
         name="deeponet",
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(input_keys=[], output_keys=output_keys)
         assert len(output_keys) == 1, "DeepONet only supports one output variable"
@@ -123,7 +123,7 @@ class FullyConnected(Arch):
         activation: nn.Module = nn.ReLU,
         out_act: bool = False,
         name="fullyconnected",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(input_keys=input_keys, output_keys=output_keys)
         assert len(input_keys) == 1, "FullyConnected only supports one input variable"
@@ -158,7 +158,7 @@ class ModifiedMlp(Arch):
         hidden_units: List[int],
         activation: nn.Module = nn.ReLU,
         name="modifiedmlp",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(input_keys=input_keys, output_keys=output_keys)
         assert len(input_keys) == 1, "ModifiedMlp only supports one input variable"
@@ -204,7 +204,7 @@ class ResNet(Arch):
         hidden_units: List[int],
         activation: nn.Module = nn.ReLU,
         name="resnet",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(input_keys=input_keys, output_keys=output_keys)
         assert len(input_keys) == 1, "FullyConnected only supports one input variable"

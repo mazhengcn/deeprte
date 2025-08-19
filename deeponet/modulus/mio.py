@@ -2,23 +2,25 @@ import os
 import sys
 import warnings
 
-import torch
-import numpy as np
-
 import modulus.sym
-from modulus.sym.hydra import to_absolute_path, instantiate_arch, ModulusConfig, to_yaml
-from modulus.sym.solver import Solver
-from modulus.sym.domain import Domain
-from modulus.sym.models.fully_connected import FullyConnectedArch
-from modulus.sym.models.fourier_net import FourierNetArch
-from modulus.sym.models.deeponet import DeepONetArch
+import numpy as np
+import torch
+from modules import MioBranchNet
+from modulus.sym.dataset.discrete import DictGridDataset
 from modulus.sym.domain.constraint.continuous import DeepONetConstraint
 from modulus.sym.domain.validator.discrete import GridValidator
-from modulus.sym.dataset.discrete import DictGridDataset
-
 from modulus.sym.key import Key
-
-from modules import MioBranchNet
+from physicsnemo.sym.domain import Domain
+from physicsnemo.sym.hydra import (
+    ModulusConfig,
+    instantiate_arch,
+    to_absolute_path,
+    to_yaml,
+)
+from physicsnemo.sym.models.fourier_net import FourierNetArch
+from physicsnemo.sym.models.fully_connected import FullyConnectedArch
+from physicsnemo.sym.solver import Solver
+from physicsnemosym.models.deeponet import DeepONetArch
 from preprocess import preprocess
 
 

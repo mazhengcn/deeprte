@@ -2,10 +2,10 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/anaconda
 {
     "name": "pytorch",
-    "image": "ghcr.io/zyresearch/devcontainers/pytorch:latest",
+    "image": "nvcr.io/nvidia/physicsnemo/physicsnemo:latest",
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "username": "torch"
+            "username": "root"
         }
     },
     "mounts": [
