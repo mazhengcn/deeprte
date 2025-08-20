@@ -1,0 +1,68 @@
+
+# TODO: split model config and training config
+initial_checkpoint: ~
+experiment: ~
+output: ~
+checkpoint_hist: 10
+
+seed: 1234
+
+num_workers: 1
+distributed: false
+sync_bn: false
+
+# model_config_path: "/workspaces/inverter/inverter/model/config.yaml"
+model:
+  latent_size: 512
+  activation: "relu"
+  branch_net_1:
+    input_key: "sigma_a"
+    output_key: "branch_1"
+    # mlp, modified_mlp, resnet
+    type: "mlp"
+    hidden_units: [512, 1024]
+  # branch_net_2:
+  #   input_key: "sigma_t"
+  #   output_key: "branch_2"
+  #   type: "mlp"
+  #   hidden_units: [512, 1024]
+  branch_net_3:
+    input_key: "q"
+    output_key: "branch_3"
+    type: "mlp"
+    hidden_units: [512, 1024]
+  # branch_net_4:
+  #   input_key: "scattering_kernel"
+  #   output_key: "branch_4"
+  #   type: "mlp"
+  #   hidden_units: [512, 1024]
+  trunk_net:
+    input_key: "phase_coords"
+    output_key: "trunk"
+    type: "mlp"
+    hidden_units: [512, 1024]
+
+
+data:
+  train_data: "/workspaces/deeprte/data/raw/train/L/L.npz"
+  eval_data: "/workspaces/deeprte/data/raw/train/L/L.npz"
+  label_key: 'psi_label'
+  collocation_size: 1000
+
+optimizer:
+  # opt: "adam"
+  lr: 0.001
+  step_size: 10000
+  gamma: 0.96
+
+training:
+  train_batch_size: 64
+  eval_batch_size: 32
+  pin_memory: true
+
+  start_epoch: ~
+  epochs: 300000
+  log_interval: 10
+  recovery_interval: False
+
+
