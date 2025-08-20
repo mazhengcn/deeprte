@@ -27,8 +27,8 @@ from data.dataset import preprocess
 
 _logger = logging.getLogger("evaluate")
 
-DATA_PATH = "/root/projects/deeponet/data/g0.1-sigma_a3-sigma_t6_test_normalized.npz"
-result_path = "/root/projects/deeponet/deeponet/output/train/20231010-065451-deeponet"
+DATA_PATH = "/workspaces/deeprte/data/raw/test/L-test/L-test.npz"
+result_path = "/workspaces/deeprte/output/train/L"
 
 # 获取文件名和扩展名
 filename, ext = os.path.splitext(os.path.basename(DATA_PATH))
