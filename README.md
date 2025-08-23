@@ -229,7 +229,7 @@ Any publication that discloses findings arising from using this source code, the
 
 ```bibtex
 @misc{zhu2025,
-      title={DeepRTE: Pre-trained Attention-based Neural Network for Radiative Tranfer},
+      title={DeepRTE: Pre-trained Attention-based Neural Network for Radiative Transfer},
       author={Yekun Zhu and Min Tang and Zheng Ma},
       year={2025},
       eprint={2505.23190},
