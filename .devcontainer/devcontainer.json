@@ -2,14 +2,19 @@
     "name": "deeprte",
     "build": {
         "context": "..",
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "args": {
+            "VARIANT": "ubuntu"
+        }
     },
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-python-envs@prerelease",
                 "ms-toolsai.tensorboard",
                 "ms-toolsai.jupyter",
+                "astral-sh.ty@prerelease",
                 "charliermarsh.ruff",
                 "redhat.vscode-yaml",
                 "tamasfe.even-better-toml",
@@ -19,18 +24,17 @@
     },
     "mounts": [
         "type=volume,src=rte_data,dst=${containerWorkspaceFolder}/data",
-        "type=volume,src=${localWorkspaceFolderBasename}-venv,dst=${containerWorkspaceFolder}/.venv",
-        "type=volume,src=uv-cache,dst=/tmp/uv-cache"
+        "type=volume,src=${localWorkspaceFolderBasename}-venv,dst=${containerWorkspaceFolder}/.venv"
     ],
+    "hostRequirements": {
+        "gpu": "optional"
+    },
     "runArgs": [
-        "--cap-add=SYS_PTRACE",
-        "--security-opt=seccomp=unconfined",
-        "--gpus=all",
         "--shm-size=1g"
     ],
     "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown -R $(whoami): .venv && sudo chown -R $(whoami): data",
-        "sync-environment": "uv sync --frozen --all-extras"
+        "fix-volume-permissions": "sudo chown $(whoami) .venv && sudo chown $(whoami) data",
+        "sync-environment": "uv sync --locked --all-extras"
     },
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"

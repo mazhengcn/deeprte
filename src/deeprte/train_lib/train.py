@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import json
 import pathlib
@@ -34,7 +36,7 @@ def train_step(
     """Perform a single training step."""
     grad_fn = nnx.value_and_grad(loss_fn)
     loss, grads = grad_fn(model, batch)
-    optimizer.update(grads)
+    optimizer.update(model, grads)
     metrics.update(loss=loss, mean_squared_labels=jnp.mean(batch["psi_label"] ** 2))
 
 

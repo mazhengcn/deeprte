@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import socket
 import time
@@ -142,7 +144,7 @@ def create_init_fn(model_class, config, key, tx, sharded: bool = True):
             sharded_state = jax.lax.with_sharding_constraint(state, pspecs)
             nnx.update(model, sharded_state)
         if tx:
-            optimizer = nnx.Optimizer(model, tx)
+            optimizer = nnx.Optimizer(model, tx, wrt=nnx.Param)
             return model, optimizer
         return model
 
@@ -183,7 +185,7 @@ def setup_training_state(
         nnx.update(optimizer, restored_train_state["train_state"])
     elif restored_model_state:
         nnx.update(model, restored_model_state)
-        optimizer = nnx.Optimizer(model, tx)
+        optimizer = nnx.Optimizer(model, tx, wrt=nnx.Param)
     else:
         init_model_and_opt = create_init_fn(model_class, config, rng, tx)
         with mesh:
@@ -311,7 +313,7 @@ def initialize_jax_for_tpu_with_emergency_checkpointing(config):
         )
         jax.distributed.initialize()
 
-    ocp.multihost.utils.initialize_runtime_to_distributed_ids()
+    ocp.multihost.initialize_runtime_to_distributed_ids
 
 
 def _retrieve_jax_init_info(config):

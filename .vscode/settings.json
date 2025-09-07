@@ -21,4 +21,5 @@
         "editor.defaultFormatter": "redhat.vscode-yaml",
         "editor.formatOnSave": true,
     },
+    "python.languageServer": "None"
 }
