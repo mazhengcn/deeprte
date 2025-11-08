@@ -6,7 +6,7 @@
 
 DeepRTE is a neural operator architecture designed to solve the Radiative Transfer Equation (RTE) in phase space. This repository provides code, configuration, and utilities for training, evaluating, and experimenting with DeepRTE models using provided RTE datasets.
 
-Any publication that discloses findings arising from using this source code, the model parameters or outputs produced by those should [cite](#citing-this-work) the [DeepRTE: Pre-trained Attention-based Neural Network for Radiative Tranfer](https://www.arxiv.org/abs/2505.23190) paper.
+Any publication that discloses findings arising from using this source code, the model parameters or outputs produced by those should [cite](#citing-this-work) the [DeepRTE: Pre-trained Attention-based Neural Network for Radiative Transfer](https://www.arxiv.org/abs/2505.23190) paper.
 
 DeepRTE learns the solution operator:
 
@@ -245,18 +245,18 @@ DeepRTE's release was made possible by the contributions of the following people
 
 DeepRTE uses the following separate libraries and packages:
 
-*   [abseil-cpp](https://github.com/abseil/abseil-cpp) and
-    [abseil-py](https://github.com/abseil/abseil-py)
-*   [clu](https://github.com/google/CommonLoopUtils)
-*   [Docker](https://www.docker.com)
-*   [Grain](https://github.com/google/grain)
-*   [Hugging Face](https://huggingface.co)
-*   [JAX](https://github.com/jax-ml/jax)
-*   [Flax](https://github.com/google/flax)
-*   [Optax](https://github.com/google-deepmind/optax)
-*   [NumPy](https://github.com/numpy/numpy)
-*   [Tensorflow](https://github.com/tensorflow/tensorflow)
-*   [uv](https://github.com/astral-sh/uv)
+- [abseil-cpp](https://github.com/abseil/abseil-cpp) and
+  [abseil-py](https://github.com/abseil/abseil-py)
+- [clu](https://github.com/google/CommonLoopUtils)
+- [Docker](https://www.docker.com)
+- [Grain](https://github.com/google/grain)
+- [Hugging Face](https://huggingface.co)
+- [JAX](https://github.com/jax-ml/jax)
+- [Flax](https://github.com/google/flax)
+- [Optax](https://github.com/google-deepmind/optax)
+- [NumPy](https://github.com/numpy/numpy)
+- [Tensorflow](https://github.com/tensorflow/tensorflow)
+- [uv](https://github.com/astral-sh/uv)
 
 We thank all their contributors and maintainers!
 
