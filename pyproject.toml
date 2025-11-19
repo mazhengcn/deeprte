@@ -7,7 +7,7 @@ name = "deeprte"
 version = "1.0.1"
 description = "Source code for solving radiative transfer equation using deep neural network"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ email = "mazhengcn@outlook.com" }, { name = "Zheng Ma" }]
 license = { text = "Apache License, Version 2.0" }
 classifiers = [
