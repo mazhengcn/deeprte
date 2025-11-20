@@ -16,30 +16,28 @@
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Optional, Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
-import tensorflow as tf
 
 from deeprte.model.tf import rte_features
 
-TensorDict = Dict[str, tf.Tensor]
+FeatureDict = dict[str, np.ndarray]
 
 
 def _make_features_metadata(
     feature_names: Sequence[str],
 ) -> rte_features.FeaturesMetadata:
     """Makes a feature name to type and shape mapping from a list of names."""
-
     features_metadata = {name: rte_features.FEATURES[name] for name in feature_names}
     return features_metadata
 
 
 def parse_reshape_logic(
-    parsed_features: TensorDict,
+    parsed_features: FeatureDict,
     placeholder_shapes: Mapping[str, int],
     features: rte_features.FeaturesMetadata,
-) -> TensorDict:
+) -> FeatureDict:
     for k, v in parsed_features.items():
         new_shape = rte_features.shape(
             feature_name=k,
@@ -49,19 +47,7 @@ def parse_reshape_logic(
             num_boundary_coords=placeholder_shapes["num_boundary_coords"],
             features=features,
         )
-        new_shape_size = tf.constant(1, dtype=tf.int32)
-        for dim in new_shape:
-            new_shape_size *= tf.cast(dim, tf.int32)
-
-        assert_equal = tf.assert_equal(
-            tf.size(v),
-            new_shape_size,
-            name="assert_%s_shape_correct" % k,
-            message="The size of feature %s (%s) could not be reshaped "
-            "into %s" % (k, tf.size(v), new_shape),
-        )
-        with tf.control_dependencies([assert_equal]):
-            parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
+        parsed_features[k] = np.reshape(v, new_shape)
 
     return parsed_features
 
@@ -69,8 +55,8 @@ def parse_reshape_logic(
 def np_to_tensor_dict(
     np_example: Mapping[str, np.ndarray],
     placeholder_shapes: Mapping[str, int],
-    features_names: Optional[Sequence[str]] = None,
-) -> TensorDict:
+    features_names: Sequence[str] | None = None,
+) -> FeatureDict:
     """Creates dict of tensors from a dict of NumPy arrays.
 
     Args:
@@ -82,16 +68,14 @@ def np_to_tensor_dict(
         A dictionary of features mapping feature names to features.
             Only the given features are returned, all other ones are
             filtered out.
+
     """
     features_metadata = _make_features_metadata(features_names)  # ty: ignore
     tensor_dict = {
-        k: tf.constant(v) if not isinstance(v, tf.Tensor) else v
+        k: np.asarray(v) if not isinstance(v, np.ndarray) else v
         for k, v in np_example.items()
         if k in features_metadata
     }
     # Ensures shapes are as expected. Needed for setting size of empty features
     # e.g. when no template hits were found.
-    tensor_dict = parse_reshape_logic(
-        tensor_dict, placeholder_shapes, features_metadata
-    )
-    return tensor_dict
+    return parse_reshape_logic(tensor_dict, placeholder_shapes, features_metadata)

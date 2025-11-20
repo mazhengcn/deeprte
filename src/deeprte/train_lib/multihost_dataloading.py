@@ -6,7 +6,6 @@ from typing import Any
 import jax
 import jax.tree_util as jtu
 import numpy as np
-import tensorflow as tf
 from absl import logging
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, NamedSharding, PartitionSpec
@@ -18,7 +17,7 @@ Shape = tuple[int, ...]
 
 
 def get_dataset_shape_dtype_struct(
-    iterator: tf.data.Dataset | dataset_iterator.DatasetIterator,
+    iterator: dataset_iterator.DatasetIterator,
     global_mesh: Mesh,
     data_pspec: PartitionSpec,
 ) -> PyTree:
@@ -87,7 +86,7 @@ def get_next_batch_sharded(
         try:
             local_data = next(local_iterator)
             loaded_data_success = True
-        except tf.errors.FailedPreconditionError:
+        except:
             logging.log("Failed to get next data batch, retrying")  # ty: ignore
             time.sleep(SLEEP_TIME)
 
@@ -108,7 +107,7 @@ class MultiHostDataLoadIterator:
 
     def __init__(
         self,
-        dataloader: tf.data.Dataset,
+        dataloader,
         global_mesh: Mesh,
         data_pspec: PartitionSpec | None = None,
     ):
@@ -118,9 +117,7 @@ class MultiHostDataLoadIterator:
             self.data_pspec = data_pspec
         else:
             self.data_pspec = PartitionSpec(global_mesh.axis_names)
-        if isinstance(self.dataloader, tf.data.Dataset):
-            self.local_iterator = self.dataloader.as_numpy_iterator()
-        elif isinstance(self.dataloader, Iterable):
+        if isinstance(self.dataloader, Iterable):
             self.local_iterator = iter(self.dataloader)
         else:
             raise ValueError(
@@ -128,9 +125,7 @@ class MultiHostDataLoadIterator:
             )
 
     def reset(self):
-        if isinstance(self.dataloader, tf.data.Dataset):
-            self.local_iterator = self.dataloader.as_numpy_iterator()
-        elif isinstance(self.dataloader, Iterable):
+        if isinstance(self.dataloader, Iterable):
             self.local_iterator = iter(self.dataloader)
         else:
             raise ValueError(

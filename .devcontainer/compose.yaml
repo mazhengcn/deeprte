@@ -9,7 +9,6 @@ services:
       - deeprte-venv:/deeprte/.venv
       - uv-cache:/home/deeprte/.cache/uv
     command: sleep infinity
-    user: deeprte
     shm_size: 1gb
     gpus: all
 

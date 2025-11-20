@@ -2,36 +2,33 @@
 
 from collections.abc import Callable, Mapping
 
+import grain
+import jax
 import numpy as np
-import tensorflow as tf
 
 from deeprte.model.tf import rte_dataset, rte_features
 
 FeatureDict = Mapping[str, Mapping[str, np.ndarray]]
 
 
-def np_data_to_features(raw_data: FeatureDict) -> FeatureDict:
+def np_data_to_features(raw_data: FeatureDict) -> FeatureDict | None:
     """Preprocesses NumPy feature dict using TF pipeline."""
-
     num_examples = raw_data["functions"]["boundary"].shape[0]
 
-    def to_features(x):
-        raw_example = {**x, **raw_data["grid"]}
-        tensor_dict = rte_dataset.np_to_tensor_dict(
+    def function_features(idx: int) -> Mapping[str, np.ndarray]:
+        return jax.tree.map(lambda x: x[idx], raw_data["functions"])
+
+    def to_features(idx: int) -> Mapping[str, np.ndarray]:
+        raw_example = {**function_features(idx), **raw_data["grid"]}
+        return rte_dataset.np_to_tensor_dict(
             raw_example,
             raw_data["shape"],  # ty: ignore
             rte_features.FEATURES.keys(),  # ty: ignore
         )
-        return tensor_dict
 
-    dataset = (
-        tf.data.Dataset.from_tensor_slices(raw_data["functions"])
-        .map(to_features, tf.data.AUTOTUNE)
-        .batch(num_examples)
-    )
-    processed_features = dataset.get_single_element()
+    dataset = grain.MapDataset.range(num_examples).map(to_features).batch(num_examples)
 
-    return tf.nest.map_structure(lambda x: x.numpy(), processed_features)
+    return dataset[0]
 
 
 def split_feature(

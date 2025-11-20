@@ -24,7 +24,6 @@ import jax.numpy as jnp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
 from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
 from rte_dataset.builders import pipeline
@@ -279,10 +278,6 @@ def predict_radiative_transfer(  # noqa: PLR0915
 def main(argv) -> None:  # noqa: ANN001, D103
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")  # noqa: EM101, TRY003
-
-    # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
-    # it unavailable to JAX.
-    tf.config.set_visible_devices([], "GPU")
 
     model_dir = pathlib.Path(FLAGS.model_dir)
     output_dir = pathlib.Path(FLAGS.output_dir)
