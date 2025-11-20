@@ -1,11 +1,8 @@
 {
-    "name": "deeprte",
+    "name": "DeepRTE",
     "build": {
         "context": "..",
-        "dockerfile": "Dockerfile",
-        "args": {
-            "VARIANT": "ubuntu"
-        }
+        "dockerfile": "Dockerfile"
     },
     "customizations": {
         "vscode": {
@@ -17,25 +14,35 @@
                 "astral-sh.ty@prerelease",
                 "charliermarsh.ruff",
                 "redhat.vscode-yaml",
-                "tamasfe.even-better-toml",
-                "yzhang.markdown-all-in-one"
+                "tamasfe.even-better-toml"
             ]
         }
     },
     "mounts": [
-        "type=volume,src=rte_data,dst=${containerWorkspaceFolder}/data",
-        "type=volume,src=${localWorkspaceFolderBasename}-venv,dst=${containerWorkspaceFolder}/.venv"
+        {
+            "source": "rte_data",
+            "target": "${containerWorkspaceFolder}/data",
+            "type": "volume"
+        },
+        {
+            "source": "${localWorkspaceFolderBasename}-venv",
+            "target": "${containerWorkspaceFolder}/.venv",
+            "type": "volume"
+        },
+        {
+            "source": "uv-cache",
+            "target": "/home/deeprte/.cache/uv",
+            "type": "volume"
+        }
     ],
-    "hostRequirements": {
-        "gpu": "optional"
-    },
     "runArgs": [
+        "--gpus=all",
         "--shm-size=1g"
     ],
     "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown $(whoami) .venv && sudo chown $(whoami) data",
-        "sync-environment": "uv sync --locked --all-extras"
+        "fix-volume-permissions": "sudo chown $(whoami) .venv data $HOME/.cache/uv",
+        "sync-environment": "uv sync --all-extras"
     },
     "postStartCommand": "uv run pre-commit install",
-    "remoteUser": "vscode"
+    "remoteUser": "deeprte"
 }

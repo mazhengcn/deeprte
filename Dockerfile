@@ -32,13 +32,19 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Then, use a final image without uv
 FROM debian:bookworm-slim
 
+# Create nonroot user
+ARG USERNAME=deeprte
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID --shell /bin/bash --create-home $USERNAME
+
 # Copy the Python version
 COPY --from=builder --chown=python:python /python /python
-
 # Copy the application from the builder
 COPY --from=builder --chown=deeprte:deeprte /deeprte /deeprte
-
 # Place executables in the environment at the front of the path
 ENV PATH="/deeprte/.venv/bin:$PATH"
 
+USER $USERNAME
 WORKDIR /deeprte
