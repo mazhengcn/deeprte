@@ -1,0 +1,21 @@
+services:
+  deeprte:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/deeprte:cached
+      - rte_data:/deeprte/data
+      - deeprte-venv:/deeprte/.venv
+      - uv-cache:/home/deeprte/.cache/uv
+    command: sleep infinity
+    user: deeprte
+    shm_size: 1gb
+    gpus: all
+
+volumes:
+  deeprte-venv: {}
+  rte_data:
+    external: true
+  uv-cache:
+    external: true

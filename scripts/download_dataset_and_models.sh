@@ -21,12 +21,12 @@ DATASET_REPO="mazhengcn/rte-dataset"
 MODEL_REPO="mazhengcn/deeprte"
 
 # Download rte-dataset
-huggingface-cli download mazhengcn/rte-dataset \
+hf download mazhengcn/rte-dataset \
     --exclude=interim/* \
     --local-dir=${DATA_DIR} \
     --repo-type=dataset
 
 # Download models
-huggingface-cli download mazhengcn/deeprte \
+hf download mazhengcn/deeprte \
     --local-dir=${MODELS_DIR} \
     --repo-type=model

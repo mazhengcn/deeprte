@@ -1,9 +1,8 @@
 {
     "name": "DeepRTE",
-    "build": {
-        "context": "..",
-        "dockerfile": "Dockerfile"
-    },
+    "dockerComposeFile": "compose.yaml",
+    "service": "deeprte",
+    "workspaceFolder": "/deeprte",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -18,31 +17,9 @@
             ]
         }
     },
-    "mounts": [
-        {
-            "source": "rte_data",
-            "target": "${containerWorkspaceFolder}/data",
-            "type": "volume"
-        },
-        {
-            "source": "${localWorkspaceFolderBasename}-venv",
-            "target": "${containerWorkspaceFolder}/.venv",
-            "type": "volume"
-        },
-        {
-            "source": "uv-cache",
-            "target": "/home/deeprte/.cache/uv",
-            "type": "volume"
-        }
-    ],
-    "runArgs": [
-        "--gpus=all",
-        "--shm-size=1g"
-    ],
     "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown $(whoami) .venv data $HOME/.cache/uv",
+        "fix-volume-permissions": "sudo chown deeprte data .venv /home/deeprte/.cache  ",
         "sync-environment": "uv sync --all-extras"
     },
-    "postStartCommand": "uv run pre-commit install",
     "remoteUser": "deeprte"
 }

@@ -1,21 +1,19 @@
+ARG UV_VERSION=latest
+
+FROM ghcr.io/astral-sh/uv:$UV_VERSION AS uv
+
 FROM debian:trixie-slim
 
 # Install system packages
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends screen sudo git gh ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-ENV UV_LINK_MODE=copy
-# Only use the managed Python version
-ENV UV_PYTHON_PREFERENCE=only-managed
-# Configure the Python directory so it is consistent
-ENV UV_PYTHON_INSTALL_DIR=/python
-
-WORKDIR /python
-RUN --mount=type=bind,source=.python-version,target=.python-version \
-    uv python install
+ENV PYTHONDONTWRITEBYTECODE=True \
+    PYTHONUNBUFFERED=True \
+    UV_LINK_MODE=copy
 
 # Create nonroot user
 ARG USERNAME=deeprte
@@ -26,4 +24,5 @@ RUN groupadd --gid $USER_GID $USERNAME \
     # [Optional] Add sudo support. Omit if you don't need to install software after connecting.
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
-USER $USERNAME
+
+COPY --from=uv --chown=deeprte:deeprte /uv /uvx /bin/

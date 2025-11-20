@@ -1,9 +1,6 @@
 {
     "files.insertFinalNewline": true,
     "files.trimTrailingWhitespace": true,
-    "files.exclude": {
-        "**/.venv": true
-    },
     "[python]": {
         "editor.codeActionsOnSave": {
             "source.fixAll": "explicit",
