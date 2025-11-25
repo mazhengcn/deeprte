@@ -6,14 +6,14 @@ services:
     volumes:
       - ..:/deeprte:cached
       - rte_data:/deeprte/data
-      - deeprte-venv:/deeprte/.venv
+      - venv:/deeprte/.venv
       - uv-cache:/home/deeprte/.cache/uv
     command: sleep infinity
     shm_size: 1gb
     gpus: all
 
 volumes:
-  deeprte-venv: {}
+  venv: {}
   rte_data:
     external: true
   uv-cache:
