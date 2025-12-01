@@ -7,10 +7,8 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-python.vscode-python-envs@prerelease",
                 "ms-toolsai.tensorboard",
                 "ms-toolsai.jupyter",
-                "astral-sh.ty@prerelease",
                 "charliermarsh.ruff",
                 "redhat.vscode-yaml",
                 "tamasfe.even-better-toml"
