@@ -7,12 +7,14 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 import orbax.checkpoint as ocp
 from absl import logging
 from etils import epath
 from flax import nnx
 from jax.experimental import mesh_utils
+from tensorboardX import writer
 
 from deeprte.train_lib import checkpointing
 
@@ -55,7 +57,7 @@ def collect_pytrees(
 
 # Mesh utils.
 # -----------------------------------------------------------------------------
-def create_device_mesh(config, devices=None):
+def create_device_mesh(config, devices=None) -> Mesh:
     """Creates a device mesh with each slice in its own data parallel group. If there is only one slice, uses two replicas."""
     if devices is None:
         devices = jax.devices()
@@ -374,3 +376,68 @@ def get_coordinator_ip_address():
                 time.sleep(5)
     logging.info(f"Coordinator IP address: {coordinator_ip_address}")
     return coordinator_ip_address
+
+
+def _bytes_of(x):
+    """Return the number of bytes used by a single leaf in a pytree.
+    Handles concrete arrays (NumPy/JAX), abstract shapes, scalars, and None.
+    Unknown types default to 0.
+    """
+    # Abstract JAX values: compute bytes from shape × dtype size.
+    if isinstance(x, jax.ShapeDtypeStruct):
+        # jnp.dtype() normalizes to a consistent dtype object (e.g., handles bfloat16)
+        return int(np.prod(x.shape)) * int(jnp.dtype(x.dtype).itemsize)
+
+    # Concrete arrays (NumPy, JAX): rely on their native nbytes property.
+    if hasattr(x, "nbytes"):
+        return int(x.nbytes)
+
+    # Python scalars (int, float, bool): convert to a NumPy array to measure size.
+    if isinstance(x, (int, float, bool)):
+        return int(np.array(x).nbytes)
+
+    # None or unsupported leaf types: count as zero bytes.
+    if x is not None:
+        logging.info(f"Unsupported leaf type in calculate_bytes_from_pytree: {type(x)}")
+
+    return 0
+
+
+def calculate_bytes_from_pytree(params):
+    """Return the total memory footprint (in bytes) of all leaves in a pytree.
+
+    Each leaf is measured using `_bytes_of`. Non-array or unsupported types
+    contribute 0 unless they are scalars.
+    """
+    return sum(map(_bytes_of, jax.tree_util.tree_leaves(params)))
+
+
+def summarize_size_from_pytree(params):
+    num_params = calculate_num_params_from_pytree(params)
+    num_bytes = calculate_bytes_from_pytree(params)
+    return num_params, num_bytes, num_bytes / num_params
+
+
+def initialize_summary_writer(tensorboard_dir, run_name):
+    summary_writer_path = os.path.join(tensorboard_dir, run_name)
+    return (
+        writer.SummaryWriter(summary_writer_path) if jax.process_index() == 0 else None
+    )
+
+
+def close_summary_writer(summary_writer):
+    if jax.process_index() == 0:
+        summary_writer.close()
+
+
+def add_text_to_summary_writer(key, value, summary_writer):
+    """Writes given key-value pair to tensorboard as text/summary."""
+    if jax.process_index() == 0:
+        summary_writer.add_text(key, value)
+
+
+def add_config_to_summary_writer(config, summary_writer):
+    """Writes config params to tensorboard"""
+    if jax.process_index() == 0:
+        for key, value in config.get_keys().items():
+            add_text_to_summary_writer(key, str(value), summary_writer)

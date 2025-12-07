@@ -85,8 +85,8 @@ class Scattering(nnx.Module):
                 ScatteringLayer(config.scattering_dim, config.scattering_dim, rngs=rngs)
             )
             lns.append(nnx.LayerNorm(config.scattering_dim, rngs=rngs))
-        self.scattering_layers = scattering_layers
-        self.lns = lns
+        self.scattering_layers = nnx.List(scattering_layers)
+        self.lns = nnx.List(lns)
 
     def __call__(
         self,

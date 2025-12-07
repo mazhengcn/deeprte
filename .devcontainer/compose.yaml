@@ -8,12 +8,12 @@ services:
       - rte_data:/deeprte/data
       - venv:/deeprte/.venv
       - uv-cache:/home/deeprte/.cache/uv
-    command: sleep infinity
+    command: "sleep infinity"
     shm_size: 1gb
     gpus: all
 
 volumes:
-  venv: {}
+  venv:
   rte_data:
     external: true
   uv-cache:

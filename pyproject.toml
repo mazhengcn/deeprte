@@ -22,10 +22,10 @@ classifiers = [
 dependencies = [
     "clu>=0.0.12",
     "dill>=0.3.9",
-    "flax~=0.10.6",
+    "flax>=0.12.1",
     "grain>=0.2.9",
     "huggingface-hub>=0.30.2",
-    "jax~=0.6.0",
+    "jax>=0.8.1",
     "matplotlib>=3.10.0",
     "optax>=0.2.4",
     "orbax-checkpoint>=0.11.13",
@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cuda = ["jax-cuda12-plugin[with-cuda]~=0.6.0"]
+cuda = ["jax-cuda13-plugin[with-cuda]>=0.8.1"]
 
 [project.urls]
 homepage = "https://github.com/mazhengcn/deeprte"

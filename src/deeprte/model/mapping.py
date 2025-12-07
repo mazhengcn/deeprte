@@ -68,12 +68,12 @@ def sharded_apply(
     in_axes: int | PYTREE = 0,
     out_axes: int | PYTREE = 0,
 ) -> Callable[..., PYTREE]:
-    docstr = (
-        "Mapped version of {fun}. Takes similar arguments to {fun} "
-        "but with additional array axes over which {fun} is mapped."
-    )
+    # docstr = (
+    #     "Mapped version of {fun}. Takes similar arguments to {fun} "
+    #     "but with additional array axes over which {fun} is mapped."
+    # )
 
-    @jax.util.wraps(fun, docstr=docstr)
+    # @jax.utils.wraps(fun, docstr=docstr)
     def mapped_fn(*args):
         # Expand in axes and Determine Loop range
         in_axes_ = _expand_axes(in_axes, args)
@@ -118,10 +118,10 @@ def sharded_apply_with_scan(
     out_axes: int | PYTREE = 0,
     new_out_axes: bool = False,
 ) -> Callable[..., PYTREE_JAX_ARRAY]:
-    docstr = (
-        "Mapped version of {fun}. Takes similar arguments to {fun} "
-        "but with additional array axes over which {fun} is mapped."
-    )
+    # docstr = (
+    #     "Mapped version of {fun}. Takes similar arguments to {fun} "
+    #     "but with additional array axes over which {fun} is mapped."
+    # )
     if new_out_axes:
         raise NotImplementedError("New output axes not yet implemented.")
 
@@ -129,7 +129,7 @@ def sharded_apply_with_scan(
     if shard_size is None:
         return fun
 
-    @jax.util.wraps(fun, docstr=docstr)
+    # @jax.util.wraps(fun, docstr=docstr)
     def mapped_fn(*args):
         # Expand in axes and Determine Loop range
         in_axes_ = _expand_axes(in_axes, args)

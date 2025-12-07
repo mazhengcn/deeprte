@@ -182,7 +182,7 @@ def predict_radiative_transfer(  # noqa: PLR0915
         # Run the model.
         logging.info("Running rte engine...")
         t_0 = time.time()
-        processed_feature_dict = engine.process_features(feature_dict)
+        processed_feature_dict = engine.process_features(feature_dict)  # ty: ignore
         timings["process_features"] = time.time() - t_0
 
         t_0 = time.time()

@@ -1,5 +1,6 @@
 """Create an Orbax CheckpointManager with specified (Async or not) Checkpointer."""
 
+import pathlib
 from typing import Any
 
 import grain.python as grain
@@ -19,7 +20,7 @@ PersistentCheckpointOptions = emergency_checkpoint_manager.PersistentCheckpointO
 
 
 def create_orbax_checkpoint_manager(
-    checkpoint_dir: str,
+    checkpoint_dir: str | pathlib.Path,
     enable_checkpointing: bool,
     use_async: bool,
     save_interval_steps: int,

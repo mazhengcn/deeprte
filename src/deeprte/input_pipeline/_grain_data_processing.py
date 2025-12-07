@@ -20,7 +20,6 @@ from typing import Any, Optional
 import grain.python as grain
 import jax
 import numpy as np
-import tensorflow as tf
 from clu.data import dataset_iterator
 from jax.sharding import Mesh, PartitionSpec
 from rte_dataset.builders import pipeline
@@ -38,7 +37,7 @@ DatasetIterator = dataset_iterator.DatasetIterator
 
 features.register_feature(
     "psi_label",
-    tf.float32,
+    np.float32,
     [features.NUM_PHASE_COORDS],  # ty: ignore
 )  # ty: ignore
 
@@ -62,12 +61,11 @@ class RTEDataset(grain.RandomAccessDataSource):
             **jax.tree.map(lambda x: x[index], self.raw_data["functions"]),
             **self.raw_data["grid"],
         }
-        tensor_dict = rte_dataset.np_to_tensor_dict(
+        return rte_dataset.np_to_tensor_dict(
             np_example,
             self.raw_data["shape"],
             FEATURES.keys(),  # ty: ignore
         )
-        return jax.tree.map(lambda x: x.numpy(), tensor_dict)
 
     def __repr__(self):
         return "RTEDataset: 0.0.2"

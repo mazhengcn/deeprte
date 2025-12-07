@@ -176,7 +176,7 @@ class MlpBlock(nnx.Module):
                 )
             )
 
-        self.linears = linears
+        self.linears = nnx.List(linears)
 
     def __call__(self, x: jax.Array) -> jax.Array:
         if x.shape[-1] != self.in_features:

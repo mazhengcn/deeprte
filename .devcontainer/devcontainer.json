@@ -10,13 +10,13 @@
                 "ms-toolsai.tensorboard",
                 "ms-toolsai.jupyter",
                 "charliermarsh.ruff",
-                "redhat.vscode-yaml",
+                "astral-sh.ty@prerelease",
                 "tamasfe.even-better-toml"
             ]
         }
     },
     "postCreateCommand": {
-        "fix-volume-permissions": "sudo chown deeprte data .venv /home/deeprte/.cache  ",
+        "fix-volume-permissions": "sudo chown deeprte data .venv /home/deeprte/.cache",
         "sync-environment": "uv sync --all-extras"
     },
     "remoteUser": "deeprte"
