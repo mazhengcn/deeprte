@@ -1,4 +1,4 @@
-import functools
+import functools as ft
 import typing as tp
 from collections.abc import Callable
 
@@ -92,7 +92,7 @@ class MultiHeadAttention(nnx.Module):
 
         self.head_dim = self.qkv_features // self.num_heads
 
-        linear_general = functools.partial(
+        linear_general = ft.partial(
             nnx.LinearGeneral,
             out_features=(self.num_heads, self.head_dim),
             kernel_init=kernel_init,
@@ -187,5 +187,5 @@ class MlpBlock(nnx.Module):
         for idx, linear in enumerate(self.linears):
             x = linear(x)
             if idx < self.num_layers - 1:
-                x = nnx.tanh(x)
+                x = jax.nn.tanh(x)
         return x

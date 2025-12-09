@@ -1,8 +1,7 @@
 import jax
 from absl import app, flags, logging
-from clu import platform
 
-from deeprte.configs import default
+from deeprte.configs import config
 from deeprte.train_lib import train
 
 FLAGS = flags.FLAGS
@@ -21,19 +20,10 @@ def main(argv) -> None:  # noqa: ANN001, D103
     logging.info("JAX process: %d / %d", jax.process_index(), jax.process_count())
     logging.info("JAX local devices: %r", jax.local_devices())
 
-    # Add a note so that we can tell which task is which JAX host.
-    # (Depending on the platform task 0 is not guaranteed to be host 0)
-    platform.work_unit().set_task_status(
-        f"process_index: {jax.process_index()}, process_count: {jax.process_count()}"
-    )
-    platform.work_unit().create_artifact(
-        platform.ArtifactType.DIRECTORY, FLAGS.workdir, "workdir"
-    )
-
     # Load the configuration.
-    config = default.get_config(FLAGS.config)
+    cfg = config.get_config(FLAGS.config)
     # Train and evaluate
-    train.train_and_evaluate(config, FLAGS.workdir)
+    train.train_loop(cfg, FLAGS.workdir)
 
 
 if __name__ == "__main__":

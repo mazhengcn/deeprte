@@ -2,7 +2,6 @@
 
 import enum
 import json
-import os
 from collections import defaultdict
 
 import jax
@@ -13,6 +12,19 @@ import deeprte.train_lib.utils as train_utils
 
 EPS = 1e-8
 
+# Mapping MaxText metrics to managed profiler metrics
+_METRICS_TO_MANAGED = {
+    "learning/current_learning_rate": "learning_rate",
+    "learning/loss": "loss",
+    "learning/grad_norm": "gradient_norm",
+    "learning/total_weights": "total_weights",
+    "perf/step_time_seconds": "step_time",
+    "perf/per_device_tokens_per_sec": "throughput",
+    "perf/per_device_tflops_per_sec": "tflops",
+    # There are no mappings to the following metrics yet:
+    # "latency", "mfu"
+}
+
 
 def _prepare_metrics_for_json(metrics, step, run_name):
     """Converts metric dictionary into json supported types (e.g. float)"""
@@ -22,38 +34,6 @@ def _prepare_metrics_for_json(metrics, step, run_name):
     return metrics_dict
 
 
-def record_activation_metrics(output_metrics, intermediate_outputs, config):
-    """Adds the activation metrics to the metrics dict"""
-
-    if config.scan_layers:
-        metrics_dict = intermediate_outputs["intermediates"]["decoder"]["decoder"]
-
-        for layer_num in range(config.num_decoder_layers):
-            output_metrics["scalar"][f"activ_fraction_zero/layer_{layer_num:03d}"] = (
-                metrics_dict["activation_fraction_zero"][0][layer_num]
-            )
-            output_metrics["scalar"][f"activ_mean/layer_{layer_num:03d}"] = (
-                metrics_dict["activation_mean"][0][layer_num]
-            )
-            output_metrics["scalar"][f"activ_stdev/layer_{layer_num:03d}"] = (
-                metrics_dict["activation_stdev"][0][layer_num]
-            )
-    else:
-        for layer_num in range(config.num_decoder_layers):
-            layer = intermediate_outputs["intermediates"]["decoder"][
-                f"layers_{layer_num}"
-            ]
-            output_metrics["scalar"][f"activ_fraction_zero/layer_{layer_num:03d}"] = (
-                layer["activation_fraction_zero"][0]
-            )
-            output_metrics["scalar"][f"activ_mean/layer_{layer_num:03d}"] = layer[
-                "activation_mean"
-            ][0]
-            output_metrics["scalar"][f"activ_stdev/layer_{layer_num:03d}"] = layer[
-                "activation_stdev"
-            ][0]
-
-
 class MetadataKey(enum.Enum):
     PER_DEVICE_TFLOPS = "per_device_tflops"
     PER_DEVICE_TOKENS = "per_device_tokens"
@@ -61,7 +41,7 @@ class MetadataKey(enum.Enum):
 
 class MetricLogger:
     """
-    Logger for saving metrics to a local file, GCS and TensorBoard.
+    Logger for saving metrics to a local file and TensorBoard.
     """
 
     def __init__(self, config, learning_rate_schedule):
@@ -83,11 +63,11 @@ class MetricLogger:
         if metrics:
             self.log_metrics(metrics, step, is_training)
 
-            if self.config.enable_tensorboard:
-                self.write_metrics_to_tensorboard(metrics, step, is_training)
+            # if self.config.enable_tensorboard:
+            #     self.write_metrics_to_tensorboard(metrics, step, is_training)
 
-            if self.config.metrics_file:
-                self.write_metrics_locally(metrics, step)
+            # if self.config.metrics_file:
+            #     self.write_metrics_locally(metrics, step)
 
     def log_metrics(self, metrics, step, is_training):
         """Logs metrics via max_logging."""
@@ -102,50 +82,42 @@ class MetricLogger:
         # TODO(b/456828037): Switch to subprocess profiling to avoid timing artifacts at boundary steps.
         scalars = metrics["scalar"]
         loss = scalars["learning/loss"]
-        is_rampup = step < self.config.rampup_end_step
-        is_metric_hidden_step = (
-            self.config.hide_profiler_step_metric
-            and self._is_profiler_boundary_step(step)
-        )
+        # is_metric_hidden_step = (
+        #     self.config.hide_profiler_step_metric
+        #     and self._is_profiler_boundary_step(step)
+        # )
 
         # Start building the log parts
         log_parts = []
-        if is_rampup:
-            log_parts.append("[Rampup Batch Size Phase]")
 
-        if is_metric_hidden_step:
-            log_parts.append(
-                f"completed profiler activation/deactivation step: {step}",
-            )
-        else:
-            log_parts.extend(
-                [
-                    f"completed step: {step}",
-                    f"seconds: {scalars['perf/step_time_seconds']:.3f}",
-                ]
-            )
-
-        # Add performance metrics only if strictly NOT in rampup phase
-        # TODO(b/452468482): Enable performance metric (TFLOPs, Tokens/s) tracking during batch size rampup.
-        if not is_rampup and not is_metric_hidden_step:
-            log_parts.extend(
-                [
-                    f"TFLOP/s/device: {scalars['perf/per_device_tflops_per_sec']:.3f}",
-                    f"Tokens/s/device: {scalars['perf/per_device_tokens_per_sec']:.3f}",
-                ]
-            )
-
+        # if is_metric_hidden_step:
+        #     log_parts.append(
+        #         f"completed profiler activation/deactivation step: {step}",
+        #     )
+        # else:
         log_parts.extend(
             [
-                f"total_weights: {scalars['learning/total_weights']}",
-                f"loss: {loss:.3f}",
+                f"completed step: {step}",
+                f"seconds: {scalars['perf/step_time_seconds']:.3f}",
             ]
         )
 
-        if self.config.mtp_num_layers > 0:
-            mtp_loss = scalars.get("learning/mtp_loss", 0.0)
-            log_parts.append(f"main_model_loss: {loss - mtp_loss:.3f}")
-            log_parts.append(f"mtp_loss: {mtp_loss:.3f}")
+        # Add performance metrics only if strictly NOT in rampup phase
+        # TODO(b/452468482): Enable performance metric (TFLOPs, Tokens/s) tracking during batch size rampup.
+        # if not is_metric_hidden_step:
+        #     log_parts.extend(
+        #         [
+        #             f"tflop/s/device: {scalars['perf/per_device_tflops_per_sec']:.3f}",
+        #             f"tokens/s/device: {scalars['perf/per_device_tokens_per_sec']:.3f}",
+        #         ]
+        #     )
+
+        log_parts.extend(
+            [
+                f"relative_loss: {scalars['learning/relative_loss']:.3f}",
+                f"loss: {loss}",
+            ]
+        )
 
         logging.info(", ".join(log_parts))
 
@@ -224,12 +196,9 @@ class MetricLogger:
         # self.metadata[MetadataKey.PER_DEVICE_TOKENS] = (
         #     train_utils.calculate_tokens_training_per_device(self.config)
         # )
-        logging.info(f"number parameters: {num_model_parameters / 1e9:.3f} billion")
+        logging.info(f"number parameters: {num_model_parameters}")
         train_utils.add_text_to_summary_writer(
             "num_model_parameters", str(num_model_parameters), self.writer
-        )
-        train_utils.add_text_to_summary_writer(
-            "libtpu_init_args", os.environ["LIBTPU_INIT_ARGS"], self.writer
         )
         train_utils.add_config_to_summary_writer(self.config, self.writer)
 
@@ -253,27 +222,27 @@ class MetricLogger:
         metrics["scalar"].update(
             {"learning/current_learning_rate": self.learning_rate_schedule(step)}
         )
-        if step >= self.config.rampup_end_step:
-            metrics["scalar"].update(
-                {"perf/per_device_tflops": self.metadata[MetadataKey.PER_DEVICE_TFLOPS]}
-            )
-            metrics["scalar"].update(
-                {
-                    "perf/per_device_tflops_per_sec": (
-                        self.metadata[MetadataKey.PER_DEVICE_TFLOPS] / step_time
-                    )
-                }
-            )
-            metrics["scalar"].update(
-                {"perf/per_device_tokens": self.metadata[MetadataKey.PER_DEVICE_TOKENS]}
-            )
-            metrics["scalar"].update(
-                {
-                    "perf/per_device_tokens_per_sec": (
-                        self.metadata[MetadataKey.PER_DEVICE_TOKENS] / step_time
-                    )
-                }
-            )
+        # if step >= self.config.rampup_end_step:
+        #     metrics["scalar"].update(
+        #         {"perf/per_device_tflops": self.metadata[MetadataKey.PER_DEVICE_TFLOPS]}
+        #     )
+        #     metrics["scalar"].update(
+        #         {
+        #             "perf/per_device_tflops_per_sec": (
+        #                 self.metadata[MetadataKey.PER_DEVICE_TFLOPS] / step_time
+        #             )
+        #         }
+        #     )
+        #     metrics["scalar"].update(
+        #         {"perf/per_device_tokens": self.metadata[MetadataKey.PER_DEVICE_TOKENS]}
+        #     )
+        #     metrics["scalar"].update(
+        #         {
+        #             "perf/per_device_tokens_per_sec": (
+        #                 self.metadata[MetadataKey.PER_DEVICE_TOKENS] / step_time
+        #             )
+        #         }
+        #     )
 
     def record_eval_metrics(self, step, metrics=None, eval_step_count=None):
         """Records eval metrics and writes the metrics to GCS and/or to TensorBoard."""

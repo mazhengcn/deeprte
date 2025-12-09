@@ -3,7 +3,7 @@
 import optax
 
 
-def create_learning_rate_schedule(config):
+def create_learning_rate_schedule(config) -> optax.Schedule:
     """Creates a optax learning rate schedule."""
 
     schedule = config.schedule
