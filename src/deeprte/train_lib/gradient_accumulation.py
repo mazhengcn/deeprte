@@ -5,7 +5,7 @@ import jax.numpy as jnp
 
 
 def gradient_accumulation_loss_and_grad(
-    loss_fn, gradient_accumulation_steps: int, params, batch
+    loss_fn, gradient_accumulation_steps: int | None, params, batch
 ):
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
 

@@ -8,7 +8,8 @@ import jax
 import yaml
 
 
-@dataclasses.dataclass(unsafe_hash=True)
+@jax.tree_util.register_static
+@dataclasses.dataclass(kw_only=True)
 class Config:
     # Integer for PRNG random seed.
     seed: int = 42
@@ -23,7 +24,7 @@ class Config:
     # Name of TFDS dataset to use.
     dataset_name: str = "g0.5-sigma_a3-sigma_t6.mat"
     # Path to directory where TFDS data is stored.
-    data_dir: str = "/workspaces/deeprte/data/raw_data/train/g0.5-sigma_a3-sigma_t6"
+    data_dir: str = "/deeprte/data/raw/train/g0.5-sigma_a3-sigma_t6"
     # TFDS split for training dataset.
     train_split: str = "train[:80%]"
     # TFDS split for evaluation dataset.
@@ -37,7 +38,7 @@ class Config:
     # Global batch size for training.
     global_batch_size: int = 8
     # Number of collocation points to sample from phase space for training.
-    collocation_size: int | None = 128
+    collocation_size: int | None = 256
     # Number of same batch with different collocation points (in order to
     # increase collocation sizes for training).
     repeat_batch: int = 1
@@ -61,6 +62,7 @@ class Config:
     schedule: str = "cosine_decay"
     # Decay steps for cosine decay scheduler.
     decay_steps: int = 10_000
+
     # Whether to save model checkpoints.
     save_checkpoints: bool = True
     # Save a checkpoint every these number of steps.
@@ -102,28 +104,12 @@ class Config:
     normalization: float = 1.0
 
     # Parallelism
-    mesh_axes: tuple[str, ...] = ("data", "fsdp", "tensor")
-    data_sharding: tuple[tuple | str, ...] = (("data", "fsdp", "tensor"),)
-    # One axis for each parallelism type may hold a placeholder (-1)
-    # value to auto-shard based on available slices and devices.
-    # By default, product of the DCN axes should equal number of slices
-    # and product of the ICI axes should equal number of devices per slice.
-    # ICI (Inter-Chip Interconnection): A high-speed connection between
-    # sets of TPU chips, which form the TPU network.
-    # DCN (Data Center Network): A connection between the TPU networks;
-    # not as fast as ICI.
-    # ICI has around 100x the bandwidth of DCN, but it is not a general
-    # purpose connection, which is why DCN is necessary for scaling to
-    # extremely large ML models.
-    dcn_data_parallelism: int = -1
-    dcn_fsdp_parallelism: int = 1
-    dcn_tensor_parallelism: int = 1
-    ici_data_parallelism: int = 1
-    ici_fsdp_parallelism: int = -1
-    ici_tensor_parallelism: int = 1
+    mesh_axis_names: tuple[str, ...] = ("fsdp",)
+    mesh_shape: tuple[int, ...] = (jax.device_count(),)
+    data_sharding: tuple[tuple | str, ...] = ("fsdp",)
 
-    def replace(self, **kwargs):
-        return dataclasses.replace(self, **kwargs)
+    tensorboard_dir: str = "tensorboard_logs"
+    run_name: str = "deeprte_run"
 
 
 def get_config(cfg_path: str | pathlib.Path | None = None) -> Config:
@@ -142,6 +128,6 @@ def get_config(cfg_path: str | pathlib.Path | None = None) -> Config:
         with cfg_path.open("r") as f:
             cfg = file_loader(f)
 
-        return config.replace(**cfg)
+        return dataclasses.replace(config, **cfg)
 
     return config

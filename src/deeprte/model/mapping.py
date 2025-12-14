@@ -1,36 +1,29 @@
+# Copyright 2024 DeepMind Technologies Limited
+#
+# AlphaFold 3 source code is licensed under CC BY-NC-SA 4.0. To view a copy of
+# this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
+#
+# To request access to the AlphaFold 3 model parameters, follow the process set
+# out at https://github.com/google-deepmind/alphafold3. You may only use these
+# if received directly from Google. Use is subject to terms of use available at
+# https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md
+
 """Specialized mapping functions."""
 
 import functools
-from collections.abc import Callable, Sequence
-from typing import Any, Optional
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import jax
 import jax.numpy as jnp
 
-PYTREE = Any
-PYTREE_JAX_ARRAY = Any
+Pytree = Any
+PytreeJaxArray = Any
 
 partial = functools.partial
 PROXY = object()
 
-
-def collect_pytrees(
-    pytrees: Sequence[PYTREE],
-    axes: PYTREE | int = 0,
-    collective_fn: Callable[[Sequence, int], PYTREE] | None = None,
-):
-    axes_ = _expand_axes(axes, pytrees[0])
-
-    if collective_fn:
-
-        def collect_args(*args):
-            return collective_fn(args[:-1], args[-1])  # ty: ignore
-    else:
-
-        def collect_args(*args):
-            return list(args[:-1])
-
-    return jax.tree.map(collect_args, *pytrees, axes_)
+T = TypeVar("T")
 
 
 def _maybe_slice(array, i, slice_size, axis):
@@ -48,100 +41,68 @@ def _maybe_get_size(array, axis):
 
 
 def _expand_axes(axes, values, name="sharded_apply"):
-    values_tree_def = jax.tree.flatten(values)[1]
+    values_tree_def = jax.tree_util.tree_structure(values)
     flat_axes = jax.api_util.flatten_axes(name, values_tree_def, axes)
-    # Replace None's with PROXY
+    # Replace None's with PROXY.
     flat_axes = [PROXY if x is None else x for x in flat_axes]
-    return jax.tree.unflatten(values_tree_def, flat_axes)
+    return jax.tree_util.tree_unflatten(values_tree_def, flat_axes)
 
 
-def _concat_or_stack_arrays(arrays, axis):
-    if arrays[0].ndim == 0:
-        return jnp.stack(arrays)
-    else:
-        return jnp.concatenate(arrays, axis=axis)
+def _set_docstring(docstr: str) -> Callable[[T], T]:
+    """Decorator for setting the docstring of a function."""
+
+    def wrapped(fun: T) -> T:
+        fun.__doc__ = docstr.format(fun=getattr(fun, "__name__", repr(fun)))
+        return fun
+
+    return wrapped
 
 
 def sharded_apply(
-    fun: Callable[..., PYTREE_JAX_ARRAY],  # pylint: disable=g-bare-generic
+    fun: Callable[..., PytreeJaxArray],
     shard_size: int | None = 1,
-    in_axes: int | PYTREE = 0,
-    out_axes: int | PYTREE = 0,
-) -> Callable[..., PYTREE]:
-    # docstr = (
-    #     "Mapped version of {fun}. Takes similar arguments to {fun} "
-    #     "but with additional array axes over which {fun} is mapped."
-    # )
+    in_axes: int | Pytree = 0,
+    out_axes: int | Pytree = 0,
+    out_sharding: Any = None,
+) -> Callable[..., PytreeJaxArray]:
+    """Sharded apply.
 
-    # @jax.utils.wraps(fun, docstr=docstr)
-    def mapped_fn(*args):
-        # Expand in axes and Determine Loop range
-        in_axes_ = _expand_axes(in_axes, args)
-        in_sizes = jax.tree.map(_maybe_get_size, args, in_axes_)
-        flat_sizes = jax.tree.flatten(in_sizes)[0]
-        in_size = max(flat_sizes)
-        assert all(i in {in_size, -1} for i in flat_sizes)
+    Applies `fun` over shards to axes, in a way similar to vmap,
+    but does so in shards of `shard_size`. Shards are stacked after.
+    This allows a smooth trade-off between
+    memory usage (as in a plain map) vs higher throughput (as in a vmap).
 
-        num_shards = in_size // shard_size
-        # Fix Up if necessary
-        last_shard_size = in_size % shard_size
+    Args:
+      fun: Function to apply smap transform to.
+      shard_size: Integer denoting shard size. None will return `fun` unchanged.
+      in_axes: Either integer or pytree describing which axis to map over for each
+        input to `fun`, None denotes broadcasting.
+      out_axes: Integer or pytree denoting to what axis in the output the mapped
+        over axis maps.
 
-        def compute_shard(slice_start, slice_size):
-            input_slice = jax.tree.map(
-                lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis),
-                args,
-                in_axes_,
-            )
-            return fun(*input_slice)
+    Returns:
+      Function with smap applied.
+    """
+    docstr = (
+        "Mapped version of {fun}. Takes similar arguments to {fun} "
+        "but with additional array axes over which {fun} is mapped."
+    )
 
-        outputs = []
-        for i in range(num_shards):
-            sliced_outputs = compute_shard(i * shard_size, shard_size)  # ty: ignore
-            outputs.append(sliced_outputs)
-
-        if last_shard_size != 0:
-            remainder_start = in_size - last_shard_size
-            sliced_outputs = compute_shard(remainder_start, last_shard_size)
-            outputs.append(sliced_outputs)
-
-        out_axes_ = _expand_axes(out_axes, outputs[0])
-        outputs = collect_pytrees(outputs, out_axes_, _concat_or_stack_arrays)
-        return outputs
-
-    return mapped_fn
-
-
-def sharded_apply_with_scan(
-    fun: Callable[..., PYTREE_JAX_ARRAY],  # pylint: disable=g-bare-generic
-    shard_size: int | None = 1,
-    in_axes: int | PYTREE = 0,
-    out_axes: int | PYTREE = 0,
-    new_out_axes: bool = False,
-) -> Callable[..., PYTREE_JAX_ARRAY]:
-    # docstr = (
-    #     "Mapped version of {fun}. Takes similar arguments to {fun} "
-    #     "but with additional array axes over which {fun} is mapped."
-    # )
-    if new_out_axes:
-        raise NotImplementedError("New output axes not yet implemented.")
-
-    # shard size None denotes no sharding
     if shard_size is None:
         return fun
 
-    # @jax.util.wraps(fun, docstr=docstr)
-    def mapped_fn(*args):
-        # Expand in axes and Determine Loop range
+    @_set_docstring(docstr)
+    @functools.wraps(fun)
+    def mapped_fn(*args, **kwargs):
+        # Expand in axes and determine loop range.
         in_axes_ = _expand_axes(in_axes, args)
 
         in_sizes = jax.tree.map(_maybe_get_size, args, in_axes_)
-        flat_sizes = jax.tree.flatten(in_sizes)[0]
-        in_size = max(flat_sizes)
-        assert all(i in {in_size, -1} for i in flat_sizes)
+        in_size = max(jax.tree_util.tree_leaves(in_sizes))
 
         num_extra_shards = (in_size - 1) // shard_size
 
-        # Fix Up if necessary
+        # Fix if necessary.
         last_shard_size = in_size % shard_size
         last_shard_size = shard_size if last_shard_size == 0 else last_shard_size
 
@@ -151,13 +112,14 @@ def sharded_apply_with_scan(
                 args,
                 in_axes_,
             )
-            return fun(*input_slice)
+            return fun(*input_slice, **kwargs)
 
         remainder_shape_dtype = jax.eval_shape(
             partial(apply_fun_to_slice, 0, last_shard_size)
         )
         out_dtypes = jax.tree.map(lambda x: x.dtype, remainder_shape_dtype)
         out_shapes = jax.tree.map(lambda x: x.shape, remainder_shape_dtype)
+        out_shardings = jax.tree.map(lambda x: x.sharding, remainder_shape_dtype)
         out_axes_ = _expand_axes(out_axes, remainder_shape_dtype)
 
         if num_extra_shards > 0:
@@ -177,8 +139,8 @@ def sharded_apply_with_scan(
                 make_output_shape, out_axes_, shard_shapes, out_shapes
             )
 
-        # Calls dynamic Update slice with different argument order
-        # This is here since tree_map only works with positional arguments
+        # Calls dynamic Update slice with different argument order.
+        # This is here since tree_map only works with positional arguments.
         def dynamic_update_slice_in_dim(full_array, update, axis, i):
             return jax.lax.dynamic_update_slice_in_dim(full_array, update, i, axis)
 
@@ -193,10 +155,10 @@ def sharded_apply_with_scan(
 
         slice_starts = jnp.arange(0, in_size - shard_size + 1, shard_size)
 
-        def allocate_buffer(dtype, shape):
-            return jnp.zeros(shape, dtype=dtype)
+        def allocate_buffer(dtype, shape, out_sharding):
+            return jnp.zeros(shape, dtype=dtype, out_sharding=out_sharding)
 
-        outputs = jax.tree.map(allocate_buffer, out_dtypes, out_shapes)
+        outputs = jax.tree.map(allocate_buffer, out_dtypes, out_shapes, out_shardings)
 
         if slice_starts.shape[0] > 0:
             outputs, _ = jax.lax.scan(scan_iteration, outputs, slice_starts)
@@ -211,39 +173,30 @@ def sharded_apply_with_scan(
 
 
 def inference_subbatch(
-    module: Callable[..., PYTREE_JAX_ARRAY],
-    subbatch_size: int,
-    batched_args: dict[PYTREE_JAX_ARRAY],  # ty: ignore
-    nonbatched_args: dict[PYTREE_JAX_ARRAY],  # ty: ignore
-    low_memory: bool = True,
+    module: Callable[..., PytreeJaxArray],
+    subbatch_size: int | None,
+    batched_args: dict,
+    nonbatched_args: dict,
     input_subbatch_dim: int = 0,
-    output_subbatch_dim: Optional[int] = None,
-    in_jit: bool = False,
-) -> PYTREE_JAX_ARRAY:
+    output_subbatch_dim: int | None = None,
+) -> PytreeJaxArray:
     """Run through subbatches (like batch apply but with split and concat)."""
-    assert len(batched_args) > 0
-
-    if not low_memory:
-        args = batched_args | nonbatched_args
-        return module(args)
+    assert len(batched_args) > 0  # pylint: disable=g-explicit-length-test
 
     if output_subbatch_dim is None:
         output_subbatch_dim = input_subbatch_dim
 
     def run_module(batched_args):
         args = batched_args | nonbatched_args
-        return module(args)
+        res = module(args)
+        return res
 
-    if in_jit:
-        apply = sharded_apply_with_scan
-    else:
-        apply = sharded_apply
-
-    sharded_module = apply(
+    sharded_module = sharded_apply(
         run_module,
         shard_size=subbatch_size,
         in_axes=input_subbatch_dim,
         out_axes=output_subbatch_dim,
     )
+    output = sharded_module(batched_args)
 
-    return sharded_module(batched_args)
+    return output

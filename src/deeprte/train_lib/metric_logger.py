@@ -6,9 +6,9 @@ from collections import defaultdict
 
 import jax
 import numpy as np
-from absl import logging
 
 import deeprte.train_lib.utils as train_utils
+from deeprte.train_lib import logging
 
 EPS = 1e-8
 
@@ -114,12 +114,12 @@ class MetricLogger:
 
         log_parts.extend(
             [
-                f"relative_loss: {scalars['learning/relative_loss']:.3f}",
-                f"loss: {loss}",
+                f"relative_loss: {scalars['learning/relative_loss']:.3%}",
+                f"loss: {loss:.6e}",
             ]
         )
 
-        logging.info(", ".join(log_parts))
+        logging.log(", ".join(log_parts))
 
     def _log_eval_metrics(self, metrics, step):
         """Handles evaluation-specific metric logging."""
@@ -138,7 +138,7 @@ class MetricLogger:
                 ]
             )
 
-        logging.info(", ".join(log_parts))
+        logging.log(", ".join(log_parts))
 
     def _is_profiler_boundary_step(self, step):
         """Determines if the current step is a profiler start/stop boundary that should be hidden."""
@@ -182,7 +182,7 @@ class MetricLogger:
             full_log = step % self.config.log_period == 0
 
             if full_log and jax.process_index() == 0:
-                logging.info(
+                logging.log(
                     f"To see full metrics 'tensorboard --logdir={self.config.tensorboard_dir}'"
                 )
                 self.writer.flush()
@@ -196,7 +196,7 @@ class MetricLogger:
         # self.metadata[MetadataKey.PER_DEVICE_TOKENS] = (
         #     train_utils.calculate_tokens_training_per_device(self.config)
         # )
-        logging.info(f"number parameters: {num_model_parameters}")
+        logging.log(f"number parameters: {num_model_parameters}")
         train_utils.add_text_to_summary_writer(
             "num_model_parameters", str(num_model_parameters), self.writer
         )

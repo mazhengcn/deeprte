@@ -8,12 +8,11 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import numpy as np
-from absl import logging
 from flax import nnx
 from tensorboardX import writer
 
 from deeprte.input_pipeline import input_pipeline_interface
-from deeprte.train_lib import checkpointing
+from deeprte.train_lib import checkpointing, logging
 
 Mesh = jax.sharding.Mesh
 PyTree = Any
@@ -107,11 +106,11 @@ def setup_training_state(
 def setup_infer_state(model_class, config, rng, mesh):
     if not config.load_parameters_path:
         # generate random params
-        logging.info("No infer checkpoint specified - generating random weights.")
+        logging.log("No infer checkpoint specified - generating random weights.")
         model = init_fn(model_class, config, rng, None)
     else:
         # Load params from checkpoint
-        logging.info(f"Loading decode params from {config.load_parameters_path}")
+        logging.log(f"Loading decode params from {config.load_parameters_path}")
         abs_model = jax.eval_shape(
             lambda: nnx.as_immutable_vars(init_fn(model_class, config, rng, None))
         )
@@ -143,7 +142,7 @@ def _bytes_of(x):
 
     # None or unsupported leaf types: count as zero bytes.
     if x is not None:
-        logging.info(f"Unsupported leaf type in calculate_bytes_from_pytree: {type(x)}")
+        logging.log(f"Unsupported leaf type in calculate_bytes_from_pytree: {type(x)}")
 
     return 0
 

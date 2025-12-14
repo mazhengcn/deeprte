@@ -13,10 +13,11 @@
 # limitations under the License.
 
 
+import dataclasses
 import json
 import pathlib
 import time
-from typing import Any
+        self.num_slices = max_utils.get_num_slices(raw_keys_for_num_slices)from typing import Any
 
 import dill
 import jax
@@ -28,7 +29,7 @@ from absl import app, flags, logging
 from matplotlib.colors import ListedColormap
 from rte_dataset.builders import pipeline
 
-from deeprte.configs import default
+from deeprte.configs import base
 from deeprte.model.engine import RteEngine
 
 logging.set_verbosity(logging.INFO)
@@ -298,9 +299,9 @@ def main(argv) -> None:  # noqa: ANN001, D103
     data_pipeline = pipeline.DataPipeline(data_path.parent, [data_path.name])
     logging.info("Data pipeline created from %s", FLAGS.data_path)
 
-    model_config = default.get_config(model_config_path)
-    model_config = model_config.replace(
-        load_parameters_path=model_dir.resolve() / "params"
+    model_config = base.get_config(model_config_path)
+    model_config = dataclasses.replace(
+        model_config, load_parameters_path=model_dir.resolve() / "params"
     )
     rte_engine = RteEngine(model_config)
 

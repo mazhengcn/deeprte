@@ -16,11 +16,10 @@
 import jax
 from absl import logging
 from flax import nnx
-from jax.sharding import PartitionSpec as P
+from jax.sharding import AxisType
 
-from deeprte.configs import default
+from deeprte.configs import config
 from deeprte.model import features
-from deeprte.model.mapping import inference_subbatch
 from deeprte.model.model import DeepRTE
 from deeprte.model.tf import rte_features
 from deeprte.train_lib import utils
@@ -29,23 +28,23 @@ from deeprte.train_lib import utils
 class RteEngine:
     """Container for DeepRTE model."""
 
-    def __init__(self, config: default.Config, low_memory: bool = True):
+    def __init__(self, config: config.Config, low_memory: bool = True):
         self.config = config
         self.key = jax.random.key(0)
         self.low_memory = low_memory
 
         # Mesh definition, currently for single process only.
-        devices_array = utils.create_device_mesh(config, devices=jax.local_devices())
-        self.mesh = jax.sharding.Mesh(devices_array, config.mesh_axes)
-
-        replicated_sharding = jax.sharding.NamedSharding(self.mesh, P(None))
-        data_sharding = jax.sharding.NamedSharding(
-            self.mesh, P(None, *config.data_sharding)
+        self.mesh = jax.make_mesh(
+            config.mesh_shape,
+            config.mesh_axis_names,
+            len(config.mesh_shape) * (AxisType.Explicit,),
         )
-        feature_sharding = {
-            k: data_sharding
+        jax.set_mesh(self.mesh)
+
+        self.feature_sharding = {
+            k: jax.P(None, *config.data_sharding)
             if k in rte_features.PHASE_COORDS_FEATURES
-            else replicated_sharding
+            else jax.P()
             for k in rte_features.FEATURES
         }
 
@@ -55,18 +54,10 @@ class RteEngine:
         num_params = utils.calculate_num_params_from_pytree(nnx.state(self.model))
         logging.info(f"Number of model params={num_params}")
 
-        @jax.jit
         def predict_fn(x):
             return self.model(x) * config.normalization
 
-        self.predict_fn = lambda phase_feat, other_feat: inference_subbatch(
-            module=lambda x: predict_fn(jax.device_put(x, feature_sharding)),
-            subbatch_size=config.subcollocation_size,
-            batched_args=phase_feat,
-            nonbatched_args=other_feat,
-            low_memory=True,
-            input_subbatch_dim=1,
-        )
+        self.predict_fn = jax.jit(predict_fn)
 
     def process_features(
         self, raw_features: features.FeatureDict
@@ -82,8 +73,7 @@ class RteEngine:
             "Running predict with shape(feat) = %s",
             jax.tree.map(lambda x: x.shape, feat),
         )
-        phase_feat, other_feat = features.split_feature(feat)
-        predictions = self.predict_fn(phase_feat, other_feat)
+        predictions = self.predict_fn(jax.device_put(feat, self.feature_sharding))
         jax.tree.map(lambda x: x.block_until_ready(), predictions)
         logging.info(
             "Output shape was %s",

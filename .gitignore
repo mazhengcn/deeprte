@@ -1,4 +1,5 @@
 # Project related files
+tensorboard_logs/
 **/outputs/**
 /data/**
 !/data/.gitkeep

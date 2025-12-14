@@ -150,7 +150,9 @@ class PhaseSpace(NamedTuple):
         return cls(position=r, velocity=v)
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}(r={self.position}, v={self.velocity})"
+        return (
+            f"{type(self).__name__}(r={self.position_space}, v={self.velocity_space})"
+        )
 
     def __repr__(self) -> str:
         return self.__str__()

@@ -18,7 +18,7 @@ collocation_size: 128
 # increase collocation sizes for training).
 repeat_batch: 1
 # Global batch size for evaluation.
-eval_batch_size: 4
+eval_batch_size: 2
 # Number of steps to train for.
 num_train_steps: 500_001
 # Frequency of logging metrics during training, e.g. every 1_000 steps.

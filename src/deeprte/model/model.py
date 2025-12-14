@@ -22,7 +22,7 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from deeprte.model import integrate
+from deeprte.model import features, integrate, mapping
 from deeprte.model.characteristics import Characteristics
 from deeprte.model.modules import Attenuation, Scattering
 from deeprte.model.tf import rte_features
@@ -59,9 +59,6 @@ class DeepRTEConfig:
     normalization: float = 1.0
     # Where to load the parameters from.
     load_parameters_path: str = ""
-
-    def replace(self, **kwargs):
-        return dataclasses.replace(self, **kwargs)
 
 
 class GreenFunction(nnx.Module):
@@ -122,6 +119,7 @@ class DeepRTE(nnx.Module):
             for k in self.features
         }
         self.green_fn = GreenFunction(config=self.config, rngs=rngs)
+        self.low_memory_mode: bool = False
 
     def __call__(self, batch):
         rte_inputs = {k: batch[k] for k in self.features}
@@ -137,4 +135,17 @@ class DeepRTE(nnx.Module):
             return rte_sol
 
         batched_rte_op = jax.vmap(jax.vmap(rte_op, in_axes=(self.phase_coords_axes,)))
+
+        if self.low_memory_mode:
+            phase_inputs, nonphase_inputs = features.split_feature(rte_inputs)
+            return mapping.inference_subbatch(
+                batched_rte_op,
+                subbatch_size=self.config.subcollocation_size
+                if self.low_memory_mode
+                else None,
+                batched_args=phase_inputs,
+                nonbatched_args=nonphase_inputs,
+                input_subbatch_dim=1,
+            )
+
         return batched_rte_op(rte_inputs)
