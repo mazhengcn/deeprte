@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.9.10,<0.10.0"]
+requires = ["uv_build>=0.10.9,<0.11.0"]
 build-backend = "uv_build"
 
 [project]
@@ -45,12 +45,7 @@ deeprte-train = "deeprte.train_lib.train:main"
 homepage = "https://github.com/mazhengcn/deeprte"
 
 [dependency-groups]
-dev = [
-    "jupyter>=1.1.1",
-    "penzai>=0.2.4",
-    "ruff>=0.6.3",
-    "ty>=0.0.10",
-]
+dev = ["jupyter>=1.1.1", "penzai>=0.2.4", "ruff>=0.6.3", "ty>=0.0.10"]
 
 [tool.uv.sources]
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }
