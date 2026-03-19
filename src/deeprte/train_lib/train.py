@@ -60,15 +60,15 @@ def train_step(
 def eval_step(model: nnx.Module, batch):
     """Calculate evaluation metrics on a batch."""
     labels = batch["psi_label"]
-    predictions = model(batch)  # ty:ignore
+    predictions = model(batch)
     loss = jnp.mean((predictions - labels) ** 2)
-
     metrics = {
         "scalar": {
             "evaluation/loss": loss,
             "evaluation/mean_squared_labels": jnp.mean(labels**2),
         }
     }
+
     return metrics
 
 
@@ -81,7 +81,7 @@ def evaluate(model, eval_iter, step, metric_logger):
         t0 = datetime.datetime.now()
         metrics = eval_step(eval_model, eval_batch)
         t1 = datetime.datetime.now()
-        # metric_logger.record_eval_metrics(step, metrics)
+        metric_logger.record_eval_metrics(step, metrics)
         logging.log(
             f"Completed eval step {eval_step_count}, time taken: {(t1 - t0).total_seconds():.3f}"
         )

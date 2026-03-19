@@ -45,7 +45,12 @@ deeprte-train = "deeprte.train_lib.train:main"
 homepage = "https://github.com/mazhengcn/deeprte"
 
 [dependency-groups]
-dev = ["jupyter>=1.1.1", "penzai>=0.2.4", "ruff>=0.6.3", "ty>=0.0.1a27"]
+dev = [
+    "jupyter>=1.1.1",
+    "penzai>=0.2.4",
+    "ruff>=0.6.3",
+    "ty>=0.0.10",
+]
 
 [tool.uv.sources]
 rte-dataset = { git = "https://github.com/mazhengcn/rte-dataset" }

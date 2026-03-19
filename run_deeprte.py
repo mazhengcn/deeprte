@@ -17,7 +17,7 @@ import dataclasses
 import json
 import pathlib
 import time
-        self.num_slices = max_utils.get_num_slices(raw_keys_for_num_slices)from typing import Any
+from typing import Any
 
 import dill
 import jax

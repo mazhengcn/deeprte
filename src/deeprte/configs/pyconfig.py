@@ -25,8 +25,9 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import omegaconf
+from absl import app
 
-from deeprte.configs import types
+from deeprte.configs import config_types as types
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOGLEVEL", "INFO"))
@@ -169,9 +170,6 @@ class HyperParameters:
         )
         final_dict["data_sharding"] = _lists_to_tuples(final_dict["data_sharding"])
 
-        final_dict["decoder_block"] = DecoderBlockType(final_dict["decoder_block"])
-        final_dict["shard_mode"] = ShardMode(final_dict["shard_mode"])
-
         object.__setattr__(self, "_flat_config", final_dict)
 
     def __deepcopy__(self, memo):
@@ -224,11 +222,13 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
     # 2. Get overrides from CLI and kwargs
     cli_cfg = omegaconf.OmegaConf.from_cli(argv[2:])
     kwargs_cfg = omegaconf.OmegaConf.create(kwargs)
-    overrides_cfg = omegaconf.OmegaConf.merge(cli_cfg, kwargs_cfg)
+    overrides_cfg: omegaconf.ListConfig | omegaconf.DictConfig = (
+        omegaconf.OmegaConf.merge(cli_cfg, kwargs_cfg)
+    )
 
     # 3. Handle model-specific config
     temp_cfg = omegaconf.OmegaConf.merge(base_yml_config, overrides_cfg)
-    model_name = temp_cfg.get("model_name", "default")
+    model_name = temp_cfg.get("model_name", "default")  # ty: ignore
     model_cfg = {}
     if model_name != "default":
         # First try relative to base config path
@@ -245,7 +245,7 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
         if os.path.exists(model_config_path):
             model_loaded_cfg = omegaconf.OmegaConf.load(model_config_path)
             # if override_model_config=True, only apply model configs for keys not present in overrides.
-            if temp_cfg.get("override_model_config"):
+            if temp_cfg.get("override_model_config"):  # ty: ignore
                 model_cfg = {
                     k: v for k, v in model_loaded_cfg.items() if k not in overrides_cfg
                 }
@@ -259,27 +259,6 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
             # 4. Final merge (base, model, then overrides)
     model_cfg_oc = omegaconf.OmegaConf.create(model_cfg)
 
-    # 4. Manually merge logical_axis_rules to avoid OmegaConf's list replacement behavior.
-    base_rules_oc = base_yml_config.get("logical_axis_rules", [])
-    model_rules_oc = model_cfg_oc.get("logical_axis_rules", [])
-    overrides_rules_oc = overrides_cfg.get("logical_axis_rules", [])
-
-    base_rules = (
-        omegaconf.OmegaConf.to_container(base_rules_oc, resolve=True)
-        if base_rules_oc
-        else []
-    )
-    model_rules = (
-        omegaconf.OmegaConf.to_container(model_rules_oc, resolve=True)
-        if model_rules_oc
-        else []
-    )
-    overrides_rules = (
-        omegaconf.OmegaConf.to_container(overrides_rules_oc, resolve=True)
-        if overrides_rules_oc
-        else []
-    )
-
     # 5. Final merge for all other keys
     final_config = omegaconf.OmegaConf.merge(
         base_yml_config, model_cfg_oc, overrides_cfg
@@ -288,10 +267,10 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
     raw_keys_dict = omegaconf.OmegaConf.to_container(final_config, resolve=True)
 
     # 6. Handle environment variable overrides
-    cli_keys = frozenset(omegaconf.OmegaConf.to_container(cli_cfg, resolve=True).keys())
+    cli_keys = frozenset(omegaconf.OmegaConf.to_container(cli_cfg, resolve=True).keys())  # ty: ignore
     kwargs_keys = frozenset(kwargs.keys())
-    for k in tuple(raw_keys_dict.keys()):
-        env_key = yaml_key_to_env_key(k)
+    for k in tuple(raw_keys_dict.keys()):  # ty: ignore
+        env_key = yaml_key_to_env_key(k)  # ty: ignore
         if env_key in os.environ:
             if k in cli_keys or k in kwargs_keys:
                 raise ValueError(
@@ -299,7 +278,7 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
                 )
 
             new_proposal = os.environ.get(env_key)
-            original_value = raw_keys_dict.get(k)
+            original_value = raw_keys_dict.get(k)  # ty: ignore
             parser = None
             if isinstance(original_value, bool):
                 parser = _yaml_types_to_parser[bool]
@@ -312,13 +291,13 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
                 )
 
             try:
-                raw_keys_dict[k] = parser(new_proposal)
+                raw_keys_dict[k] = parser(new_proposal)  # ty: ignore
             except (ValueError, KeyError) as e:
                 raise ValueError(
                     f"Couldn't parse value from ENV '{new_proposal}' for key '{k}'"
                 ) from e
 
-    pydantic_kwargs = _prepare_for_pydantic(raw_keys_dict)
+    pydantic_kwargs = _prepare_for_pydantic(raw_keys_dict)  # ty: ignore
 
     # Initialize JAX distributed system before device backend is initialized.
     if pydantic_kwargs.get("jax_debug_log_modules"):
@@ -339,7 +318,23 @@ def initialize_pydantic(argv: list[str], **kwargs) -> types.DeepRTEConfig:
 
     if config.log_config:
         for k, v in sorted(config.get_keys().items()):
-            if k not in KEYS_NO_LOGGING:
-                logger.info("Config param %s: %s", k, v)
+            logger.info("Config param %s: %s", k, v)
 
     return pydantic_config
+
+
+def main(argv: list[str]) -> None:
+    """Main function to initialize configuration and demonstrate usage."""
+    config = initialize(argv)
+
+    # Example access to configuration parameters
+    logger.info("Model Name: %s", config.model_name)
+    logger.info(
+        "Global Batch Size to Train On: %d", config.global_batch_size_to_train_on
+    )
+    logger.info("Micro Batch Size to Train On: %d", config.micro_batch_size_to_train_on)
+
+
+if __name__ == "__main__":
+    # Example usage
+    app.run(main)

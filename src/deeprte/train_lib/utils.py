@@ -42,7 +42,7 @@ def collect_pytrees(
     if collective_fn:
 
         def collect_args(*args):
-            return collective_fn(args[:-1], args[-1])  # ty: ignore
+            return collective_fn(args[:-1], args[-1])
     else:
 
         def collect_args(*args):
@@ -84,7 +84,6 @@ def setup_training_state(
         config.load_parameters_path,
         config.load_full_state_path,
         abs_train_state,
-        config.dataset_type,
     )
 
     if restored_train_state:

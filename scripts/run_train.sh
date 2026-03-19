@@ -15,6 +15,6 @@
 set -e
 
 CONFIG_PATH=${1:-"./configs/g0.5.yaml"}
-CKPT_DIR=${2:-"./data/interim/ckpts/v1.0.1/g0.5"}
+CKPT_DIR=${2:-"./data/interim/ckpts_test/v1.0.1/g0.5"}
 
 deeprte-train --config=${CONFIG_PATH} --workdir=${CKPT_DIR}

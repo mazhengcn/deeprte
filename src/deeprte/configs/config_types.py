@@ -82,10 +82,6 @@ class RunInfo(BaseModel):
     base_output_directory: PathStr = Field(
         "", description="Base directory for all outputs, typically a GCS path."
     )
-    sharding_strategy: None | Literal["experimental"] = Field(
-        None,
-        description="Experimental sharding strategy used for some inference configs.",
-    )
 
 
 class Checkpointing(BaseModel):
@@ -123,17 +119,11 @@ class Checkpointing(BaseModel):
 class OrbaxStorage(BaseModel):
     """Configuration for Orbax checkpoint storage options."""
 
-    checkpoint_storage_target_data_file_size_bytes: int = Field(
-        2147483648, description="Target file size for chunking large arrays in Orbax."
-    )
     checkpoint_storage_use_ocdbt: bool = Field(
         True, description="Whether to use the OCDbT storage format for checkpoints."
     )
     checkpoint_storage_use_zarr3: bool = Field(
         True, description="Whether to use Zarr3 with OCDbT. Requires use_ocdbt=True."
-    )
-    checkpoint_storage_concurrent_gb: int = Field(
-        96, description="Concurrent GB for I/O operations during checkpointing."
     )
 
 
@@ -312,6 +302,9 @@ class AdamW(BaseModel):
 class DevelopmentAndDebugging(BaseModel):
     """General settings for development and debugging."""
 
+    constant_bound_config: list = Field(
+        [], description="Legacy configuration for constant bounds."
+    )
     jax_cache_dir: PathStr = Field(
         os.path.join(os.path.expanduser("~"), "jax_cache"),
         description="Directory for JAX compilation cache.",
@@ -528,6 +521,84 @@ class DerivedValues(BaseModel):
     )
 
 
+class HardwareAndMesh(BaseModel):
+    """Configuration for hardware and parallelism mesh."""
+
+    hardware: Literal["tpu", "gpu", "gpu_multiprocess", "cpu"] = Field(
+        "tpu", description="The type of hardware to run on."
+    )
+    num_slices: int = Field(
+        -1, description="Number of TPU slices. Automatically determined."
+    )
+    mesh_axes: list[str] = Field(
+        [
+            "data",
+            "stage",
+            "fsdp",
+            "fsdp_transpose",
+            "sequence",
+            "context",
+            "context_autoregressive",
+            "tensor",
+            "tensor_transpose",
+            "tensor_sequence",
+            "expert",
+            "autoregressive",
+        ],
+        description="The names of the axes in the logical device mesh.",
+    )
+    shard_mode = Field("auto", description="can be either auto or explicit")
+    inhomogeneous_layer_cycle_interval: int = Field(
+        1, description="The interval of repeated inhomogeneous layer patterns."
+    )
+    scan_layers: bool = Field(
+        True, description="Whether to use jax.lax.scan over layers."
+    )
+    param_scan_axis: int = Field(1, description="Axis to scan over for parameters.")
+    context_parallel_load_balance: bool = Field(
+        True, description="Whether to use load balancing for context parallelism."
+    )
+    context_parallel_strategy: str = Field(
+        "all_gather",
+        description="Strategy for context parallelism ('all_gather' or 'ring').",
+    )
+    custom_mesh: str = Field(
+        "", description="Available options: ['hybrid_ring_64x4', 'hybrid_ring_32x8']"
+    )
+    allow_split_physical_axes: bool = Field(
+        False, description="Allow splitting physical axes for device mesh creation."
+    )
+    enable_nnx: bool = Field(
+        False, description="Whether to use NNX for model definition."
+    )
+    optimize_mesh_for_tpu_v6e: bool = Field(
+        False, description="Apply transformations to the mesh for TPU v6e."
+    )
+    shardy: bool = Field(True, description="Whether to use shardy XLA backend.")
+
+
+class LayoutAndSharding(BaseModel):
+    """Configuration for data and model sharding rules."""
+
+    logical_axis_rules: Any = Field(
+        [], description="Rules for mapping logical axes to physical mesh axes."
+    )
+    data_sharding: Any = Field([], description="Sharding for input data.")
+    input_data_sharding_logical_axes: list[str] = Field(
+        ["activation_embed_and_logits_batch", "activation_norm_length"],
+        description="Logical axes for sharding input data.",
+    )
+    sharding_tolerance: float = Field(
+        0.02,
+        ge=0.0,
+        le=1.0,
+        description="Allowed percentage of non-sharded parameters.",
+    )
+    shard_optimizer_over_data: bool = Field(
+        False, description="Enable ZeRO-1 optimizer sharding over the data axis."
+    )
+
+
 # ----------------------------------------------------------------------------
 # Helper Functions
 # ----------------------------------------------------------------------------
@@ -658,70 +729,32 @@ class DeepRTEConfig(
                 "JAX device system not available for config validation. Assuming 1 device."
             )
 
-        # Automatically determine number of slices if not specified.
-        raw_keys_for_num_slices = {
-            "num_slices": self.num_slices,
-            "hardware": self.hardware,
-        }
-
-        # Default quantization sharding count to number of local devices if not set.
-        if self.quantization_local_shard_count == -1:
-            try:
-                self.quantization_local_shard_count = jax.local_device_count()
-            except RuntimeError:
-                self.quantization_local_shard_count = 1
-
         # F. CALCULATE BATCH SIZES
         def calculate_global_batch_sizes(
-            per_device_batch_size, expansion_factor, num_devices, grad_accum_steps
+            per_device_batch_size, num_devices, grad_accum_steps
         ):
             """Helper to calculate global and micro batch sizes for training and loading."""
-            if per_device_batch_size < 1.0:
-                micro_batch_to_load = num_devices * (
-                    expansion_factor if expansion_factor > 0 else 1
-                )
-            else:
-                micro_batch_to_load = int(
-                    num_devices
-                    * per_device_batch_size
-                    * (expansion_factor if expansion_factor > 0 else 1)
-                )
             micro_batch_to_train = int(num_devices * per_device_batch_size)
-            global_batch_to_load = int(micro_batch_to_load * grad_accum_steps)
             global_batch_to_train = int(micro_batch_to_train * grad_accum_steps)
-            return global_batch_to_load, global_batch_to_train, micro_batch_to_train
+            return global_batch_to_train, micro_batch_to_train
 
         # Calculate final training batch sizes.
-        (
-            self.global_batch_size_to_load,
-            self.global_batch_size_to_train_on,
-            self.micro_batch_size_to_train_on,
-        ) = calculate_global_batch_sizes(
-            self.per_device_batch_size,
-            self.expansion_factor_real_data,
-            self.num_target_devices,
-            self.gradient_accumulation_steps,
+        self.global_batch_size_to_train_on, self.micro_batch_size_to_train_on = (
+            calculate_global_batch_sizes(
+                self.per_device_batch_size,
+                self.num_target_devices,
+                self.gradient_accumulation_steps,
+            )
         )
 
         # Calculate final evaluation batch sizes.
-        (
-            self.global_batch_size_to_load_eval,
-            self.global_batch_size_to_eval_on,
-            self.micro_batch_size_to_eval_on,
-        ) = calculate_global_batch_sizes(
-            self.eval_per_device_batch_size,
-            self.expansion_factor_real_data,
-            self.num_target_devices,
-            1,
+        self.global_batch_size_to_eval_on, self.micro_batch_size_to_eval_on = (
+            calculate_global_batch_sizes(
+                self.eval_per_device_batch_size,
+                self.num_target_devices,
+                1,
+            )
         )
-
-        # Calculate ramp-up batch size parameters if enabled.
-
-        # G. CALCULATE/SET OTHER DERIVED VALUES, E.G. PIPELINE CONFIG
-
-        self.model_fsdp_ag_once = (
-            self.pipeline_fsdp_ag_once
-        )  # Backward compatibility alias
 
         # H. RUN ALL CROSS-FIELD VALIDATIONS
         if self.load_parameters_path and self.load_full_state_path:
@@ -734,32 +767,10 @@ class DeepRTEConfig(
             raise ValueError(
                 "You must set enable_checkpointing=True to load a checkpoint."
             )
-        if self.shard_mode == ShardMode.EXPLICIT:
-            supported_decoders = {"simple", "simple_mlp", "llama2", "deepseek"}
-        if (
-            self.per_device_batch_size > 0
-            and (self.per_device_batch_size * self.max_target_length)
-            % self.num_vocab_tiling
-            != 0
-        ):
-            raise ValueError(
-                "Per device batch size times sequence length should be divisible by the number of vocab tiles."
-            )
-        if (
-            self.eval_interval > 0 >= self.eval_steps
-            and self.generate_padding_batch_eval
-        ):
-            raise ValueError(
-                "`eval_steps` must be > 0 when `generate_padding_batch_eval` is True."
-            )
-        if self.dataset_type == "hf" and self.num_epoch != 1:
-            raise ValueError("HuggingFace pipeline only supports num_epoch=1.")
 
         # I. FINAL TYPE CONVERSIONS AND DERIVED LISTS
         # Create the ici_parallelism and dcn_parallelism lists for legacy compatibility.
         # Final string-to-enum conversions if they haven't been coerced by pydantic yet.
-        if isinstance(self.shard_mode, str):
-            self.shard_mode = ShardMode(self.shard_mode.lower())
 
         constant_bound_config = getattr(self, "constant_bound_config", None)
         if isinstance(constant_bound_config, str):

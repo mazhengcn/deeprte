@@ -178,14 +178,14 @@ class MlpBlock(nnx.Module):
 
         self.linears = nnx.List(linears)
 
-    def __call__(self, x: jax.Array) -> jax.Array:
+    def __call__(self, x: jax.Array, out_sharding=None) -> jax.Array:
         if x.shape[-1] != self.in_features:
             raise ValueError(
                 f"Incompatible input dimension, got {x.shape[-1]} "
                 f"but module expects {self.in_features}."
             )
         for idx, linear in enumerate(self.linears):
-            x = linear(x)
+            x = linear(x, out_sharding)
             if idx < self.num_layers - 1:
                 x = jax.nn.tanh(x)
         return x

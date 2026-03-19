@@ -1,11 +1,13 @@
+################################## RUNINFO ##################################
 # This sentinel is a reminder to choose a real run name.
 # If there is already a checkpoint under this run, that checkpoint will auto-resume.
 run_name: ""
-
 model_name: "default" # override config settings to match a specific model. other than the override, nothing should use this!
 override_model_config: False # When set to true allows overriding model parameters via CLI for the purpose of debugging/testing.
-
 log_config: True # Prints the config (after defaults have been set by pyconfig logic)
+# Output directory
+# Create a GCS bucket, e.g. my-maxtext-outputs and set this to "gs://my-maxtext-outputs/"
+base_output_directory: ""
 
 ################################## CHECKPOINTING ##################################
 # Checkpointing makes the following choices in the following order, starting with (1):
@@ -19,20 +21,21 @@ log_config: True # Prints the config (after defaults have been set by pyconfig l
 # Loads a just parameters from a specific directory
 # e.g. gs://my-base-output-directory/my-previous-run-name/checkpoints/items/NUMBER or NUMBER/items
 load_parameters_path: ""
-
 # Loads a full checkpoint including optimizer state and step count from a specific directory
 # e.g. gs://my-base-output-directory/my-previous-run-name/checkpoints/items/NUMBER or NUMBER/items
 load_full_state_path: ""
-
 # If enable_checkpointing is true, an asynchronous checkpointer will be used if
 # async_checkpointing is true, else a synchronous one is used. If you have
 # problems with the checkpointer we recommend trying the synchronous one.
 enable_checkpointing: True
-save_checkpoint_on_completion: True
 async_checkpointing: True
 checkpoint_period: 10_000
 max_num_checkpoints_to_keep: None
-
+# Function for processing loaded checkpoint dict into a format MaxText can understand. (for other formats, i.e. SafeTensors)
+checkpoint_conversion_fn: None
+# Optional checkpoint context to use for loading. Options: "orbax", "safetensors"
+source_checkpoint_layout: "orbax"
+save_checkpoint_on_completion: True
 # checkpointing using orbax has two important parameters: array driver
 # and its underlying storage - the kvstore (preferably ocdbt)
 # orbax supports setting a target file size, chunking a single
@@ -41,12 +44,7 @@ max_num_checkpoints_to_keep: None
 checkpoint_storage_use_ocdbt: True
 checkpoint_storage_use_zarr3: True
 
-# Function for processing loaded checkpoint dict into a format MaxText can understand. (for other formats, i.e. SafeTensors)
-checkpoint_conversion_fn: None
-# Optional checkpoint context to use for loading. Options: "orbax", "safetensors"
-source_checkpoint_layout: "orbax"
 ############################### END CHECKPOINTING ##################################
-
 metrics_file: "" # for testing, local file that stores scalar metrics. If empty, no metrics are written.
 # If true save metrics such as loss and TFLOPS to GCS in {base_output_directory}/{run_name}/metrics/
 gcs_metrics: False
@@ -79,10 +77,6 @@ subcollocation_size: 128
 # Normalization constant of dataset.
 normalization: 1.0
 
-# Output directory
-# Create a GCS bucket, e.g. my-maxtext-outputs and set this to "gs://my-maxtext-outputs/"
-base_output_directory: ""
-
 # It should be specified when and only when `enable_emergency_checkpoint` is True. Or when `enable_multi_tier_checkpointing` is True.
 local_checkpoint_directory: ""
 
@@ -93,7 +87,7 @@ local_checkpoint_period: 0
 jax_cache_dir: "~/jax_cache"
 
 # Hardware
-hardware: 'gpu' # Supported hardware types are 'tpu', 'gpu', 'gpu_multiprocess' and 'cpu'
+hardware: "gpu" # Supported hardware types are 'tpu', 'gpu', 'gpu_multiprocess' and 'cpu'
 
 # Parallelism
 shard_mode: "explicit" # can be either auto or explicit
@@ -108,24 +102,24 @@ per_device_batch_size: 1
 # When set to between 0 and 1, it's for grain pipeline to use a smaller chip count to read checkpoint from a larger chip count job.
 # Details in https://github.com/AI-Hypercomputer/maxtext/blob/main/docs/guides/data_input_grain.md#using-grain
 eval_per_device_batch_size: 1
-num_epoch: 1  # only grain and tfds pipeline supports num_epoch > 1
+num_epoch: 1 # only grain and tfds pipeline supports num_epoch > 1
 
 # dataset_type must be synthetic, hf, grain, tfds
 # details in: https://github.com/google/maxtext/blob/main/getting_started/Data_Input_Pipeline.md
 dataset_type: grain
 # for TFDS input pipeline (dataset_type=tfds)
 dataset_path: "" # your path given as argument in download_dataset.sh, e.g. "gs://my-maxtext-dataset/"
-dataset_name: 'c4/en:3.0.1'
-eval_dataset_name: 'c4/en:3.0.1'
-train_split: 'train'
-eval_split: 'validation'
+dataset_name: "c4/en:3.0.1"
+eval_dataset_name: "c4/en:3.0.1"
+train_split: "train"
+eval_split: "validation"
 # for Grain input pipeline (dataset_type=grain)
 # Path to grain data files. Can be a single pattern or multiple patterns with weights.
 # For multiple patterns, use semicolon (;) to separate and comma (,) to specify weights.
 # Example: "path/to/data1.array_record*,0.3;path/to/data2.array_record*,0.7"
 # Note: When using multiple files (separated by ';'), only ArrayRecord format is supported.
 # For more details, see https://github.com/AI-Hypercomputer/maxtext/blob/main/docs/guides/data_input_pipeline/data_input_grain.md
-grain_file_type: 'arrayrecord' # arrayrecord or parquet
+grain_file_type: "arrayrecord" # arrayrecord or parquet
 grain_worker_count: 1 # Set to -1 to enable auto-tuning: automatically determines optimal worker count. See https://google-grain.readthedocs.io/en/latest/_autosummary/grain.experimental.pick_performance_config.html
 grain_per_worker_buffer_size: 1
 # num_threads and prefetch_buffer_size are per-worker per-dataset.
@@ -138,7 +132,7 @@ grain_worker_count_eval: 1
 grain_per_worker_buffer_size_eval: 1
 grain_num_threads_eval: 16
 grain_prefetch_buffer_size_eval: 500
-grain_data_source_max_workers: 16  # Max workers for ThreadPoolExecutor when mixing multiple Grain data sources.
+grain_data_source_max_workers: 16 # Max workers for ThreadPoolExecutor when mixing multiple Grain data sources.
 # for using pathways
 
 # Training loop
@@ -184,7 +178,7 @@ init_weights_seed: 0
 # batch by accumulating the gradient over a set of steps.
 gradient_accumulation_steps: 2
 
-opt_type: "adamw"  # one of "adamw", "adam_pax" or "sgd"
+opt_type: "adamw" # one of "adamw", "adam_pax" or "sgd"
 
 # AdamW optimizer parameters
 # We use AdamW following Llama2's training details, see https://arxiv.org/pdf/2307.09288.pdf section 2.2
@@ -197,7 +191,7 @@ mu_dtype: "" # data type to store "mu" of AdamW tracking the first moment. Inher
 # Setting nu_dtype is not yet supported by optax, instead nu_dtype is always inherited from weights.
 # See b/399961932 for more.
 
-eval_interval: -1  # the specific number of train step between eval_step
-eval_steps: -1  # run this number of steps for eval, recommend setting this to prevent error due to running out of evel data
-target_eval_loss: 0.  # early stop once reaching target eval_loss
+eval_interval: -1 # the specific number of train step between eval_step
+eval_steps: -1 # run this number of steps for eval, recommend setting this to prevent error due to running out of evel data
+target_eval_loss: 0. # early stop once reaching target eval_loss
 enable_tensorboard: True

@@ -9,5 +9,4 @@
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,
     },
-    "python.languageServer": "None"
 }
